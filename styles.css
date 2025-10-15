@@ -279,64 +279,69 @@
 .modal-header {
     background: var(--gradient-primary);
     color: var(--bg-white);
-    padding: var(--space-xl) var(--space-2xl);
+    padding: var(--space-lg) var(--space-xl); /* Reduced from xl/2xl */
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     position: relative;
 }
 
 .modal-header h2 {
-    margin: 0 0 5px 0;
-    font-size: var(--font-size-xl);
+    margin: 0 0 3px 0; /* Reduced from 5px */
+    font-size: var(--font-size-lg); /* Reduced from xl */
     font-weight: bold;
 }
 
 .modal-header p {
     margin: 0;
     opacity: 0.9;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm); /* Reduced from base */
 }
 
 .modal-body {
-    padding: var(--space-2xl);
+    padding: var(--space-lg); /* Reduced from 2xl */
 }
 
 /* ===== FORMS ===== */
 .filter-section {
-    margin-bottom: var(--space-xl);
+    margin-bottom: var(--space-lg); /* Reduced from xl */
 }
 
 .filter-label {
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 4px; /* Reduced from 5px */
     font-weight: 600;
     color: var(--text-primary);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm); /* Reduced from base */
 }
 
 .form-group {
-    margin-bottom: var(--space-xl);
+    margin-bottom: var(--space-lg); /* Reduced from xl */
 }
 
 .form-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    margin-bottom: var(--space-xl);
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px; /* Reduced from 15px */
+    margin-bottom: var(--space-sm); /* Reduced from xl */
 }
 
 .form-row-three {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 15px;
-    margin-bottom: var(--space-xl);
+    gap: 10px; /* Reduced from 15px */
+    margin-bottom: var(--space-sm); /* Reduced from xl */
+}
+
+/* Remove margin from nested form-groups inside form-row */
+.form-row .form-group {
+    margin-bottom: 0;
 }
 
 .form-input {
     width: 100%;
-    padding: var(--space-md);
+    padding: var(--space-sm); /* Reduced from md */
     border: 2px solid var(--supplementary);
     border-radius: var(--radius-md);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm); /* Reduced from base */
     transition: border-color var(--transition-fast);
     box-sizing: border-box;
     outline: none;
@@ -358,7 +363,7 @@
 
 .form-textarea {
     resize: vertical;
-    min-height: 80px;
+    min-height: 60px; /* Reduced from 80px */
 }
 
 /* Keep old selectors for backward compatibility */
@@ -367,20 +372,20 @@ label,
 .section-label,
 .features-header {
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 4px; /* Reduced from 5px */
     font-weight: 600;
     color: var(--text-primary) !important;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm); /* Reduced from base */
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
     width: 100%;
-    padding: var(--space-md);
+    padding: var(--space-sm); /* Reduced from md */
     border: 2px solid var(--supplementary);
     border-radius: var(--radius-md);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm); /* Reduced from base */
     transition: border-color var(--transition-fast);
     box-sizing: border-box;
     outline: none;
@@ -395,33 +400,62 @@ label,
 
 .form-group textarea {
     resize: vertical;
-    min-height: 80px;
+    min-height: 60px; /* Reduced from 80px */
+}
+
+.form-row label {
+    font-weight: 400 !important;
+}
+
+.form-group .form-row {
+    margin-bottom: 8px; /* Reduced whitespace between rows */
 }
 
 /* ===== CHECKBOXES ===== */
 .checkbox-group {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 10px;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px; /* Reduced from 10px */
+    margin-top: 8px; /* Reduced from 10px */
+}
+
+.checkbox-group-four {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 8px; /* Reduced from 10px */
+    margin-top: 8px; /* Reduced from 10px */
 }
 
 .checkbox-option {
     display: flex;
     align-items: center;
-    font-size: var(--font-size-base);
+    font-size: 11px;
+    font-weight: 400; /* Added to remove bold */
     color: var(--contrast-dark);
 }
 
 .checkbox-option input[type="checkbox"] {
     width: auto;
-    margin-right: var(--space-sm);
+    margin-right: var(--space-xs); /* Reduced from sm */
     accent-color: var(--primary);
 }
 
+/* This targets the text inside checkbox labels */
+.checkbox-option label,
+.checkbox-group label {
+    font-weight: 400 !important;
+    margin-bottom: 0 !important;
+}
+
+.checkbox-group-four label {
+    font-weight: 400 !important;
+    margin-bottom: 0 !important;
+}
+
+
 /* Feature Filter Checkboxes */
 .feature-filter {
-    margin: 10px 0;
+    margin: 8px 0; /* Reduced from 10px */
 }
 
 .feature-filter-option {
@@ -455,9 +489,54 @@ label,
 /* ===== NUMBER INPUTS ===== */
 .number-input-group {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: var(--space-md);
-    margin-top: 10px;
+    gap: 8px; /* Reduced from var(--space-md) */
+    margin-top: 8px; /* Reduced from 10px */
+}
+
+/* Default: 5 columns for groups with exactly 5 items */
+.number-input-group {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+/* 4 columns for groups with 6+ items */
+.number-input-group.four-columns {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.number-input-group > div {
+    display: flex;
+    flex-direction: column; /* Changed from column-reverse */
+}
+
+.number-input-group > div label {
+    font-size: 11px;
+    font-weight: 400; /* Added to remove bold */
+    text-align: center;
+    margin-top: 2px;
+    margin-bottom: 0;
+}
+
+.number-input-group input {
+    text-align: center;
+    padding: 6px 4px; /* Compact padding */
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .number-input-group {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .number-input-group.four-columns {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .number-input-group,
+    .number-input-group.four-columns {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 /* ===== PLAYGROUND COUNT ON DESKTOP ===== */

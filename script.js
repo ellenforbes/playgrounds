@@ -3,7 +3,7 @@ let playgroundData = null;
 let markerClusterGroup;
 let currentEditingPlayground = null;
 let map;
-const playgroundLookup = {};
+let playgroundLookup = {};
 let allKeywords = [];
 let selectedKeywords = [];
 let allSuburbs = [];
@@ -283,6 +283,7 @@ function getClusterSizeConfig(dominantSize, count) {
 
 // ===== MARKER FUNCTIONALITY =====
 function createMarker(playground) {
+    playgroundLookup[playground.fid] = playground;
     const sizeConfig = getMarkerSizeConfig(playground.Classification);
 
     let marker;
@@ -326,7 +327,6 @@ function createMarker(playground) {
 function getMarkerSizeConfig(size) {
     return sizeConfigs.marker[size] || sizeConfigs.marker['Unverified'];
 }
-
 
 function getPlaygroundCoordinates(playground) {
     // If geom exists, parse it
@@ -438,9 +438,9 @@ function createPopupHeader(props) {
 function createPopupFooter(props, uniqueId) {
     const photo = props.Photo ? `
         <div style="margin-bottom: 4px;">
-            <img 
-                src="${props.Photo}" 
-                style="max-width: 100%; height: auto; border-radius: 4px; cursor: zoom-in;" 
+            <img
+                src="${props.Photo}"
+                style="max-width: 100%; height: auto; border-radius: 4px; cursor: zoom-in;"
                 alt="Playground photo"
                 onclick="enlargePhoto(this)"
             >
@@ -448,6 +448,9 @@ function createPopupFooter(props, uniqueId) {
 
     const comments = props.Comments ? `<div style="font-style: italic; margin-bottom: 8px;">${props.Comments}</div>` : '';
     
+    // Use the uniqueId parameter instead of props.fid
+    const playgroundId = uniqueId || props.fid || props.id;
+   
     return `
         <div style="margin-top: 12px; padding-top: 8px; border-top: 2px dotted var(--text-light);">
             ${photo}
@@ -456,7 +459,7 @@ function createPopupFooter(props, uniqueId) {
                 <div style="color: var(--text-tertiary);">
                     Verified: ${props.Last_Visit_Date ? new Date(props.Last_Visit_Date).toLocaleDateString('en-GB') : 'Unknown'}, ${props.Verified || 'Unknown'}
                 </div>
-                <button onclick="editPlayground('${uniqueId}')" 
+                <button onclick="editPlayground('${playgroundId}')"
                         style="background: var(--primary); border: none; border-radius: 4px; padding: 4px 12px; color: white; cursor: pointer; font-weight: 500;">
                     Edit Details
                 </button>
@@ -898,9 +901,8 @@ async function loadPlaygroundData() {
 
         if (error) throw error;
 
-        // Data already has correct capitalization and lat/lng!
         playgroundData = data;
-        
+       
         console.log("Loaded playground data:", playgroundData.length);
 
     } catch (err) {
@@ -910,7 +912,8 @@ async function loadPlaygroundData() {
 
     if (playgroundData && playgroundData.length > 0) {
         addMarkersToMap();
-        populateDropdowns(playgroundData);
+        populateDropdowns(playgroundData); // For map filters
+        populateEditFormDropdowns(); // For edit form
         filterMarkers();
     }
 }
@@ -1515,26 +1518,125 @@ console.log('Drawer initialized');
 
 
 // ===== MODAL AND EDIT FUNCTIONALITY =====
-function editPlayground(uniqueId) {
-    const playgroundData = playgroundLookup[uniqueId];
-    
-    if (!playgroundData) {
-        console.error('Could not find playground data for ID:', uniqueId);
+
+// ===== POPULATE EDIT FORM DROPDOWNS FROM DATABASE =====
+
+// Call this function when loading playground data
+function populateEditFormDropdowns() {
+    if (!playgroundData || playgroundData.length === 0) {
+        console.warn('No playground data available to populate form dropdowns');
         return;
     }
 
-    currentEditingPlayground = { fid: uniqueId, data: playgroundData };
-    const modal = document.getElementById('editModal');
-    
-    populateEditForm(playgroundData);
-    modal.style.display = 'block';
+    // Extract unique values from the database
+    const types = extractUniqueValues(playgroundData, 'Type');
+    const shadeOptions = extractUniqueValues(playgroundData, 'Shade');
+    const fencingOptions = extractUniqueValues(playgroundData, 'Fencing');
+    const parkingOptions = extractUniqueValues(playgroundData, 'Parking');
+    const seatingOptions = extractUniqueValues(playgroundData, 'Seating');
+    const floorOptions = extractUniqueValues(playgroundData, 'Floor');
+
+    // Sort with custom order (optional)
+    const typesSorted = sortWithCustomOrder(types, [
+        'Council Playground',
+        'Private Playground', 
+        'School Playground'
+    ]);   
+
+    const shadeSorted = sortWithCustomOrder(shadeOptions, [
+        'Natural and Sail',
+        'Sail', 
+        'Natural',
+        'No Shade'
+    ]);    
+
+    const fencingSorted = sortWithCustomOrder(fencingOptions, [
+        'Fully Fenced',
+        'Partially Fenced', 
+        'Natural Fence',
+        'No Fence'
+    ]);
+
+    // Populate the form dropdowns
+    populateFormDropdown('edit-type', typesSorted);
+    populateFormDropdown('edit-shade', shadeSorted);
+    populateFormDropdown('edit-fencing', fencingSorted);
+    populateFormDropdown('edit-parking', parkingOptions);
+    populateFormDropdown('edit-seating', seatingOptions);
+    populateFormDropdown('edit-floor', floorOptions);
+
+    console.log('Edit form dropdowns populated from database');
 }
 
+// Helper function to populate a single dropdown
+function populateFormDropdown(selectId, options) {
+    const selectElement = document.getElementById(selectId);
+    
+    if (!selectElement) {
+        console.warn(`Dropdown element not found: ${selectId}`);
+        return;
+    }
+
+    // Clear existing options except the first (placeholder)
+    while (selectElement.options.length > 1) {
+        selectElement.remove(1);
+    }
+
+    // Add options from database
+    options.forEach(value => {
+        if (value) { // Skip null/undefined values
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            selectElement.appendChild(option);
+        }
+    });
+}
+
+// Helper function to sort with custom order (reuse your existing one)
+function sortWithCustomOrder(items, customOrder) {
+    return items.sort((a, b) => {
+        const indexA = customOrder.indexOf(a);
+        const indexB = customOrder.indexOf(b);
+        
+        // If both are in custom order, sort by their position
+        if (indexA !== -1 && indexB !== -1) {
+            return indexA - indexB;
+        }
+        
+        // If only A is in custom order, it comes first
+        if (indexA !== -1) return -1;
+        
+        // If only B is in custom order, it comes first
+        if (indexB !== -1) return 1;
+        
+        // If neither is in custom order, sort alphabetically
+        return a.localeCompare(b);
+    });
+}
+
+
+function editPlayground(uniqueId) {
+    const normalizedId = uniqueId ? uniqueId.toString().trim() : null;
+    const playgroundData = playgroundLookup[normalizedId];
+    
+    currentEditingPlayground = { fid: normalizedId, data: playgroundData };
+    
+    const modal = document.getElementById('editModal');
+
+    populateEditForm(playgroundData); 
+    
+    // Ensure the modal is visible (assuming modal CSS has high z-index and fixed positioning)
+    modal.style.display = 'block'; 
+}
+
+// populateEditForm to work with dropdowns
 function populateEditForm(playgroundData) {
+    console.log("Populating form with data:", playgroundData); // Debug log
+    
     // Text inputs
     const textFields = [
-        'name', 'keywords', 'comments', 'type', 'shade', 'parking', 
-        'fencing', 'seating', 'floor', 'link', 'photo'
+        'name', 'keywords', 'comments', 'link'
     ];
     
     textFields.forEach(field => {
@@ -1543,34 +1645,85 @@ function populateEditForm(playgroundData) {
         if (element) element.value = playgroundData[key] || '';
     });
     
-    // Checkboxes
-    const checkboxFields = [
-        'toilet', 'bbq', 'bubbler', 'accessible', 'basketball', 'skate-park',
-        'scooter-track', 'cricket-chute', 'tennis-court', 'pump_track',
-        'activity-wall', 'talking-tube', 'musical-play', 'sensory-play',
-        'sandpit', 'water-play', 'rope-gym'
+    // Dropdown fields (select elements)
+    const dropdownFields = [
+        'type', 'shade', 'parking', 'fencing', 'seating', 'floor'
     ];
     
-    checkboxFields.forEach(field => {
+    dropdownFields.forEach(field => {
         const element = document.getElementById(`edit-${field}`);
-        const key = field.replace(/-/g, '_').replace(/^(.)/, (_, c) => c.toUpperCase());
-        if (element) element.checked = playgroundData[key] === 'Yes';
+        const key = field.charAt(0).toUpperCase() + field.slice(1);
+        if (element) element.value = playgroundData[key] || '';
     });
     
-    // Number inputs
-    const numberFields = [
-        'baby-swing', 'belt-swing', 'basket-swing', 'dual-swing', 'hammock',
-        'double-slide', 'straight-slide', 'tube-slide', 'spiral-slide',
-        'stairs-climbing', 'metal-climbing', 'rope-climbing', 'rock-climbing',
-        'monkey-climbing', 'other-climbing', 'spinning-pole', 'spinning-bucket',
-        'merry-go-round', 'balance-beam', 'stepping-stones', 'spring-rocker',
-        'seesaw', 'bridge', 'tunnel', 'trampoline', 'firemans-pole', 'hamster-roller-wheel'
-    ];
+    // Checkboxes - FIXED: Direct mapping to match your database field names
+    const checkboxFieldMapping = {
+        'toilet': 'Toilet',
+        'bbq': 'BBQ',
+        'bubbler': 'Bubbler',
+        'accessible': 'Accessible',
+        'basketball': 'Basketball',
+        'skate-park': 'Skate_Park',
+        'scooter-track': 'Scooter_Track',
+        'cricket-chute': 'Cricket_Chute',
+        'tennis-court': 'Tennis_Court',
+        'pump_track': 'Pump_Track',
+        'activity-wall': 'Activity_Wall',
+        'talking-tube': 'Talking_Tube',
+        'musical-play': 'Musical_Play',
+        'sensory-play': 'Sensory_Play',
+        'sandpit': 'Sandpit',
+        'water-play': 'Water_Play',
+        'rope-gym': 'Rope_Gym'
+    };
     
-    numberFields.forEach(field => {
-        const element = document.getElementById(`edit-${field}`);
-        const key = field.replace(/-/g, '_').replace(/^(.)/, (_, c) => c.toUpperCase());
-        if (element) element.value = playgroundData[key] || '';
+    Object.entries(checkboxFieldMapping).forEach(([fieldId, dbKey]) => {
+        const element = document.getElementById(`edit-${fieldId}`);
+        if (element) {
+            const value = playgroundData[dbKey];
+            element.checked = value === true || value === 'Yes';
+            console.log(`${fieldId}: DB key = ${dbKey}, Value = ${value}, Checked = ${element.checked}`); // Debug log
+        }
+    });
+    
+    // Number inputs - FIXED: Direct mapping to match your database field names
+    const numberFieldMapping = {
+        'baby-swing': 'Baby_Swing',
+        'belt-swing': 'Belt_Swing',
+        'basket-swing': 'Basket_Swing',
+        'dual-swing': 'Dual_Swing',
+        'hammock': 'Hammock',
+        'double-slide': 'Double_Slide',
+        'straight-slide': 'Straight_Slide',
+        'tube-slide': 'Tube_Slide',
+        'spiral-slide': 'Spiral_Curved_Slide',
+        'stairs-climbing': 'Stairs',
+        'metal-climbing': 'Metal_Ladder',
+        'rope-climbing': 'Rope_Ladder',
+        'rock-climbing': 'Rock_Climbing',
+        'monkey-climbing': 'Monkey_Bars',
+        'other-climbing': 'Other_Climbing',
+        'spinning-pole': 'Spinning_Pole',
+        'spinning-bucket': 'Spinning_Bucket',
+        'merry-go-round': 'Merry_Go_Round',
+        'balance-beam': 'Balance_Beam',
+        'stepping-stones': 'Stepping_Stones',
+        'spring-rocker': 'Spring_Rocker',
+        'seesaw': 'Seesaw',
+        'bridge': 'Bridge',
+        'tunnel': 'Tunnel',
+        'trampoline': 'Trampoline',
+        'firemans-pole': 'Firemans_Pole',
+        'hamster-roller-wheel': 'Hamster_Roller_Wheel'
+    };
+    
+    Object.entries(numberFieldMapping).forEach(([fieldId, dbKey]) => {
+        const element = document.getElementById(`edit-${fieldId}`);
+        if (element) {
+            const value = playgroundData[dbKey];
+            element.value = value || '';
+            console.log(`${fieldId}: DB key = ${dbKey}, Value = ${value}`); // Debug log
+        }
     });
 }
 
@@ -1591,20 +1744,369 @@ function setupModalEventListeners() {
     });
 }
 
+
+// ===== SUBMIT EDIT TO SUPABASE STAGING =====
+
+// Updated setupFormSubmission to save to Supabase
+
+// Updated setupFormSubmission to save to Supabase
+// ===== SUBMIT EDIT TO SUPABASE STAGING =====
+
+// Updated setupFormSubmission to save to Supabase
 function setupFormSubmission() {
     const form = document.getElementById('editForm');
     if (!form) return;
     
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const formData = collectFormData();
-        console.log('Edit submission:', formData);
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.textContent;
         
-        showSuccessMessage();
+        // Show loading state
+        submitButton.disabled = true;
+        submitButton.textContent = 'Submitting...';
+        
+        try {
+            const formData = collectFormData();
+            console.log('Submitting edit:', formData);
+            
+            // Submit to Supabase
+            const result = await submitEditToSupabase(formData);
+            
+            if (result.success) {
+                showSuccessMessage();
+            } else {
+                showErrorMessage(result.error);
+            }
+            
+        } catch (error) {
+            console.error('Error submitting edit:', error);
+            showErrorMessage(error.message);
+        } finally {
+            // Reset button
+            submitButton.disabled = false;
+            submitButton.textContent = originalButtonText;
+        }
     });
 }
 
+// Submit edit suggestion to Supabase staging table
+async function submitEditToSupabase(formData) {
+    try {
+        // Get the original playground data for comparison
+        const originalData = playgroundLookup[formData.playgroundId];
+        
+        // Prepare data for staging table - matching your actual schema
+        const editSuggestion = {
+            fid: formData.playgroundId, // Keep original playground fid
+            submitted_at: new Date().toISOString(),
+            submitted_by_email: formData.email || 'anonymous@playground.com',
+            status: 'pending', // pending, approved, rejected
+            
+            // Text fields
+            name: formData.name || null,
+            type: formData.type || null,
+            keywords: formData.keywords || null,
+            comments: formData.comments || null,
+            shade: formData.shade || null,
+            parking: formData.parking || null,
+            fencing: formData.fencing || null,
+            seating: formData.seating || null,
+            floor: formData.floor || null,
+            
+            // Boolean fields (as actual booleans, not 'Yes'/'No')
+            toilet: formData.toilet,
+            bbq: formData.bbq,
+            bubbler: formData.bubbler,
+            accessible: formData.accessible,
+            basketball: formData.basketball,
+            pump_track: formData.pumpTrack,
+            scooter_track: formData.scooterTrack,
+            cricket_chute: formData.cricketChute,
+            tennis_court: formData.tennisCourt,
+            skate_park: formData.skatePark,
+            activity_wall: formData.activityWall,
+            talking_tube: formData.talkingTube,
+            musical_play: formData.musicalPlay,
+            sensory_play: formData.sensoryPlay,
+            sandpit: formData.sandpit,
+            water_play: formData.waterPlay,
+            
+            // Numeric fields
+            baby_swing: parseInt(formData.babySwing) || null,
+            belt_swing: parseInt(formData.beltSwing) || null,
+            basket_swing: parseInt(formData.basketSwing) || null,
+            dual_swing: parseInt(formData.dualSwing) || null,
+            hammock: parseInt(formData.hammock) || null,
+            double_slide: parseInt(formData.doubleSlide) || null,
+            triple_slide: parseInt(formData.tripleSlide) || null,
+            straight_slide: parseInt(formData.straightSlide) || null,
+            tube_slide: parseInt(formData.tubeSlide) || null,
+            spiral_curved_slide: parseInt(formData.spiralSlide) || null,
+            stairs: parseInt(formData.stairsClimbing) || null,
+            metal_ladder: parseInt(formData.metalClimbing) || null,
+            rope_ladder: parseInt(formData.ropeClimbing) || null,
+            rock_climbing: parseInt(formData.rockClimbing) || null,
+            monkey_bars: parseInt(formData.monkeyClimbing) || null,
+            other_climbing: parseInt(formData.otherClimbing) || null,
+            rope_gym: parseInt(formData.ropeGym) || null,
+            spinning_pole: parseInt(formData.spinningPole) || null,
+            spinning_bucket: parseInt(formData.spinningBucket) || null,
+            merry_go_round: parseInt(formData.merryGoRound) || null,
+            balance_beam: parseInt(formData.balanceBeam) || null,
+            stepping_stones: parseInt(formData.steppingStones) || null,
+            spring_rocker: parseInt(formData.springRocker) || null,
+            seesaw: parseInt(formData.seesaw) || null,
+            bridge: parseInt(formData.bridge) || null,
+            tunnel: parseInt(formData.tunnel) || null,
+            trampoline: parseInt(formData.trampoline) || null,
+            firemans_pole: parseInt(formData.firemansPole) || null,
+            hamster_roller_wheel: parseInt(formData.hamsterRollerWheel) || null,
+            
+            // Media
+            photo: formData.photo || null,
+            link: formData.link || null,
+            
+            // Additional comments
+            additional_comments: formData.additionalComments || null
+        };
+
+        // Calculate what changed
+        const changes = comparePlaygroundData(originalData, editSuggestion);
+
+        // Insert into staging table
+        const { data, error } = await supabase
+            .from('playground_edit_suggestions')
+            .insert([editSuggestion])
+            .select();
+
+        if (error) {
+            console.error('Supabase error:', error);
+            return { success: false, error: error.message };
+        }
+
+        console.log('Edit suggestion submitted successfully:', data);
+        
+        // Trigger email notification with changes
+        await sendEmailNotification(editSuggestion, changes);
+
+        return { success: true, data: data };
+
+    } catch (error) {
+        console.error('Error in submitEditToSupabase:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Compare original and edited playground data
+function comparePlaygroundData(original, edited) {
+    const changes = [];
+    
+    // Field mapping: edited field name -> original field name (capitalized in database)
+    const fieldMapping = {
+        name: 'Name',
+        type: 'Type',
+        keywords: 'Keywords',
+        comments: 'Comments',
+        shade: 'Shade',
+        parking: 'Parking',
+        fencing: 'Fencing',
+        seating: 'Seating',
+        floor: 'Floor',
+        toilet: 'Toilet',
+        bbq: 'BBQ',
+        bubbler: 'Bubbler',
+        accessible: 'Accessible',
+        basketball: 'Basketball',
+        pump_track: 'Pump_Track',
+        scooter_track: 'Scooter_Track',
+        cricket_chute: 'Cricket_Chute',
+        tennis_court: 'Tennis_Court',
+        skate_park: 'Skate_Park',
+        activity_wall: 'Activity_Wall',
+        talking_tube: 'Talking_Tube',
+        musical_play: 'Musical_Play',
+        sensory_play: 'Sensory_Play',
+        sandpit: 'Sandpit',
+        water_play: 'Water_Play',
+        baby_swing: 'Baby_Swing',
+        belt_swing: 'Belt_Swing',
+        basket_swing: 'Basket_Swing',
+        dual_swing: 'Dual_Swing',
+        hammock: 'Hammock',
+        double_slide: 'Double_Slide',
+        triple_slide: 'Triple_Slide',
+        straight_slide: 'Straight_Slide',
+        tube_slide: 'Tube_Slide',
+        spiral_curved_slide: 'Spiral_Curved_Slide',
+        stairs: 'Stairs',
+        metal_ladder: 'Metal_Ladder',
+        rope_ladder: 'Rope_Ladder',
+        rock_climbing: 'Rock_Climbing',
+        monkey_bars: 'Monkey_Bars',
+        other_climbing: 'Other_Climbing',
+        rope_gym: 'Rope_Gym',
+        spinning_pole: 'Spinning_Pole',
+        spinning_bucket: 'Spinning_Bucket',
+        merry_go_round: 'Merry_Go_Round',
+        balance_beam: 'Balance_Beam',
+        stepping_stones: 'Stepping_Stones',
+        spring_rocker: 'Spring_Rocker',
+        seesaw: 'Seesaw',
+        bridge: 'Bridge',
+        tunnel: 'Tunnel',
+        trampoline: 'Trampoline',
+        firemans_pole: 'Firemans_Pole',
+        hamster_roller_wheel: 'Hamster_Roller_Wheel',
+        photo: 'Photo',
+        link: 'Link'
+    };
+    
+    // Display names for the email
+    const displayNames = {
+        name: 'Name',
+        type: 'Type',
+        keywords: 'Keywords',
+        comments: 'Comments',
+        shade: 'Shade',
+        parking: 'Parking',
+        fencing: 'Fencing',
+        seating: 'Seating',
+        floor: 'Floor',
+        toilet: 'Toilet',
+        bbq: 'BBQ',
+        bubbler: 'Bubbler',
+        accessible: 'Accessible',
+        basketball: 'Basketball',
+        pump_track: 'Pump Track',
+        scooter_track: 'Scooter Track',
+        cricket_chute: 'Cricket Chute',
+        tennis_court: 'Tennis Court',
+        skate_park: 'Skate Park',
+        activity_wall: 'Activity Wall',
+        talking_tube: 'Talking Tube',
+        musical_play: 'Musical Play',
+        sensory_play: 'Sensory Play',
+        sandpit: 'Sandpit',
+        water_play: 'Water Play',
+        baby_swing: 'Baby Swings',
+        belt_swing: 'Belt Swings',
+        basket_swing: 'Basket Swings',
+        dual_swing: 'Dual Swings',
+        hammock: 'Hammocks',
+        double_slide: 'Double Slides',
+        triple_slide: 'Triple Slides',
+        straight_slide: 'Straight Slides',
+        tube_slide: 'Tube Slides',
+        spiral_curved_slide: 'Spiral Slides',
+        stairs: 'Stairs',
+        metal_ladder: 'Metal Ladders',
+        rope_ladder: 'Rope Ladders',
+        rock_climbing: 'Rock Climbing',
+        monkey_bars: 'Monkey Bars',
+        other_climbing: 'Other Climbing',
+        rope_gym: 'Rope Gym',
+        spinning_pole: 'Spinning Poles',
+        spinning_bucket: 'Spinning Buckets',
+        merry_go_round: 'Merry Go Rounds',
+        balance_beam: 'Balance Beams',
+        stepping_stones: 'Stepping Stones',
+        spring_rocker: 'Spring Rockers',
+        seesaw: 'Seesaws',
+        bridge: 'Bridges',
+        tunnel: 'Tunnels',
+        trampoline: 'Trampolines',
+        firemans_pole: 'Firemans Poles',
+        hamster_roller_wheel: 'Hamster Roller Wheels',
+        photo: 'Photo',
+        link: 'Link'
+    };
+    
+    // Compare each field
+    for (const [editedKey, originalKey] of Object.entries(fieldMapping)) {
+        const originalValue = original[originalKey];
+        const editedValue = edited[editedKey];
+        
+        // Normalize values for comparison
+        const normalizedOriginal = normalizeValue(originalValue);
+        const normalizedEdited = normalizeValue(editedValue);
+        
+        // Check if values are different
+        if (normalizedOriginal !== normalizedEdited) {
+            changes.push({
+                field: displayNames[editedKey],
+                oldValue: formatValue(originalValue),
+                newValue: formatValue(editedValue)
+            });
+        }
+    }
+    
+    // Always include additional comments if provided
+    if (edited.additional_comments) {
+        changes.push({
+            field: 'Additional Comments',
+            oldValue: '',
+            newValue: edited.additional_comments
+        });
+    }
+    
+    return changes;
+}
+
+// Normalize values for comparison (handle null, undefined, empty strings, 0)
+function normalizeValue(value) {
+    if (value === null || value === undefined || value === '' || value === 0) {
+        return null;
+    }
+    if (typeof value === 'boolean') {
+        return value;
+    }
+    if (typeof value === 'string') {
+        return value.trim().toLowerCase();
+    }
+    return value;
+}
+
+// Format value for display in email
+function formatValue(value) {
+    if (value === null || value === undefined || value === '') {
+        return '<em>empty</em>';
+    }
+    if (typeof value === 'boolean') {
+        return value ? 'Yes' : 'No';
+    }
+    return String(value);
+}
+
+// Send email notification (using Supabase Edge Function)
+async function sendEmailNotification(editData, changes) {
+    try {
+        // Call your Supabase Edge Function to send email
+        const { data, error } = await supabase.functions.invoke('email-notification-edit', {
+            body: {
+                playgroundFid: editData.fid,
+                playgroundName: editData.name,
+                submittedBy: editData.submitted_by_email,
+                submittedAt: editData.submitted_at,
+                changes: changes // Pass the changes array
+            }
+        });
+
+        if (error) {
+            console.error('Email notification error:', error);
+            console.error('Error details:', error.message, error.context);
+        } else {
+            console.log('Email notification sent successfully:', data);
+        }
+    } catch (error) {
+        console.error('Failed to send email notification:', error);
+        console.error('Error type:', error.constructor.name);
+        // Don't fail the whole submission if email fails
+    }
+}
+
+// Updated collectFormData to include skate park
 function collectFormData() {
     const getValue = (id) => document.getElementById(id)?.value || '';
     const getChecked = (id) => document.getElementById(id)?.checked || false;
@@ -1628,6 +2130,7 @@ function collectFormData() {
         accessible: getChecked('edit-accessible'),
         // Activities
         basketball: getChecked('edit-basketball'),
+        skatePark: getChecked('edit-skate-park'),
         pumpTrack: getChecked('edit-pump_track'),
         scooterTrack: getChecked('edit-scooter-track'),
         cricketChute: getChecked('edit-cricket-chute'),
@@ -1638,6 +2141,7 @@ function collectFormData() {
         sensoryPlay: getChecked('edit-sensory-play'),
         sandpit: getChecked('edit-sandpit'),
         waterPlay: getChecked('edit-water-play'),
+        ropeGym: getChecked('edit-rope-gym'),
         // Equipment counts
         babySwing: getValue('edit-baby-swing'),
         beltSwing: getValue('edit-belt-swing'),
@@ -1654,7 +2158,6 @@ function collectFormData() {
         rockClimbing: getValue('edit-rock-climbing'),
         monkeyClimbing: getValue('edit-monkey-climbing'),
         otherClimbing: getValue('edit-other-climbing'),
-        ropeGym: getValue('edit-rope-gym'),
         spinningPole: getValue('edit-spinning-pole'),
         spinningBucket: getValue('edit-spinning-bucket'),
         merryGoRound: getValue('edit-merry-go-round'),
@@ -1675,6 +2178,24 @@ function collectFormData() {
     };
 }
 
+// Show error message
+function showErrorMessage(errorText) {
+    const errorMessage = document.getElementById('error-message');
+    const editForm = document.getElementById('editForm');
+    
+    if (errorMessage) {
+        errorMessage.textContent = `Error: ${errorText}`;
+        errorMessage.style.display = 'block';
+    } else {
+        alert(`Error submitting edit: ${errorText}`);
+    }
+    
+    setTimeout(() => {
+        if (errorMessage) errorMessage.style.display = 'none';
+    }, 5000);
+}
+
+// Keep your existing showSuccessMessage function
 function showSuccessMessage() {
     const successMessage = document.getElementById('success-message');
     const editForm = document.getElementById('editForm');
@@ -2009,12 +2530,6 @@ function initializeApp() {
 // ===== BACKWARD COMPATIBILITY =====
 function getMarkerColor(classification) {
     return getMarkerSizeConfig(classification).fillColor;
-}
-
-function onEachFeature(feature, layer) {
-    const id = generateUniqueId(feature.properties);
-    playgroundLookup[id] = feature.properties;
-    layer.bindPopup(createPopupContent(feature.properties, feature.geometry.coordinates));
 }
 
 // ===== APP STARTUP =====
