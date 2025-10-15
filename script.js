@@ -1829,11 +1829,14 @@ function handleSuggestions() {
     const suggestionsContainer = document.getElementById('suggestions');
     suggestionsContainer.innerHTML = '';
 
-    if (!query || !playgroundData || !playgroundData.features) return;
+    if (!query || !playgroundData || playgroundData.length === 0) {
+        suggestionsContainer.style.display = 'none';
+        return;
+    }
 
-    const matches = playgroundData.features
-        .filter(f => f.properties.Name && f.properties.Name.toLowerCase().includes(query))
-        .slice(0, 6); // limit suggestions to 6
+    const matches = playgroundData
+        .filter(pg => pg.Name && pg.Name.toLowerCase().includes(query))
+        .slice(0, 6); // limit to 6 suggestions
 
     if (matches.length === 0) {
         suggestionsContainer.style.display = 'none';
@@ -1841,16 +1844,17 @@ function handleSuggestions() {
     }
 
     matches.forEach(match => {
-        const name = match.properties.Name;
         const suggestionItem = document.createElement('div');
         suggestionItem.className = 'dropdown-option';
-        suggestionItem.textContent = name;
-        
+        suggestionItem.textContent = match.Name;
+
         suggestionItem.addEventListener('click', () => {
-            searchInput.value = name;
+            searchInput.value = match.Name;
             suggestionsContainer.innerHTML = '';
             suggestionsContainer.style.display = 'none';
-            performSearch();
+            // Pan to playground
+            map.setView([match.lat, match.lng], 16);
+            addSearchResultMarker(match.lat, match.lng, match.Name, true);
         });
 
         suggestionsContainer.appendChild(suggestionItem);
@@ -1858,7 +1862,6 @@ function handleSuggestions() {
 
     suggestionsContainer.style.display = 'block';
 }
-
 // Hide suggestions when clicking outside
 document.addEventListener('click', (e) => {
     if (!e.target.closest('#search-container')) {
