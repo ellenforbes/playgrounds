@@ -94,41 +94,65 @@
           </div>
         </div>
 
-        <!-- Suburb Dropdown -->
-        <div class="dropdown-wrapper">
+        <!-- Suburb Search -->
+        <div class="filter-section">
           <label class="filter-label">Refine Location:</label>
-          <button type="button" id="suburbDropdownBtn" class="dropdown-btn">
-            <span id="suburbSelected" class="dropdown-btn-text">All suburbs</span>
-            <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <div id="suburbDropdownMenu" class="dropdown-menu hidden">
-            <label class="dropdown-option dropdown-option-all">
-              <input type="checkbox" id="allSuburbs" onchange="toggleAllSuburbs()">
-              <span>All suburbs</span>
-            </label>
-            <div id="suburbOptions">
-              <!-- Options populated by JavaScript -->
+          <div class="dropdown-wrapper">
+            <input 
+              type="text" 
+              id="suburbSearchInput"
+              placeholder="Search suburbs..."
+              class="form-input small"
+            />
+            <div id="suburbDropdown" class="dropdown-menu hidden"></div>
+          </div>
+          
+          <div class="mt-2">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-xs text-gray-500">Selected:</span>
+              <button 
+                onclick="clearAllSuburbs()"
+                class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+              >
+                Clear all
+              </button>
+            </div>
+            <div 
+              id="selectedSuburbs"
+              class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
+            >
+              <span class="text-gray-400 text-xs">No suburbs selected</span>
             </div>
           </div>
         </div>
 
-        <!-- LGA Dropdown -->
-        <div class="dropdown-wrapper">
-          <button type="button" id="lgaDropdownBtn" class="dropdown-btn">
-            <span id="lgaSelected" class="dropdown-btn-text">All LGAs</span>
-            <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <div id="lgaDropdownMenu" class="dropdown-menu hidden">
-            <label class="dropdown-option dropdown-option-all">
-              <input type="checkbox" id="allLGAs" onchange="toggleAllLGAs()">
-              <span>All LGAs</span>
-            </label>
-            <div id="lgaOptions">
-              <!-- Options populated by JavaScript -->
+        <!-- LGA Search -->
+        <div class="filter-section">
+          <div class="dropdown-wrapper">
+            <input 
+              type="text" 
+              id="lgaSearchInput"
+              placeholder="Search LGAs..."
+              class="form-input small"
+            />
+            <div id="lgaDropdown" class="dropdown-menu hidden"></div>
+          </div>
+          
+          <div class="mt-2">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-xs text-gray-500">Selected:</span>
+              <button 
+                onclick="clearAllLGAs()"
+                class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+              >
+                Clear all
+              </button>
+            </div>
+            <div 
+              id="selectedLgas"
+              class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
+            >
+              <span class="text-gray-400 text-xs">No LGAs selected</span>
             </div>
           </div>
         </div>
@@ -664,6 +688,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="script.js"></script>
 </body>
 </html>

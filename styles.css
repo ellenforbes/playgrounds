@@ -816,6 +816,10 @@ label,
     transform: scale(1.2);
 }
 
+.filter-section .mt-2 {
+  display: none;
+}
+
 /* ===== SEARCH MARKER ===== */
 .search-marker {
     background: #7b2cbf;

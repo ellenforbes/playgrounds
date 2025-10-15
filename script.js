@@ -6,6 +6,15 @@ let map;
 const playgroundLookup = {};
 let allKeywords = [];
 let selectedKeywords = [];
+let allSuburbs = [];
+let selectedSuburbs = [];
+let allLGAs = [];
+let selectedLGAs = [];
+
+// ===== SUPABASE CLIENT =====
+const supabaseUrl = 'https://mrcodrddkxvoszuwdaks.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yY29kcmRka3h2b3N6dXdkYWtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNTc0NzUsImV4cCI6MjA3NTkzMzQ3NX0.GOKyB7-vdg968lE2jC5PxrOdVKp7IOis6QtyG2FNptQ';
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // ===== CONFIGURATION OBJECTS =====
 const sizeConfigs = {
@@ -197,6 +206,7 @@ function initializeMap() {
     }
   });
 }
+
 function initializeClusterGroup() {
     markerClusterGroup = L.markerClusterGroup({
         maxClusterRadius: 50,
@@ -282,7 +292,7 @@ function createMarker(playground) {
         marker = L.marker([playground.lat, playground.lng], {
             icon: L.divIcon({
                 className: 'emoji-marker',
-                html: '🚧',
+                html: `<div style="font-size: ${sizeConfig.radius * 3}px;">🚧</div>`,
                 iconSize: [sizeConfig.radius * 2, sizeConfig.radius * 2],
                 iconAnchor: [sizeConfig.radius, sizeConfig.radius],
             })
@@ -317,36 +327,88 @@ function getMarkerSizeConfig(size) {
     return sizeConfigs.marker[size] || sizeConfigs.marker['Unverified'];
 }
 
+
+function getPlaygroundCoordinates(playground) {
+    // If geom exists, parse it
+    if (playground.geom) {
+        try {
+            const geometry = typeof playground.geom === 'string' ? JSON.parse(playground.geom) : playground.geom;
+            if (geometry.coordinates && geometry.coordinates.length >= 2) {
+                return { lat: geometry.coordinates[1], lng: geometry.coordinates[0] };
+            }
+        } catch (e) {
+            console.warn("Failed to parse geom for playground:", playground.Name || playground.Name);
+        }
+    }
+
+    // Fallback to lat/lng fields
+    if (playground.lat != null && playground.lng != null) {
+        return { lat: playground.lat, lng: playground.lng };
+    }
+
+    // If neither exists, return null
+    return null;
+}
+
 function addMarkersToMap() {
-    if (!playgroundData?.features) {
+    console.log("Sample playground data:", playgroundData[0]);
+    console.log("addMarkersToMap called");
+    console.log("Map object exists:", !!map);
+    console.log("Map is initialized:", map && map._loaded);
+    
+    if (!playgroundData || playgroundData.length === 0) {
         console.error('No playground data available');
         return;
     }
 
     markerClusterGroup.clearLayers();
 
-    playgroundData.features.forEach(playground => {
-        const [lng, lat] = playground.geometry.coordinates;
-        const props = playground.properties;
-        
-        const playgroundObj = { ...props, lat, lng };
-        const id = generateUniqueId(props);
-        playgroundLookup[id] = playgroundObj;
+    let successCount = 0;
+    let failCount = 0;
 
-        const marker = createMarker(playgroundObj);
+    playgroundData.forEach((playground) => {
+        const lat = playground.lat;
+        const lng = playground.lng;
+
+        if (lat == null || lng == null) {
+            console.error("Missing coordinates for playground:", playground.Name);
+            failCount++;
+            return;
+        }
+
+        const marker = createMarker(playground);
+        console.log("Created marker at:", lat, lng); // Add this
         markerClusterGroup.addLayer(marker);
+        successCount++;
     });
 
-    map.addLayer(markerClusterGroup);
+    console.log(`Markers created - Success: ${successCount}, Failed: ${failCount}`);
+    console.log("markerClusterGroup layer count:", markerClusterGroup.getLayers().length);
+    
+    // Check if markerClusterGroup was already added to map
+    console.log("markerClusterGroup already on map:", map.hasLayer(markerClusterGroup));
+    
+    if (!map.hasLayer(markerClusterGroup)) {
+        map.addLayer(markerClusterGroup);
+        console.log("Cluster group added to map");
+    }
+    
+    if (markerClusterGroup.getLayers().length > 0) {
+        const bounds = markerClusterGroup.getBounds();
+        console.log("Marker bounds:", bounds);
+        console.log("Fitting bounds to:", bounds.toBBoxString());
+        map.fitBounds(bounds);
+    }
 }
 
 // ===== POPUP FUNCTIONALITY =====
 function createPopupContent(props, coordinates) {
     const uniqueId = generateUniqueId(props);
     
+    // Use props.lng and props.lat instead of coordinates parameter
     return `
         <div style="font-family: system-ui, -apple-system, sans-serif; min-width: 300px; padding: 12px;">
-            ${createPopupHeader({...props, coordinates})}
+            ${createPopupHeader({...props, lng: props.lng, lat: props.lat})}
             ${generateCompactFeaturesList(props)}
             ${createPopupFooter(props, uniqueId)}
         </div>
@@ -354,12 +416,11 @@ function createPopupContent(props, coordinates) {
 }
 
 function createPopupHeader(props) {
-    const linkIcon = props.Link ? 
-        `🔗` : 
-        '';
+    const linkIcon = props.Link ? '🔗' : '';
     
-    const mapsIcon = props.coordinates && props.coordinates.length >= 2 ? 
-        `<a href="https://www.google.com/maps?q=${props.coordinates[1]},${props.coordinates[0]}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; margin-left: 4px;">📍</a>` : 
+    // Use props.lat and props.lng directly
+    const mapsIcon = props.lat && props.lng ? 
+        `<a href="https://www.google.com/maps?q=${props.lat},${props.lng}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; margin-left: 4px;">📍</a>` : 
         '';
     
     const title = props.Link ? 
@@ -643,7 +704,7 @@ function createActivitiesSection(props) {
         { key: 'Tennis_Court', emoji: '🎾', name: 'Tennis' },
         { key: 'Skate_Park', emoji: '🛹', name: 'Skate Park' },
         { key: 'Scooter_Track', emoji: '🛴', name: 'Scooter Track' },
-        { key: 'Pedal_Rail', emoji: '🚂', name: 'Pedal Rail' },
+        { key: 'Pump_Track', emoji: '🚂', name: 'Pump Track' },
         { key: 'Cricket_Chute', emoji: '🏏', name: 'Cricket' }
     ];
     
@@ -780,14 +841,6 @@ function getSelectedValues(checkboxClass) {
 
 
 // Specific dropdown functions
-function toggleAllSuburbs() {
-    toggleAllItems('allSuburbs', '.suburb-checkbox', updateSuburbSelection);
-}
-
-function toggleAllLGAs() {
-    toggleAllItems('allLGAs', '.lga-checkbox', updateLGASelection);
-}
-
 function toggleAllTypes() {
     toggleAllItems('allTypes', '.type-checkbox', updateTypeSelection);
 }
@@ -802,14 +855,6 @@ function toggleAllFencing() {
 
 function toggleAllParking() {
     toggleAllItems('allparking', '.parking-checkbox', updateParkingSelection);
-}
-
-function updateSuburbSelection() {
-    updateSelection('.suburb-checkbox', 'allSuburbs', 'suburbSelected', 'All suburbs', filterMarkers);
-}
-
-function updateLGASelection() {
-    updateSelection('.lga-checkbox', 'allLGAs', 'lgaSelected', 'All LGAs', filterMarkers);
 }
 
 function updateTypeSelection() {
@@ -829,14 +874,6 @@ function updateParkingSelection() {
 }
 
 // ===== KEYWORD SEARCH - Get Selected Suburbs/LGAs/Types =====
-function getSelectedSuburbs() {
-    return getSelectedValues('.suburb-checkbox');
-}
-
-function getSelectedLGAs() {
-    return getSelectedValues('.lga-checkbox');
-}
-
 function getSelectedTypes() {
     return getSelectedValues('.type-checkbox');
 }
@@ -856,43 +893,38 @@ function getSelectedParking() {
 // ===== DATA LOADING AND PROCESSING =====
 async function loadPlaygroundData() {
     try {
-        const response = await fetch("http://localhost:8000/TestPlaygrounds.geojson");
-        if (response.ok) {
-            const fetchedData = await response.json();
-            if (fetchedData?.type === "FeatureCollection") {
-                playgroundData = fetchedData;
-                console.log("Using fetched GeoJSON:", playgroundData);
-            } else {
-                console.warn("Invalid GeoJSON format");
-            }
-        } else {
-            console.warn("Failed to fetch GeoJSON:", response.status);
-        }
+        const { data, error } = await supabase
+            .rpc('get_playgrounds_with_coords');
+
+        if (error) throw error;
+
+        // Data already has correct capitalization and lat/lng!
+        playgroundData = data;
+        
+        console.log("Loaded playground data:", playgroundData.length);
+
     } catch (err) {
-        console.warn("Failed to fetch GeoJSON, using inline data.", err);
+        console.error("Failed to load playground data:", err);
+        throw err;
     }
 
-    if (playgroundData) {
+    if (playgroundData && playgroundData.length > 0) {
         addMarkersToMap();
         populateDropdowns(playgroundData);
         filterMarkers();
-    } else {
-        console.error("No playground data available to display");
     }
 }
 
-function populateDropdowns(geojsonData) {
-    if (!geojsonData?.features) {
-        console.warn('No geojsonData provided to populateDropdowns');
+function populateDropdowns(data) {
+    if (!data || data.length === 0) {
+        console.warn('No data provided to populateDropdowns');
         return;
     }
 
-    const suburbs = extractUniqueValues(geojsonData, 'Suburb');
-    const lgas = extractUniqueValues(geojsonData, 'LGA');
-    const types = extractUniqueValues(geojsonData, 'Type');
-    const shade = extractUniqueValues(geojsonData, 'Shade');
-    const fencing = extractUniqueValues(geojsonData, 'Fencing');
-    const parking = extractUniqueValues(geojsonData, 'Parking');
+    const types = extractUniqueValues(data, 'Type');
+    const shade = extractUniqueValues(data, 'Shade');
+    const fencing = extractUniqueValues(data, 'Fencing');
+    const parking = extractUniqueValues(data, 'Parking');
 
     // Sort playground type with custom order
     const typesSorted = sortWithCustomOrder(types, [
@@ -917,18 +949,16 @@ function populateDropdowns(geojsonData) {
         'No Fence'
     ]);    
 
-    populateDropdownOptions('suburbOptions', suburbs, 'suburb-checkbox', updateSuburbSelection);
-    populateDropdownOptions('lgaOptions', lgas, 'lga-checkbox', updateLGASelection);
     populateDropdownOptions('typeOptions', typesSorted, 'type-checkbox', updateTypeSelection, 'Council Playground');
     populateDropdownOptions('shadeOptions', shadeSorted, 'shade-checkbox', updateShadeSelection);
     populateDropdownOptions('fencingOptions', fencingSorted, 'fence-checkbox', updateFencingSelection);
     populateDropdownOptions('parkingOptions', parking, 'parking-checkbox', updateParkingSelection);
 }
 
-function extractUniqueValues(geojsonData, propertyName) {
+function extractUniqueValues(data, propertyName) {
     return [...new Set(
-        geojsonData.features
-            .map(feature => feature.properties[propertyName])
+        data
+            .map(playground => playground[propertyName])
             .filter(value => value)
     )].sort();
 }
@@ -1074,21 +1104,19 @@ function isSizeIncluded(classification) {
 
 // ===== FILTERING FUNCTIONALITY =====
 function filterMarkers() {
-    if (!playgroundData?.features) return;
+    if (!playgroundData || playgroundData.length === 0) return;
 
     const filters = getActiveFilters();
     markerClusterGroup.clearLayers();
     
-    playgroundData.features.forEach(playground => {
+    playgroundData.forEach(playground => {
         if (shouldShowPlayground(playground, filters)) {
-            const [lng, lat] = playground.geometry.coordinates;
-            const playgroundObj = { ...playground.properties, lat, lng };
-            const marker = createMarker(playgroundObj);
+            // Just use lat/lng directly - no need to parse geometry
+            const marker = createMarker(playground); 
             markerClusterGroup.addLayer(marker);
         }
     });
     
-    // Update count based on what's visible in current view
     updateVisiblePlaygroundCount();
 }
 
@@ -1130,29 +1158,27 @@ function getActiveFilters() {
         hasToilet: document.getElementById('filterHasToilet')?.checked || false,
         hasBBQ: document.getElementById('filterHasBBQ')?.checked || false,
         hasBubbler: document.getElementById('filterHasBubbler')?.checked || false,
-        selectedSuburbs: getSelectedSuburbs(),
-        selectedLGAs: getSelectedLGAs(),
+        selectedSuburbs: selectedSuburbs,
+        selectedLGAs: selectedLGAs,  
         selectedTypes: getSelectedTypes()
     };
 }
 
 function shouldShowPlayground(playground, filters) {
-    const props = playground.properties;
-    
     // Facility filters
-    if (filters.hasTrampoline && Number(props.Trampoline) <= 0) return false;
-    if (filters.hasSkatePark && props.Skate_Park !== 'Yes') return false;
-    if (filters.hasLargeFlyingFox && props.Flying_Fox !== 'Large') return false;
-    if (filters.hasSandpit && props.Sandpit !== 'Yes') return false;
-    if (filters.hasScootTrack && props.Scooter_Track !== 'Yes') return false;
-    if (filters.hasWaterPlay && props.Water_Play !== 'Yes') return false;
-    if (filters.hasAccessibleFeatures && props.Accessible !== 'Yes') return false;
-    if (filters.hasToilet && props.Toilet !== 'Yes') return false;
-    if (filters.hasBBQ && props.BBQ !== 'Yes') return false;
-    if (filters.hasBubbler && props.Bubbler !== 'Yes') return false;
+    if (filters.hasTrampoline && Number(playground.Trampoline) <= 0) return false;
+    if (filters.hasSkatePark && playground.Skate_Park !== true) return false;
+    if (filters.hasLargeFlyingFox && playground.Flying_Fox !== 'Large') return false;
+    if (filters.hasSandpit && playground.Sandpit !== true) return false;
+    if (filters.hasScootTrack && playground.Scooter_Track !== true) return false;
+    if (filters.hasWaterPlay && playground.Water_Play !== true) return false;
+    if (filters.hasAccessibleFeatures && playground.Accessible !== true) return false;
+    if (filters.hasToilet && playground.Toilet !== true) return false;
+    if (filters.hasBBQ && playground.BBQ !== true) return false;
+    if (filters.hasBubbler && playground.Bubbler !== true) return false;
     
     // Size filter using slider - determine classification: use Classification field, or 'Unverified' if null
-    let classification = props.Classification;
+    let classification = playground.Classification;
     if (!classification || classification === null) {
         classification = 'Unverified';
     }
@@ -1160,12 +1186,12 @@ function shouldShowPlayground(playground, filters) {
     if (!isSizeIncluded(classification)) return false;
     
     // Location filters
-    if (filters.selectedSuburbs.length > 0 && !filters.selectedSuburbs.includes(props.Suburb)) return false;
-    if (filters.selectedLGAs.length > 0 && !filters.selectedLGAs.includes(props.LGA)) return false;
-    if (filters.selectedTypes.length > 0 && !filters.selectedTypes.includes(props.Type)) return false;
-    if (filters.selectedShade.length > 0 && !filters.selectedShade.includes(props.Shade)) return false;
-    if (filters.selectedFencing.length > 0 && !filters.selectedFencing.includes(props.Fencing)) return false;
-    if (filters.selectedParking.length > 0 && !filters.selectedParking.includes(props.Parking)) return false;
+    if (filters.selectedSuburbs.length > 0 && !filters.selectedSuburbs.includes(playground.Suburb)) return false;
+    if (filters.selectedLGAs.length > 0 && !filters.selectedLGAs.includes(playground.LGA)) return false;
+    if (filters.selectedTypes.length > 0 && !filters.selectedTypes.includes(playground.Type)) return false;
+    if (filters.selectedShade.length > 0 && !filters.selectedShade.includes(playground.Shade)) return false;
+    if (filters.selectedFencing.length > 0 && !filters.selectedFencing.includes(playground.Fencing)) return false;
+    if (filters.selectedParking.length > 0 && !filters.selectedParking.includes(playground.Parking)) return false;
     
     // Keyword filter
     if (!playgroundMatchesKeywords(playground)) return false;
@@ -1173,16 +1199,160 @@ function shouldShowPlayground(playground, filters) {
     return true;
 }
 
+// ===== MULTI-SELECT SEARCH FUNCTIONALITY =====
+function extractUniqueValues(data, propertyName) {
+    return [...new Set(
+        data
+            .map(playground => playground[propertyName])
+            .filter(value => value)
+    )].sort();
+}
+
+function initializeMultiSelectSearch(inputId, dropdownId, allItemsArray, selectedItemsArray, itemType) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    
+    if (!input || !dropdown) return;
+    
+    input.addEventListener('input', function() {
+        const searchTerm = this.value.trim().toLowerCase();
+        
+        if (searchTerm === '') {
+            dropdown.classList.add('hidden');
+            return;
+        }
+        
+        const matchingItems = allItemsArray.filter(item => 
+            item.toLowerCase().includes(searchTerm)
+        );
+        
+        if (matchingItems.length > 0) {
+            displayItemDropdown(dropdown, matchingItems, selectedItemsArray, itemType);
+        } else {
+            dropdown.classList.add('hidden');
+        }
+    });
+    
+    document.addEventListener('click', function(event) {
+        if (!input.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.classList.add('hidden');
+        }
+    });
+}
+
+function displayItemDropdown(dropdown, items, selectedItemsArray, itemType) {
+    dropdown.innerHTML = '';
+    dropdown.classList.remove('hidden');
+    
+    items.forEach(item => {
+        const option = document.createElement('div');
+        option.className = 'dropdown-option';
+        option.textContent = item;
+        
+        option.addEventListener('click', function() {
+            selectItem(item, selectedItemsArray, itemType);
+        });
+        
+        dropdown.appendChild(option);
+    });
+}
+
+function selectItem(item, selectedItemsArray, itemType) {
+    if (selectedItemsArray.includes(item)) {
+        return;
+    }
+    
+    selectedItemsArray.push(item);
+    updateSelectedItemsDisplay(selectedItemsArray, itemType);
+    
+    const inputId = `${itemType}SearchInput`;
+    const dropdownId = `${itemType}Dropdown`;
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    
+    if (input) input.value = '';
+    if (dropdown) dropdown.classList.add('hidden');
+    
+    filterMarkers();
+}
+
+function removeItem(item, selectedItemsArray, itemType) {
+    const index = selectedItemsArray.indexOf(item);
+    if (index > -1) {
+        selectedItemsArray.splice(index, 1);
+    }
+    updateSelectedItemsDisplay(selectedItemsArray, itemType);
+    filterMarkers();
+}
+
+function clearAllItems(selectedItemsArray, itemType) {
+    selectedItemsArray.length = 0;
+    updateSelectedItemsDisplay(selectedItemsArray, itemType);
+    filterMarkers();
+}
+
+function updateSelectedItemsDisplay(selectedItemsArray, itemType) {
+    const containerId = `selected${itemType.charAt(0).toUpperCase() + itemType.slice(1)}s`;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (selectedItemsArray.length === 0) {
+        const placeholder = document.createElement('span');
+        placeholder.className = 'keyword-placeholder';
+        placeholder.textContent = `No ${itemType}s selected`;
+        container.appendChild(placeholder);
+        return;
+    }
+    
+    selectedItemsArray.forEach(item => {
+        const tag = document.createElement('div');
+        tag.className = 'keyword-tag';
+        
+        const text = document.createElement('span');
+        text.textContent = item;
+        text.className = 'keyword-tag-text';
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '×';
+        removeBtn.className = 'keyword-tag-remove';
+        removeBtn.addEventListener('click', () => removeItem(item, selectedItemsArray, itemType));
+        
+        tag.appendChild(text);
+        tag.appendChild(removeBtn);
+        container.appendChild(tag);
+    });
+}
+
+function initializeSuburbSearch() {
+    allSuburbs = extractUniqueValues(playgroundData, 'Suburb'); // Changed from extractUniqueValuesForSearch
+    initializeMultiSelectSearch('suburbSearchInput', 'suburbDropdown', allSuburbs, selectedSuburbs, 'suburb');
+}
+
+function clearAllSuburbs() {
+    clearAllItems(selectedSuburbs, 'suburb');
+}
+
+function initializeLGASearch() {
+    allLGAs = extractUniqueValues(playgroundData, 'LGA'); // Changed from extractUniqueValuesForSearch
+    initializeMultiSelectSearch('lgaSearchInput', 'lgaDropdown', allLGAs, selectedLGAs, 'lga');
+}
+
+function clearAllLGAs() {
+    clearAllItems(selectedLGAs, 'lga');
+}
+
 
 // ===== KEYWORD SEARCH FUNCTIONALITY =====
-// Extract and store all unique keywords from the GeoJSON data
-function extractAllKeywords(geojsonData) {
+// Needs special function as this is comma separated values inside a cell 
+function extractAllKeywords(data) {
     const keywordSet = new Set();
     
-    if (!geojsonData?.features) return [];
+    if (!data || data.length === 0) return [];
     
-    geojsonData.features.forEach(feature => {
-        const keywords = feature.properties.Keywords;
+    data.forEach(playground => {
+        const keywords = playground.Keywords;
         if (keywords && keywords.trim() !== '') {
             keywords.split(',').forEach(keyword => {
                 const trimmed = keyword.trim();
@@ -1198,131 +1368,19 @@ function extractAllKeywords(geojsonData) {
     );
 }
 
-// Initialize keyword search functionality
 function initializeKeywordSearch() {
-    const input = document.getElementById('keywordSearchInput');
-    const dropdown = document.getElementById('keywordDropdown');
-    
-    if (!input || !dropdown) return;
-    
     allKeywords = extractAllKeywords(playgroundData);
-    
-    input.addEventListener('input', function() {
-        const searchTerm = this.value.trim().toLowerCase();
-        
-        if (searchTerm === '') {
-            dropdown.classList.add('hidden');
-            return;
-        }
-        
-        const matchingKeywords = allKeywords.filter(keyword => 
-            keyword.toLowerCase().includes(searchTerm)
-        );
-        
-        if (matchingKeywords.length > 0) {
-            displayKeywordDropdown(matchingKeywords);
-        } else {
-            dropdown.classList.add('hidden');
-        }
-    });
-    
-    document.addEventListener('click', function(event) {
-        if (!input.contains(event.target) && !dropdown.contains(event.target)) {
-            dropdown.classList.add('hidden');
-        }
-    });
+    initializeMultiSelectSearch('keywordSearchInput', 'keywordDropdown', allKeywords, selectedKeywords, 'keyword');
 }
 
-// Display filtered keywords in dropdown (REFACTORED)
-function displayKeywordDropdown(keywords) {
-    const dropdown = document.getElementById('keywordDropdown');
-    
-    dropdown.innerHTML = '';
-    dropdown.classList.remove('hidden');
-    
-    keywords.forEach(keyword => {
-        const option = document.createElement('div');
-        option.className = 'dropdown-option'; // UPDATED: Use CSS class
-        option.textContent = keyword;
-        
-        option.addEventListener('click', function() {
-            selectKeyword(keyword);
-        });
-        
-        dropdown.appendChild(option);
-    });
-}
-
-// Select a keyword (add to selected list)
-function selectKeyword(keyword) {
-    if (selectedKeywords.includes(keyword)) {
-        return;
-    }
-    
-    selectedKeywords.push(keyword);
-    updateSelectedKeywordsDisplay();
-    
-    const input = document.getElementById('keywordSearchInput');
-    const dropdown = document.getElementById('keywordDropdown');
-    if (input) input.value = '';
-    if (dropdown) dropdown.classList.add('hidden');
-    
-    filterMarkers();
-}
-
-// Remove a keyword from selection
-function removeKeyword(keyword) {
-    selectedKeywords = selectedKeywords.filter(k => k !== keyword);
-    updateSelectedKeywordsDisplay();
-    filterMarkers();
-}
-
-// Clear all selected keywords
 function clearAllKeywords() {
-    selectedKeywords = [];
-    updateSelectedKeywordsDisplay();
-    filterMarkers();
+    clearAllItems(selectedKeywords, 'keyword');
 }
 
-// Update the display of selected keywords
-function updateSelectedKeywordsDisplay() {
-    const container = document.getElementById('selectedKeywords');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (selectedKeywords.length === 0) {
-        const placeholder = document.createElement('span');
-        placeholder.className = 'keyword-placeholder'; // UPDATED: Use CSS class
-        placeholder.textContent = 'No keywords selected';
-        container.appendChild(placeholder);
-        return;
-    }
-    
-    selectedKeywords.forEach(keyword => {
-        const tag = document.createElement('div');
-        tag.className = 'keyword-tag'; // UPDATED: Use CSS class
-        
-        const text = document.createElement('span');
-        text.textContent = keyword;
-        text.className = 'keyword-tag-text'; // UPDATED: Use CSS class
-        
-        const removeBtn = document.createElement('button');
-        removeBtn.innerHTML = '×';
-        removeBtn.className = 'keyword-tag-remove'; // UPDATED: Use CSS class
-        removeBtn.addEventListener('click', () => removeKeyword(keyword));
-        
-        tag.appendChild(text);
-        tag.appendChild(removeBtn);
-        container.appendChild(tag);
-    });
-}
-
-// Check if a playground matches selected keywords
 function playgroundMatchesKeywords(playground) {
     if (selectedKeywords.length === 0) return true;
     
-    const playgroundKeywords = playground.properties.Keywords;
+    const playgroundKeywords = playground.Keywords;
     if (!playgroundKeywords || playgroundKeywords.trim() === '') return false;
     
     const playgroundKeywordList = playgroundKeywords
@@ -1332,6 +1390,50 @@ function playgroundMatchesKeywords(playground) {
     return selectedKeywords.some(selectedKeyword => 
         playgroundKeywordList.includes(selectedKeyword.toLowerCase())
     );
+}
+
+// Show the other buttons once something is selected
+function updateSelectedItemsDisplay(selectedItemsArray, itemType) {
+    const containerId = `selected${itemType.charAt(0).toUpperCase() + itemType.slice(1)}s`;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // Find the closest .mt-2 wrapper (the section that should show/hide)
+    const wrapper = container.closest('.mt-2');
+    container.innerHTML = '';
+
+    if (selectedItemsArray.length === 0) {
+        const placeholder = document.createElement('span');
+        placeholder.className = 'keyword-placeholder';
+        placeholder.textContent = `No ${itemType}s selected`;
+        container.appendChild(placeholder);
+
+        // Hide the wrapper if it exists
+        if (wrapper) wrapper.style.display = 'none';
+        return;
+    }
+
+    // Otherwise, create tags for each selected item
+    selectedItemsArray.forEach(item => {
+        const tag = document.createElement('div');
+        tag.className = 'keyword-tag';
+        
+        const text = document.createElement('span');
+        text.textContent = item;
+        text.className = 'keyword-tag-text';
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '×';
+        removeBtn.className = 'keyword-tag-remove';
+        removeBtn.addEventListener('click', () => removeItem(item, selectedItemsArray, itemType));
+        
+        tag.appendChild(text);
+        tag.appendChild(removeBtn);
+        container.appendChild(tag);
+    });
+
+    // Show the wrapper when items exist
+    if (wrapper) wrapper.style.display = 'block';
 }
 
 
@@ -1444,7 +1546,7 @@ function populateEditForm(playgroundData) {
     // Checkboxes
     const checkboxFields = [
         'toilet', 'bbq', 'bubbler', 'accessible', 'basketball', 'skate-park',
-        'scooter-track', 'cricket-chute', 'tennis-court', 'pedal-rail',
+        'scooter-track', 'cricket-chute', 'tennis-court', 'pump_track',
         'activity-wall', 'talking-tube', 'musical-play', 'sensory-play',
         'sandpit', 'water-play', 'rope-gym'
     ];
@@ -1526,7 +1628,7 @@ function collectFormData() {
         accessible: getChecked('edit-accessible'),
         // Activities
         basketball: getChecked('edit-basketball'),
-        pedalRail: getChecked('edit-pedal-rail'),
+        pumpTrack: getChecked('edit-pump_track'),
         scooterTrack: getChecked('edit-scooter-track'),
         cricketChute: getChecked('edit-cricket-chute'),
         tennisCourt: getChecked('edit-tennis-court'),
@@ -1604,22 +1706,10 @@ function toggleFooter() {
 
 function setupEventListeners() {
     // Dropdown toggles
-    const suburbBtn = document.getElementById('suburbDropdownBtn');
-    const lgaBtn = document.getElementById('lgaDropdownBtn');
     const typeBtn = document.getElementById('typeDropdownBtn');
     const shadeBtn = document.getElementById('shadeDropdownBtn');
     const fencingBtn = document.getElementById('fencingDropdownBtn');
     const parkingBtn = document.getElementById('parkingDropdownBtn'); 
-    
-    if (suburbBtn) {
-        suburbBtn.addEventListener('click', () => 
-            toggleDropdown('suburbDropdownMenu', 'lgaDropdownMenu', 'typeDropdownMenu'));
-    }
-    
-    if (lgaBtn) {
-        lgaBtn.addEventListener('click', () => 
-            toggleDropdown('lgaDropdownMenu', 'suburbDropdownMenu', 'typeDropdownMenu'));
-    }
 
     if (typeBtn) {
         typeBtn.addEventListener('click', () => 
@@ -1665,9 +1755,10 @@ function setupEventListeners() {
 
 function handleOutsideClick(event) {
     const dropdownConfigs = [
-        { btn: 'suburbDropdownBtn', menu: 'suburbDropdownMenu' },
-        { btn: 'lgaDropdownBtn', menu: 'lgaDropdownMenu' },
-        { btn: 'typeDropdownBtn', menu: 'typeDropdownMenu' }
+        { btn: 'typeDropdownBtn', menu: 'typeDropdownMenu' },
+        { btn: 'shadeDropdownBtn', menu: 'shadeDropdownMenu' },
+        { btn: 'fencingDropdownBtn', menu: 'fencingDropdownMenu' },
+        { btn: 'parkingDropdownBtn', menu: 'parkingDropdownMenu' }
     ];
     
     dropdownConfigs.forEach(({ btn, menu }) => {
@@ -1792,12 +1883,10 @@ async function performSearch() {
     searchBtn.disabled = true;
     
     try {
-        // First, search locations via Nominatim
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=au`);
         const results = await response.json();
         
         if (results && results.length > 0) {
-            // Found a location match
             const result = results[0];
             const lat = parseFloat(result.lat);
             const lng = parseFloat(result.lon);
@@ -1806,16 +1895,12 @@ async function performSearch() {
             addSearchResultMarker(lat, lng, result.display_name, false);
             searchInput.value = '';
         } else {
-            // No location match, fallback to playground search
             const playgroundMatch = searchPlaygrounds(query);
             
             if (playgroundMatch) {
-                const coords = playgroundMatch.geometry.coordinates;
-                const lat = coords[1];
-                const lng = coords[0];
-                
-                map.setView([lat, lng], 16);
-                addSearchResultMarker(lat, lng, playgroundMatch.properties.Name, true);
+                // Use lat/lng directly from playground object
+                map.setView([playgroundMatch.lat, playgroundMatch.lng], 16);
+                addSearchResultMarker(playgroundMatch.lat, playgroundMatch.lng, playgroundMatch.name, true);
                 searchInput.value = '';
             } else {
                 alert('Location or playground not found. Try a different search term.');
@@ -1830,17 +1915,16 @@ async function performSearch() {
     searchBtn.disabled = false;
 }
 
-// Search through playground names in GeoJSON data
+// Search through playground names in data
 function searchPlaygrounds(query) {
-    if (!playgroundData || !playgroundData.features) {
+    if (!playgroundData || playgroundData.length === 0) {
         return null;
     }
     
     const lowerQuery = query.toLowerCase();
     
-    // Find playgrounds that match the search query
-    const match = playgroundData.features.find(feature => {
-        const name = feature.properties.Name;
+    const match = playgroundData.find(playground => {
+        const name = playground.Name;
         return name && name.toLowerCase().includes(lowerQuery);
     });
     
@@ -1900,16 +1984,18 @@ function initializeApp() {
     
     initializeMap();
     initializeClusterGroup();
-    loadPlaygroundData();
+    
+    // Load data first, THEN initialize search after data is loaded
+    loadPlaygroundData().then(() => {
+        console.log('Data loaded, initializing searches');
+        initializeKeywordSearch();
+        initializeSuburbSearch();
+        initializeLGASearch();
+        addSearchControl();
+    });
+    
     setupEventListeners();
     initializeMobileDrawer();
-    
-    // Add search control with a delay to ensure map is fully loaded
-    setTimeout(() => {
-        console.log('About to call addSearchControl');
-        addSearchControl();
-        initializeKeywordSearch(); 
-    }, 2000);
 
     // Update count when map moves/zooms
     map.on('moveend zoomend', updateVisiblePlaygroundCount);
