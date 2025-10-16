@@ -87,7 +87,7 @@ function hasValue(value) {
 }
 
 function generateUniqueId(props) {
-    return props.fid || props.id || Math.random().toString(36).substr(2, 9);
+    return props.uid || props.id || Math.random().toString(36).substr(2, 9);
 }
 
 function createElement(tag, className, innerHTML, attributes = {}) {
@@ -252,7 +252,7 @@ function getDominantRating(markers) {
     let highestRatingIndex = ratingHierarchy.length;
     
     markers.forEach(marker => {
-        const rating = marker.playgroundData.Classification || marker.playgroundData.size;
+        const rating = marker.playgroundData.classification || marker.playgroundData.size;
         const ratingIndex = ratingHierarchy.indexOf(rating);
         
         if (ratingIndex !== -1 && ratingIndex < highestRatingIndex) {
@@ -261,7 +261,7 @@ function getDominantRating(markers) {
         }
     });
     
-    return highestRating || (markers[0].playgroundData.Classification || markers[0].playgroundData.size);
+    return highestRating || (markers[0].playgroundData.classification || markers[0].playgroundData.size);
 }
 
 function getClusterSizeConfig(dominantSize, count) {
@@ -283,12 +283,12 @@ function getClusterSizeConfig(dominantSize, count) {
 
 // ===== MARKER FUNCTIONALITY =====
 function createMarker(playground) {
-    playgroundLookup[playground.fid] = playground;
-    const sizeConfig = getMarkerSizeConfig(playground.Classification);
+    playgroundLookup[playground.uid] = playground;
+    const sizeConfig = getMarkerSizeConfig(playground.classification);
 
     let marker;
 
-    if (playground.Classification === 'Under Construction') {
+    if (playground.classification === 'Under Construction') {
         // 🚧 Custom emoji marker
         marker = L.marker([playground.lat, playground.lng], {
             icon: L.divIcon({
@@ -313,7 +313,7 @@ function createMarker(playground) {
     // Bind popup and tooltip (works for both types)
     const coordinates = [playground.lng, playground.lat];
     marker.bindPopup(createPopupContent(playground, coordinates));
-    marker.bindTooltip(playground.Name || 'Unnamed Playground', {
+    marker.bindTooltip(playground.name || 'Unnamed Playground', {
         permanent: false,
         direction: 'top',
         offset: [0, -10],
@@ -337,7 +337,7 @@ function getPlaygroundCoordinates(playground) {
                 return { lat: geometry.coordinates[1], lng: geometry.coordinates[0] };
             }
         } catch (e) {
-            console.warn("Failed to parse geom for playground:", playground.Name || playground.Name);
+            console.warn("Failed to parse geom for playground:", playground.name || playground.name);
         }
     }
 
@@ -371,7 +371,7 @@ function addMarkersToMap() {
         const lng = playground.lng;
 
         if (lat == null || lng == null) {
-            console.error("Missing coordinates for playground:", playground.Name);
+            console.error("Missing coordinates for playground:", playground.name);
             failCount++;
             return;
         }
@@ -416,40 +416,40 @@ function createPopupContent(props, coordinates) {
 }
 
 function createPopupHeader(props) {
-    const linkIcon = props.Link ? '🔗' : '';
+    const linkIcon = props.link ? '🔗' : '';
     
     // Use props.lat and props.lng directly
     const mapsIcon = props.lat && props.lng ? 
         `<a href="https://www.google.com/maps?q=${props.lat},${props.lng}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; margin-left: 4px;">📍</a>` : 
         '';
     
-    const title = props.Link ? 
-        `<a href="${props.Link}" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">${props.Name} ${linkIcon}</a>` : 
-        props.Name;
+    const title = props.link ? 
+        `<a href="${props.link}" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">${props.name} ${linkIcon}</a>` : 
+        props.name;
         
     return `
         <div style="margin-bottom: 8px;">
             <h3 style="font-weight: bold; font-size: var(--font-size-lg); margin: 0;">${title}${mapsIcon}</h3>
-            <div style="font-style: italic; margin-top: 2px;">${props.Keywords || ''}</div>
+            <div style="font-style: italic; margin-top: 2px;">${props.keywords || ''}</div>
         </div>
     `;
 }
 
 function createPopupFooter(props, uniqueId) {
-    const photo = props.Photo ? `
+    const photo = props.photo ? `
         <div style="margin-bottom: 4px;">
             <img
-                src="${props.Photo}"
+                src="${props.photo}"
                 style="max-width: 100%; height: auto; border-radius: 4px; cursor: zoom-in;"
                 alt="Playground photo"
                 onclick="enlargePhoto(this)"
             >
         </div>` : '';
 
-    const comments = props.Comments ? `<div style="font-style: italic; margin-bottom: 8px;">${props.Comments}</div>` : '';
+    const comments = props.comments ? `<div style="font-style: italic; margin-bottom: 8px;">${props.comments}</div>` : '';
     
-    // Use the uniqueId parameter instead of props.fid
-    const playgroundId = uniqueId || props.fid || props.id;
+    // Use the uniqueId parameter instead of props.uid
+    const playgroundId = uniqueId || props.uid || props.id;
    
     return `
         <div style="margin-top: 12px; padding-top: 8px; border-top: 2px dotted var(--text-light);">
@@ -457,7 +457,7 @@ function createPopupFooter(props, uniqueId) {
             ${comments}
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="color: var(--text-tertiary);">
-                    Verified: ${props.Last_Visit_Date ? new Date(props.Last_Visit_Date).toLocaleDateString('en-GB') : 'Unknown'}, ${props.Verified || 'Unknown'}
+                    Verified: ${props.last_visit_date ? new Date(props.last_visit_date).toLocaleDateString('en-GB') : 'Unknown'}, ${props.verified || 'Unknown'}
                 </div>
                 <button onclick="editPlayground('${playgroundId}')"
                         style="background: var(--primary); border: none; border-radius: 4px; padding: 4px 12px; color: white; cursor: pointer; font-weight: 500;">
@@ -477,20 +477,20 @@ function generateCompactFeaturesList(props) {
     sections.push(createSeatingSection(props));
     
     const equipmentSections = createEquipmentSections(props);
-    const hasEquipment = equipmentSections.length > 0 || hasValue(props.Accessible);
+    const hasEquipment = equipmentSections.length > 0 || hasValue(props.accessible);
     
     if (sections.some(s => s) && hasEquipment) {
         sections.push('<div style="border-bottom: 2px dotted var(--text-light); margin-bottom: 8px;"></div>');
     }
     
-    if (hasValue(props.Accessible)) {
+    if (hasValue(props.accessible)) {
         sections.push('<div style="margin-bottom: 6px;">♿ Accessible Infrastructure</div>');
     }
     
     sections.push(equipmentSections.join(''));
     
     const activities = createActivitiesSection(props);
-    if ((hasEquipment || hasValue(props.Accessible)) && activities) {
+    if ((hasEquipment || hasValue(props.accessible)) && activities) {
         sections.push('<div style="border-bottom: 2px dotted var(--text-light); margin-bottom: 8px; margin-top: 8px;"></div>');
     }
     sections.push(activities);
@@ -500,9 +500,9 @@ function generateCompactFeaturesList(props) {
 
 function createFacilitiesSection(props) {
     const facilities = [];
-    if (hasValue(props.Toilet)) facilities.push('🚻 Toilets');
-    if (hasValue(props.BBQ)) facilities.push('🔥 BBQ');
-    if (hasValue(props.Bubbler)) facilities.push('💧 Bubbler');
+    if (hasValue(props.toilet)) facilities.push('🚻 Toilets');
+    if (hasValue(props.bbq)) facilities.push('🔥 BBQ');
+    if (hasValue(props.bubbler)) facilities.push('💧 Bubbler');
     
     return facilities.length > 0 ? `<div style="margin-bottom: 6px;">${facilities.join(', ')}</div>` : '';
 }
@@ -510,23 +510,23 @@ function createFacilitiesSection(props) {
 function createSecondaryFacilitiesSection(props) {
     const facilities = [];
     
-    if (hasValue(props.Fencing)) {
-        const fenceIcon = (props.Fencing === 'No Fence' || props.Fencing === 'Other') ? '🔓' : '🔒';
-        facilities.push(`${fenceIcon} ${props.Fencing}`);
+    if (hasValue(props.fencing)) {
+        const fenceIcon = (props.fencing === 'No Fence' || props.fencing === 'Other') ? '🔓' : '🔒';
+        facilities.push(`${fenceIcon} ${props.fencing}`);
     }
     
-    if (hasValue(props.Shade)) {
-        const shadeIcon = props.Shade === 'No Shade' ? '☀️' : '🌳';
-        facilities.push(`${shadeIcon} ${props.Shade}`);
+    if (hasValue(props.shade)) {
+        const shadeIcon = props.shade === 'No Shade' ? '☀️' : '🌳';
+        facilities.push(`${shadeIcon} ${props.shade}`);
     }
     
-    if (hasValue(props.Parking)) facilities.push(`🚗 ${props.Parking}`);
+    if (hasValue(props.parking)) facilities.push(`🚗 ${props.parking}`);
     
     return facilities.length > 0 ? `<div style="margin-bottom: 8px;">${facilities.join(', ')}</div>` : '';
 }
 
 function createSeatingSection(props) {
-    return hasValue(props.Seating) ? `<div style="margin-bottom: 8px;">🪑 ${props.Seating}</div>` : '';
+    return hasValue(props.seating) ? `<div style="margin-bottom: 8px;">🪑 ${props.seating}</div>` : '';
 }
 
 function createEquipmentSections(props) {
@@ -546,11 +546,11 @@ function createSwingsSection(props) {
     let totalSwings = 0;
     
     const swingTypes = [
-        { key: 'Baby_Swing', name: 'Baby' },
-        { key: 'Belt_Swing', name: 'Belt' },
-        { key: 'Basket_Swing', name: 'Basket' },
-        { key: 'Dual_Swing', name: 'Dual' },
-        { key: 'Hammock', name: 'Hammock' }
+        { key: 'baby_swing', name: 'Baby' },
+        { key: 'belt_swing', name: 'Belt' },
+        { key: 'basket_swing', name: 'Basket' },
+        { key: 'dual_swing', name: 'Dual' },
+        { key: 'hammock', name: 'Hammock' }
     ];
     
     let babySwings = 0;
@@ -559,7 +559,7 @@ function createSwingsSection(props) {
         if (count) {
             swings.push(name);
             totalSwings += count;
-            if (key === 'Baby_Swing') babySwings = count;
+            if (key === 'baby_swing') babySwings = count;
         }
     });
     
@@ -572,7 +572,7 @@ function createSwingsSection(props) {
     const swingEmojis = '👶'.repeat(babyEmojiCount) + '🤸‍♀️'.repeat(cartwheelEmojiCount);
     const swingDetails = swings.join(', ');
     
-    return createHoverableSection('Swings', props.fid, swingEmojis, swingDetails);
+    return createHoverableSection('Swings', props.uid, swingEmojis, swingDetails);
 }
 
 function createSlidesSection(props) {
@@ -580,11 +580,11 @@ function createSlidesSection(props) {
     let totalSlides = 0;
     
     const slideTypes = [
-        { key: 'Straight_Slide', name: 'Straight' },
-        { key: 'Spiral_Curved_Slide', name: 'Spiral/Curved' },
-        { key: 'Tube_Slide', name: 'Tube' },
-        { key: 'Double_Slide', name: 'Double' },
-        { key: 'Triple_Slide', name: 'Triple' }
+        { key: 'straight_slide', name: 'Straight' },
+        { key: 'spiral_slide', name: 'Spiral/Curved' },
+        { key: 'tube_slide', name: 'Tube' },
+        { key: 'double_slide', name: 'Double' },
+        { key: 'triple_slide', name: 'Triple' }
     ];
     
     slideTypes.forEach(({ key, name }) => {
@@ -601,7 +601,7 @@ function createSlidesSection(props) {
     const slideEmojis = '🛝'.repeat(maxEmojis);
     const slideDetails = slides.join(', ');
 
-    return createHoverableSection('Slides', props.fid, slideEmojis, slideDetails);
+    return createHoverableSection('Slides', props.uid, slideEmojis, slideDetails);
 }
 
 function createClimbingSection(props) {
@@ -609,13 +609,13 @@ function createClimbingSection(props) {
     let totalClimbing = 0;
     
     const climbingTypes = [
-        { key: 'Stairs', name: 'Stairs' },
-        { key: 'Metal_Ladder', name: 'Metal Ladder' },
-        { key: 'Rope_Ladder', name: 'Rope/Chain' },
-        { key: 'Rock_Climbing', name: 'Rock' },
-        { key: 'Monkey_Bars', name: 'Monkey Bars' },
-        { key: 'Rope_Gym', name: 'Rope Gym' },
-        { key: 'Other_Climbing', name: 'Other' }
+        { key: 'stairs', name: 'Stairs' },
+        { key: 'metal_ladder', name: 'Metal Ladder' },
+        { key: 'rope_ladder', name: 'Rope/Chain' },
+        { key: 'rock_climbing', name: 'Rock' },
+        { key: 'monkey_bars', name: 'Monkey Bars' },
+        { key: 'rope_gym', name: 'Rope Gym' },
+        { key: 'other_climbing', name: 'Other' }
     ];
     
     climbingTypes.forEach(({ key, name }) => {
@@ -631,7 +631,7 @@ function createClimbingSection(props) {
     const maxEmojis = Math.min(totalClimbing, 10);
     const climbingEmojis = '🧗'.repeat(maxEmojis);
     const climbingDetails = climbing.join(', ');
-    return createHoverableSection('Climbing', props.fid, climbingEmojis, climbingDetails);
+    return createHoverableSection('Climbing', props.uid, climbingEmojis, climbingDetails);
 }
 
 function createBalanceSection(props) {
@@ -639,13 +639,13 @@ function createBalanceSection(props) {
     let totalBalance = 0;
     
     const balanceTypes = [
-        { key: 'Spinning_Pole', name: 'Spinning Pole' },
-        { key: 'Spinning_Bucket', name: 'Spinning Bucket' },
-        { key: 'Merry_Go_Round', name: 'Merry Go Round' },
-        { key: 'Balance_Beam', name: 'Balance Beam' },
-        { key: 'Stepping_Stones', name: 'Stepping Stones' },
-        { key: 'Spring_Rocker', name: 'Spring Rocker' },
-        { key: 'Seesaw', name: 'Seesaw' }
+        { key: 'spinning_pole', name: 'Spinning Pole' },
+        { key: 'spinning_bucket', name: 'Spinning Bucket' },
+        { key: 'merry_go_round', name: 'Merry Go Round' },
+        { key: 'balance_beam', name: 'Balance Beam' },
+        { key: 'stepping_stones', name: 'Stepping Stones' },
+        { key: 'spring_rocker', name: 'Spring Rocker' },
+        { key: 'seesaw', name: 'Seesaw' }
     ];
     
     balanceTypes.forEach(({ key, name }) => {
@@ -661,7 +661,7 @@ function createBalanceSection(props) {
     const maxEmojis = Math.min(totalBalance, 10);
     const balanceEmojis = '⚖️'.repeat(maxEmojis);
     const balanceDetails = balance.join(', ');
-    return createHoverableSection('Balance', props.fid, balanceEmojis, balanceDetails);
+    return createHoverableSection('Balance', props.uid, balanceEmojis, balanceDetails);
 }
 
 function createOtherEquipmentSection(props) {
@@ -669,12 +669,12 @@ function createOtherEquipmentSection(props) {
     let totalOtherEquip = 0;
     
     const equipmentTypes = [
-        { key: 'Flying_Fox', name: 'Flying Fox', useHasValue: true },
-        { key: 'Firemans_Pole', name: 'Firemans Pole' },
-        { key: 'Bridge', name: 'Bridge' },
-        { key: 'Tunnel', name: 'Tunnel' },
-        { key: 'Trampoline', name: 'Trampoline' },
-        { key: 'Hamster_Roller_Wheel', name: 'Hamster or Roller Wheel' }
+        { key: 'flying_fox', name: 'Flying Fox', useHasValue: true },
+        { key: 'firemans_pole', name: 'Firemans Pole' },
+        { key: 'bridge', name: 'Bridge' },
+        { key: 'tunnel', name: 'Tunnel' },
+        { key: 'trampoline', name: 'Trampoline' },
+        { key: 'hamster_wheel', name: 'Hamster or Roller Wheel' }
     ];
     
     equipmentTypes.forEach(({ key, name, useHasValue }) => {
@@ -690,25 +690,25 @@ function createOtherEquipmentSection(props) {
     const maxEmojis = Math.min(totalOtherEquip, 10);
     const otherEquipEmojis = '🎠'.repeat(maxEmojis);
     const otherEquipDetails = otherEquip.join(', ');
-    return createHoverableSection('Other', props.fid, otherEquipEmojis, otherEquipDetails);
+    return createHoverableSection('Other', props.uid, otherEquipEmojis, otherEquipDetails);
 }
 
 function createActivitiesSection(props) {
     const activities = [];
     
     const activityTypes = [
-        { key: 'Musical_Play', emoji: '🎵', name: 'Musical Play' },
-        { key: 'Talking_Tube', emoji: '📞', name: 'Talking Tube' },
-        { key: 'Activity_Wall', emoji: '🧩', name: 'Activity Wall' },
-        { key: 'Sensory_Play', emoji: '🤏', name: 'Sensory Play' },
-        { key: 'Sandpit', emoji: '🏖️', name: 'Sandpit' },
-        { key: 'Water_Play', emoji: '💦', name: 'Water Play' },
-        { key: 'Basketball', emoji: '🏀', name: 'Basketball' },
-        { key: 'Tennis_Court', emoji: '🎾', name: 'Tennis' },
-        { key: 'Skate_Park', emoji: '🛹', name: 'Skate Park' },
-        { key: 'Scooter_Track', emoji: '🛴', name: 'Scooter Track' },
-        { key: 'Pump_Track', emoji: '🚂', name: 'Pump Track' },
-        { key: 'Cricket_Chute', emoji: '🏏', name: 'Cricket' }
+        { key: 'musical_play', emoji: '🎵', name: 'Musical Play' },
+        { key: 'talking_tube', emoji: '📞', name: 'Talking Tube' },
+        { key: 'activity_wall', emoji: '🧩', name: 'Activity Wall' },
+        { key: 'sensory_play', emoji: '🤏', name: 'Sensory Play' },
+        { key: 'sandpit', emoji: '🏖️', name: 'Sandpit' },
+        { key: 'water_play', emoji: '💦', name: 'Water Play' },
+        { key: 'basketball', emoji: '🏀', name: 'Basketball' },
+        { key: 'tennis_court', emoji: '🎾', name: 'Tennis' },
+        { key: 'skate_park', emoji: '🛹', name: 'Skate Park' },
+        { key: 'scooter_track', emoji: '🛴', name: 'Scooter Track' },
+        { key: 'pump_track', emoji: '🚂', name: 'Pump Track' },
+        { key: 'cricket_chute', emoji: '🏏', name: 'Cricket' }
     ];
     
     activityTypes.forEach(({ key, emoji, name }) => {
@@ -720,35 +720,35 @@ function createActivitiesSection(props) {
     return activities.length > 0 ? `<div style="margin-bottom: 6px;">${activities.join(', ')}</div>` : '';
 }
 
-function createHoverableSection(category, fid, emojis, details) {
+function createHoverableSection(category, uid, emojis, details) {
     const categoryLower = category.toLowerCase().replace(/\s+/g, '-');
     return `
         <div style="margin-bottom: 4px;">
-            <span id="${categoryLower}-word-${fid}" style="color: var(--text-primary) cursor: help;" 
-                onmouseenter="highlightSection('${categoryLower}', '${fid}')" 
-                onmouseleave="unhighlightSection('${categoryLower}', '${fid}')"
-                ontouchstart="highlightSection('${categoryLower}', '${fid}')" 
-                ontouchend="setTimeout(() => unhighlightSection('${categoryLower}', '${fid}'), 2000)">
+            <span id="${categoryLower}-word-${uid}" style="color: var(--text-primary) cursor: help;" 
+                onmouseenter="highlightSection('${categoryLower}', '${uid}')" 
+                onmouseleave="unhighlightSection('${categoryLower}', '${uid}')"
+                ontouchstart="highlightSection('${categoryLower}', '${uid}')" 
+                ontouchend="setTimeout(() => unhighlightSection('${categoryLower}', '${uid}'), 2000)">
                 ${category}
             </span> 
-            <span id="${categoryLower}-emoji-${fid}" style="cursor: help;"
-                onmouseenter="highlightSection('${categoryLower}', '${fid}')" 
-                onmouseleave="unhighlightSection('${categoryLower}', '${fid}')"
-                ontouchstart="highlightSection('${categoryLower}', '${fid}')" 
-                ontouchend="setTimeout(() => unhighlightSection('${categoryLower}', '${fid}'), 2000)">
+            <span id="${categoryLower}-emoji-${uid}" style="cursor: help;"
+                onmouseenter="highlightSection('${categoryLower}', '${uid}')" 
+                onmouseleave="unhighlightSection('${categoryLower}', '${uid}')"
+                ontouchstart="highlightSection('${categoryLower}', '${uid}')" 
+                ontouchend="setTimeout(() => unhighlightSection('${categoryLower}', '${uid}'), 2000)">
                 ${emojis}
             </span> 
-            <span id="${categoryLower}-details-${fid}" style="color: var(--primary); margin-left: 8px; display: none;">${details}</span>
+            <span id="${categoryLower}-details-${uid}" style="color: var(--primary); margin-left: 8px; display: none;">${details}</span>
         </div>
     `;
 }
 
 // ===== HOVER EFFECTS =====
-function highlightSection(category, fid) {
+function highlightSection(category, uid) {
     const elements = ['word', 'emoji'].map(type => 
-        document.getElementById(`${category}-${type}-${fid}`)
+        document.getElementById(`${category}-${type}-${uid}`)
     );
-    const detailsElement = document.getElementById(`${category}-details-${fid}`);
+    const detailsElement = document.getElementById(`${category}-details-${uid}`);
     
     elements.forEach(element => {
         if (element) {
@@ -763,11 +763,11 @@ function highlightSection(category, fid) {
     }
 }
 
-function unhighlightSection(category, fid) {
+function unhighlightSection(category, uid) {
     const elements = ['word', 'emoji'].map(type => 
-        document.getElementById(`${category}-${type}-${fid}`)
+        document.getElementById(`${category}-${type}-${uid}`)
     );
-    const detailsElement = document.getElementById(`${category}-details-${fid}`);
+    const detailsElement = document.getElementById(`${category}-details-${uid}`);
     
     elements.forEach(element => {
         if (element) {
@@ -924,10 +924,10 @@ function populateDropdowns(data) {
         return;
     }
 
-    const types = extractUniqueValues(data, 'Type');
-    const shade = extractUniqueValues(data, 'Shade');
-    const fencing = extractUniqueValues(data, 'Fencing');
-    const parking = extractUniqueValues(data, 'Parking');
+    const types = extractUniqueValues(data, 'type');
+    const shade = extractUniqueValues(data, 'shade');
+    const fencing = extractUniqueValues(data, 'fencing');
+    const parking = extractUniqueValues(data, 'parking');
 
     // Sort playground type with custom order
     const typesSorted = sortWithCustomOrder(types, [
@@ -1169,19 +1169,19 @@ function getActiveFilters() {
 
 function shouldShowPlayground(playground, filters) {
     // Facility filters
-    if (filters.hasTrampoline && Number(playground.Trampoline) <= 0) return false;
-    if (filters.hasSkatePark && playground.Skate_Park !== true) return false;
-    if (filters.hasLargeFlyingFox && playground.Flying_Fox !== 'Large') return false;
-    if (filters.hasSandpit && playground.Sandpit !== true) return false;
-    if (filters.hasScootTrack && playground.Scooter_Track !== true) return false;
-    if (filters.hasWaterPlay && playground.Water_Play !== true) return false;
-    if (filters.hasAccessibleFeatures && playground.Accessible !== true) return false;
-    if (filters.hasToilet && playground.Toilet !== true) return false;
-    if (filters.hasBBQ && playground.BBQ !== true) return false;
-    if (filters.hasBubbler && playground.Bubbler !== true) return false;
+    if (filters.hasTrampoline && Number(playground.trampoline) <= 0) return false;
+    if (filters.hasSkatePark && playground.skate_park !== true) return false;
+    if (filters.hasLargeFlyingFox && playground.flying_fox !== 'Large') return false;
+    if (filters.hasSandpit && playground.sandpit !== true) return false;
+    if (filters.hasScootTrack && playground.scooter_track !== true) return false;
+    if (filters.hasWaterPlay && playground.water_play !== true) return false;
+    if (filters.hasAccessibleFeatures && playground.accessible !== true) return false;
+    if (filters.hasToilet && playground.toilet !== true) return false;
+    if (filters.hasBBQ && playground.bbq !== true) return false;
+    if (filters.hasBubbler && playground.bubbler !== true) return false;
     
     // Size filter using slider - determine classification: use Classification field, or 'Unverified' if null
-    let classification = playground.Classification;
+    let classification = playground.classification;
     if (!classification || classification === null) {
         classification = 'Unverified';
     }
@@ -1189,12 +1189,12 @@ function shouldShowPlayground(playground, filters) {
     if (!isSizeIncluded(classification)) return false;
     
     // Location filters
-    if (filters.selectedSuburbs.length > 0 && !filters.selectedSuburbs.includes(playground.Suburb)) return false;
-    if (filters.selectedLGAs.length > 0 && !filters.selectedLGAs.includes(playground.LGA)) return false;
-    if (filters.selectedTypes.length > 0 && !filters.selectedTypes.includes(playground.Type)) return false;
-    if (filters.selectedShade.length > 0 && !filters.selectedShade.includes(playground.Shade)) return false;
-    if (filters.selectedFencing.length > 0 && !filters.selectedFencing.includes(playground.Fencing)) return false;
-    if (filters.selectedParking.length > 0 && !filters.selectedParking.includes(playground.Parking)) return false;
+    if (filters.selectedSuburbs.length > 0 && !filters.selectedSuburbs.includes(playground.suburb)) return false;
+    if (filters.selectedLGAs.length > 0 && !filters.selectedLGAs.includes(playground.lga)) return false;
+    if (filters.selectedTypes.length > 0 && !filters.selectedTypes.includes(playground.type)) return false;
+    if (filters.selectedShade.length > 0 && !filters.selectedShade.includes(playground.shade)) return false;
+    if (filters.selectedFencing.length > 0 && !filters.selectedFencing.includes(playground.fencing)) return false;
+    if (filters.selectedParking.length > 0 && !filters.selectedParking.includes(playground.parking)) return false;
     
     // Keyword filter
     if (!playgroundMatchesKeywords(playground)) return false;
@@ -1329,7 +1329,7 @@ function updateSelectedItemsDisplay(selectedItemsArray, itemType) {
 }
 
 function initializeSuburbSearch() {
-    allSuburbs = extractUniqueValues(playgroundData, 'Suburb'); // Changed from extractUniqueValuesForSearch
+    allSuburbs = extractUniqueValues(playgroundData, 'suburb'); // Changed from extractUniqueValuesForSearch
     initializeMultiSelectSearch('suburbSearchInput', 'suburbDropdown', allSuburbs, selectedSuburbs, 'suburb');
 }
 
@@ -1338,7 +1338,7 @@ function clearAllSuburbs() {
 }
 
 function initializeLGASearch() {
-    allLGAs = extractUniqueValues(playgroundData, 'LGA'); // Changed from extractUniqueValuesForSearch
+    allLGAs = extractUniqueValues(playgroundData, 'lga'); // Changed from extractUniqueValuesForSearch
     initializeMultiSelectSearch('lgaSearchInput', 'lgaDropdown', allLGAs, selectedLGAs, 'lga');
 }
 
@@ -1355,7 +1355,7 @@ function extractAllKeywords(data) {
     if (!data || data.length === 0) return [];
     
     data.forEach(playground => {
-        const keywords = playground.Keywords;
+        const keywords = playground.keywords;
         if (keywords && keywords.trim() !== '') {
             keywords.split(',').forEach(keyword => {
                 const trimmed = keyword.trim();
@@ -1383,7 +1383,7 @@ function clearAllKeywords() {
 function playgroundMatchesKeywords(playground) {
     if (selectedKeywords.length === 0) return true;
     
-    const playgroundKeywords = playground.Keywords;
+    const playgroundKeywords = playground.keywords;
     if (!playgroundKeywords || playgroundKeywords.trim() === '') return false;
     
     const playgroundKeywordList = playgroundKeywords
@@ -1529,12 +1529,12 @@ function populateEditFormDropdowns() {
     }
 
     // Extract unique values from the database
-    const types = extractUniqueValues(playgroundData, 'Type');
-    const shadeOptions = extractUniqueValues(playgroundData, 'Shade');
-    const fencingOptions = extractUniqueValues(playgroundData, 'Fencing');
-    const parkingOptions = extractUniqueValues(playgroundData, 'Parking');
-    const seatingOptions = extractUniqueValues(playgroundData, 'Seating');
-    const floorOptions = extractUniqueValues(playgroundData, 'Floor');
+    const types = extractUniqueValues(playgroundData, 'type');
+    const shadeOptions = extractUniqueValues(playgroundData, 'shade');
+    const fencingOptions = extractUniqueValues(playgroundData, 'fencing');
+    const parkingOptions = extractUniqueValues(playgroundData, 'parking');
+    const seatingOptions = extractUniqueValues(playgroundData, 'seating');
+    const floorOptions = extractUniqueValues(playgroundData, 'floor');
 
     // Sort with custom order (optional)
     const typesSorted = sortWithCustomOrder(types, [
@@ -1620,7 +1620,7 @@ function editPlayground(uniqueId) {
     const normalizedId = uniqueId ? uniqueId.toString().trim() : null;
     const playgroundData = playgroundLookup[normalizedId];
     
-    currentEditingPlayground = { fid: normalizedId, data: playgroundData };
+    currentEditingPlayground = { uid: normalizedId, data: playgroundData };
     
     const modal = document.getElementById('editModal');
 
@@ -1632,97 +1632,61 @@ function editPlayground(uniqueId) {
 
 // populateEditForm to work with dropdowns
 function populateEditForm(playgroundData) {
-    console.log("Populating form with data:", playgroundData); // Debug log
+    console.log("Populating form with data:", playgroundData);
     
-    // Text inputs
-    const textFields = [
-        'name', 'keywords', 'comments', 'link'
-    ];
+    // Text inputs - direct mapping
+    const textFields = ['name', 'keywords', 'comments', 'link'];
     
     textFields.forEach(field => {
         const element = document.getElementById(`edit-${field}`);
-        const key = field.charAt(0).toUpperCase() + field.slice(1);
-        if (element) element.value = playgroundData[key] || '';
+        if (element) element.value = playgroundData[field] || '';
     });
     
-    // Dropdown fields (select elements)
-    const dropdownFields = [
-        'type', 'shade', 'parking', 'fencing', 'seating', 'floor'
-    ];
+    // Dropdown fields - direct mapping
+    const dropdownFields = ['type', 'shade', 'parking', 'fencing', 'seating', 'floor'];
     
     dropdownFields.forEach(field => {
         const element = document.getElementById(`edit-${field}`);
-        const key = field.charAt(0).toUpperCase() + field.slice(1);
-        if (element) element.value = playgroundData[key] || '';
+        if (element) element.value = playgroundData[field] || '';
     });
     
-    // Checkboxes - FIXED: Direct mapping to match your database field names
-    const checkboxFieldMapping = {
-        'toilet': 'Toilet',
-        'bbq': 'BBQ',
-        'bubbler': 'Bubbler',
-        'accessible': 'Accessible',
-        'basketball': 'Basketball',
-        'skate-park': 'Skate_Park',
-        'scooter-track': 'Scooter_Track',
-        'cricket-chute': 'Cricket_Chute',
-        'tennis-court': 'Tennis_Court',
-        'pump_track': 'Pump_Track',
-        'activity-wall': 'Activity_Wall',
-        'talking-tube': 'Talking_Tube',
-        'musical-play': 'Musical_Play',
-        'sensory-play': 'Sensory_Play',
-        'sandpit': 'Sandpit',
-        'water-play': 'Water_Play',
-        'rope-gym': 'Rope_Gym'
-    };
+    // Checkboxes - direct mapping
+    const checkboxFields = [
+        'toilet', 'bbq', 'bubbler', 'accessible', 'basketball', 
+        'skate_park', 'scooter_track', 'cricket_chute', 'tennis_court', 
+        'pump_track', 'activity_wall', 'talking_tube', 'musical_play', 
+        'sensory_play', 'sandpit', 'water_play'
+    ];
     
-    Object.entries(checkboxFieldMapping).forEach(([fieldId, dbKey]) => {
-        const element = document.getElementById(`edit-${fieldId}`);
+    checkboxFields.forEach(field => {
+        const element = document.getElementById(`edit-${field}`);
         if (element) {
-            const value = playgroundData[dbKey];
-            element.checked = value === true || value === 'Yes';
-            console.log(`${fieldId}: DB key = ${dbKey}, Value = ${value}, Checked = ${element.checked}`); // Debug log
+            element.checked = playgroundData[field] === true;
+            console.log(`${field}: Value = ${playgroundData[field]}, Checked = ${element.checked}`);
         }
     });
     
-    // Number inputs - FIXED: Direct mapping to match your database field names
-    const numberFieldMapping = {
-        'baby-swing': 'Baby_Swing',
-        'belt-swing': 'Belt_Swing',
-        'basket-swing': 'Basket_Swing',
-        'dual-swing': 'Dual_Swing',
-        'hammock': 'Hammock',
-        'double-slide': 'Double_Slide',
-        'straight-slide': 'Straight_Slide',
-        'tube-slide': 'Tube_Slide',
-        'spiral-slide': 'Spiral_Curved_Slide',
-        'stairs-climbing': 'Stairs',
-        'metal-climbing': 'Metal_Ladder',
-        'rope-climbing': 'Rope_Ladder',
-        'rock-climbing': 'Rock_Climbing',
-        'monkey-climbing': 'Monkey_Bars',
-        'other-climbing': 'Other_Climbing',
-        'spinning-pole': 'Spinning_Pole',
-        'spinning-bucket': 'Spinning_Bucket',
-        'merry-go-round': 'Merry_Go_Round',
-        'balance-beam': 'Balance_Beam',
-        'stepping-stones': 'Stepping_Stones',
-        'spring-rocker': 'Spring_Rocker',
-        'seesaw': 'Seesaw',
-        'bridge': 'Bridge',
-        'tunnel': 'Tunnel',
-        'trampoline': 'Trampoline',
-        'firemans-pole': 'Firemans_Pole',
-        'hamster-roller-wheel': 'Hamster_Roller_Wheel'
-    };
+    // Number inputs - direct mapping (all fields now match!)
+    const numberFields = [
+        // Swings
+        'baby_swing', 'belt_swing', 'basket_swing', 'dual_swing', 'hammock',
+        // Slides
+        'straight_slide', 'spiral_slide', 'tube_slide', 'double_slide', 'triple_slide',
+        // Climbing (now all match DB fields!)
+        'stairs', 'metal_ladder', 'rope_ladder', 'rock_climbing', 
+        'monkey_bars', 'other_climbing', 'rope_gym',
+        // Balance
+        'spinning_pole', 'spinning_bucket', 'merry_go_round', 'balance_beam', 
+        'stepping_stones', 'spring_rocker', 'seesaw',
+        // Other
+        'bridge', 'tunnel', 'trampoline', 'firemans_pole', 'hamster_wheel'
+    ];
     
-    Object.entries(numberFieldMapping).forEach(([fieldId, dbKey]) => {
-        const element = document.getElementById(`edit-${fieldId}`);
+    numberFields.forEach(field => {
+        const element = document.getElementById(`edit-${field}`);
         if (element) {
-            const value = playgroundData[dbKey];
-            element.value = value || '';
-            console.log(`${fieldId}: DB key = ${dbKey}, Value = ${value}`); // Debug log
+            element.value = playgroundData[field] || '';
+            console.log(`${field}: Value = ${playgroundData[field]}`);
         }
     });
 }
@@ -1746,12 +1710,6 @@ function setupModalEventListeners() {
 
 
 // ===== SUBMIT EDIT TO SUPABASE STAGING =====
-
-// Updated setupFormSubmission to save to Supabase
-
-// Updated setupFormSubmission to save to Supabase
-// ===== SUBMIT EDIT TO SUPABASE STAGING =====
-
 // Updated setupFormSubmission to save to Supabase
 function setupFormSubmission() {
     const form = document.getElementById('editForm');
@@ -1799,7 +1757,7 @@ async function submitEditToSupabase(formData) {
         
         // Prepare data for staging table - matching your actual schema
         const editSuggestion = {
-            fid: formData.playgroundId, // Keep original playground fid
+            uid: formData.playgroundId, // Keep original playground uid
             submitted_at: new Date().toISOString(),
             submitted_by_email: formData.email || 'anonymous@playground.com',
             status: 'pending', // pending, approved, rejected
@@ -1843,12 +1801,12 @@ async function submitEditToSupabase(formData) {
             triple_slide: parseInt(formData.tripleSlide) || null,
             straight_slide: parseInt(formData.straightSlide) || null,
             tube_slide: parseInt(formData.tubeSlide) || null,
-            spiral_curved_slide: parseInt(formData.spiralSlide) || null,
-            stairs: parseInt(formData.stairsClimbing) || null,
-            metal_ladder: parseInt(formData.metalClimbing) || null,
-            rope_ladder: parseInt(formData.ropeClimbing) || null,
+            spiral_slide: parseInt(formData.spiralSlide) || null,
+            stairs: parseInt(formData.stairs) || null,
+            metal_ladder: parseInt(formData.metalLadder) || null,
+            rope_ladder: parseInt(formData.ropeLadder) || null,
             rock_climbing: parseInt(formData.rockClimbing) || null,
-            monkey_bars: parseInt(formData.monkeyClimbing) || null,
+            monkey_bars: parseInt(formData.monkeyBars) || null,
             other_climbing: parseInt(formData.otherClimbing) || null,
             rope_gym: parseInt(formData.ropeGym) || null,
             spinning_pole: parseInt(formData.spinningPole) || null,
@@ -1862,14 +1820,11 @@ async function submitEditToSupabase(formData) {
             tunnel: parseInt(formData.tunnel) || null,
             trampoline: parseInt(formData.trampoline) || null,
             firemans_pole: parseInt(formData.firemansPole) || null,
-            hamster_roller_wheel: parseInt(formData.hamsterRollerWheel) || null,
+            hamster_wheel: parseInt(formData.hamsterWheel) || null,
             
             // Media
             photo: formData.photo || null,
             link: formData.link || null,
-            
-            // Additional comments
-            additional_comments: formData.additionalComments || null
         };
 
         // Calculate what changed
@@ -1877,7 +1832,7 @@ async function submitEditToSupabase(formData) {
 
         // Insert into staging table
         const { data, error } = await supabase
-            .from('playground_edit_suggestions')
+            .from('playgrounds_edit_suggestions')
             .insert([editSuggestion])
             .select();
 
@@ -1899,71 +1854,11 @@ async function submitEditToSupabase(formData) {
     }
 }
 
-// Compare original and edited playground data
+// Compare original and edited playground data - SIMPLIFIED
 function comparePlaygroundData(original, edited) {
     const changes = [];
     
-    // Field mapping: edited field name -> original field name (capitalized in database)
-    const fieldMapping = {
-        name: 'Name',
-        type: 'Type',
-        keywords: 'Keywords',
-        comments: 'Comments',
-        shade: 'Shade',
-        parking: 'Parking',
-        fencing: 'Fencing',
-        seating: 'Seating',
-        floor: 'Floor',
-        toilet: 'Toilet',
-        bbq: 'BBQ',
-        bubbler: 'Bubbler',
-        accessible: 'Accessible',
-        basketball: 'Basketball',
-        pump_track: 'Pump_Track',
-        scooter_track: 'Scooter_Track',
-        cricket_chute: 'Cricket_Chute',
-        tennis_court: 'Tennis_Court',
-        skate_park: 'Skate_Park',
-        activity_wall: 'Activity_Wall',
-        talking_tube: 'Talking_Tube',
-        musical_play: 'Musical_Play',
-        sensory_play: 'Sensory_Play',
-        sandpit: 'Sandpit',
-        water_play: 'Water_Play',
-        baby_swing: 'Baby_Swing',
-        belt_swing: 'Belt_Swing',
-        basket_swing: 'Basket_Swing',
-        dual_swing: 'Dual_Swing',
-        hammock: 'Hammock',
-        double_slide: 'Double_Slide',
-        triple_slide: 'Triple_Slide',
-        straight_slide: 'Straight_Slide',
-        tube_slide: 'Tube_Slide',
-        spiral_curved_slide: 'Spiral_Curved_Slide',
-        stairs: 'Stairs',
-        metal_ladder: 'Metal_Ladder',
-        rope_ladder: 'Rope_Ladder',
-        rock_climbing: 'Rock_Climbing',
-        monkey_bars: 'Monkey_Bars',
-        other_climbing: 'Other_Climbing',
-        rope_gym: 'Rope_Gym',
-        spinning_pole: 'Spinning_Pole',
-        spinning_bucket: 'Spinning_Bucket',
-        merry_go_round: 'Merry_Go_Round',
-        balance_beam: 'Balance_Beam',
-        stepping_stones: 'Stepping_Stones',
-        spring_rocker: 'Spring_Rocker',
-        seesaw: 'Seesaw',
-        bridge: 'Bridge',
-        tunnel: 'Tunnel',
-        trampoline: 'Trampoline',
-        firemans_pole: 'Firemans_Pole',
-        hamster_roller_wheel: 'Hamster_Roller_Wheel',
-        photo: 'Photo',
-        link: 'Link'
-    };
-    
-    // Display names for the email
+    // Display names for the email (human-readable versions)
     const displayNames = {
         name: 'Name',
         type: 'Type',
@@ -1999,7 +1894,7 @@ function comparePlaygroundData(original, edited) {
         triple_slide: 'Triple Slides',
         straight_slide: 'Straight Slides',
         tube_slide: 'Tube Slides',
-        spiral_curved_slide: 'Spiral Slides',
+        spiral_slide: 'Spiral Slides',
         stairs: 'Stairs',
         metal_ladder: 'Metal Ladders',
         rope_ladder: 'Rope Ladders',
@@ -2018,15 +1913,15 @@ function comparePlaygroundData(original, edited) {
         tunnel: 'Tunnels',
         trampoline: 'Trampolines',
         firemans_pole: 'Firemans Poles',
-        hamster_roller_wheel: 'Hamster Roller Wheels',
+        hamster_wheel: 'Hamster Roller Wheels',
         photo: 'Photo',
         link: 'Link'
     };
     
-    // Compare each field
-    for (const [editedKey, originalKey] of Object.entries(fieldMapping)) {
-        const originalValue = original[originalKey];
-        const editedValue = edited[editedKey];
+    // Compare each field - now both objects use the same field names!
+    for (const field of Object.keys(displayNames)) {
+        const originalValue = original[field];
+        const editedValue = edited[field];
         
         // Normalize values for comparison
         const normalizedOriginal = normalizeValue(originalValue);
@@ -2035,23 +1930,39 @@ function comparePlaygroundData(original, edited) {
         // Check if values are different
         if (normalizedOriginal !== normalizedEdited) {
             changes.push({
-                field: displayNames[editedKey],
+                field: displayNames[field],
                 oldValue: formatValue(originalValue),
                 newValue: formatValue(editedValue)
             });
         }
     }
     
-    // Always include additional comments if provided
-    if (edited.additional_comments) {
-        changes.push({
-            field: 'Additional Comments',
-            oldValue: '',
-            newValue: edited.additional_comments
-        });
-    }
-    
     return changes;
+}
+
+// Normalize values for comparison (handle null, undefined, empty strings, 0)
+function normalizeValue(value) {
+    if (value === null || value === undefined || value === '' || value === 0) {
+        return null;
+    }
+    if (typeof value === 'boolean') {
+        return value;
+    }
+    if (typeof value === 'string') {
+        return value.trim().toLowerCase();
+    }
+    return value;
+}
+
+// Format value for display in email
+function formatValue(value) {
+    if (value === null || value === undefined || value === '') {
+        return '<em>empty</em>';
+    }
+    if (typeof value === 'boolean') {
+        return value ? 'Yes' : 'No';
+    }
+    return String(value);
 }
 
 // Normalize values for comparison (handle null, undefined, empty strings, 0)
@@ -2085,7 +1996,7 @@ async function sendEmailNotification(editData, changes) {
         // Call your Supabase Edge Function to send email
         const { data, error } = await supabase.functions.invoke('email-notification-edit', {
             body: {
-                playgroundFid: editData.fid,
+                playgrounduid: editData.uid,
                 playgroundName: editData.name,
                 submittedBy: editData.submitted_by_email,
                 submittedAt: editData.submitted_at,
@@ -2112,7 +2023,7 @@ function collectFormData() {
     const getChecked = (id) => document.getElementById(id)?.checked || false;
     
     return {
-        playgroundId: currentEditingPlayground.fid,
+        playgroundId: currentEditingPlayground.uid,
         // Basic info
         name: getValue('edit-name'),
         type: getValue('edit-type'),
@@ -2130,50 +2041,49 @@ function collectFormData() {
         accessible: getChecked('edit-accessible'),
         // Activities
         basketball: getChecked('edit-basketball'),
-        skatePark: getChecked('edit-skate-park'),
+        skatePark: getChecked('edit-skate_park'),
         pumpTrack: getChecked('edit-pump_track'),
-        scooterTrack: getChecked('edit-scooter-track'),
-        cricketChute: getChecked('edit-cricket-chute'),
-        tennisCourt: getChecked('edit-tennis-court'),
-        activityWall: getChecked('edit-activity-wall'),
-        talkingTube: getChecked('edit-talking-tube'),
-        musicalPlay: getChecked('edit-musical-play'),
-        sensoryPlay: getChecked('edit-sensory-play'),
+        scooterTrack: getChecked('edit-scooter_track'),
+        cricketChute: getChecked('edit-cricket_chute'),
+        tennisCourt: getChecked('edit-tennis_court'),
+        activityWall: getChecked('edit-activity_wall'),
+        talkingTube: getChecked('edit-talking_tube'),
+        musicalPlay: getChecked('edit-musical_play'),
+        sensoryPlay: getChecked('edit-sensory_play'),
         sandpit: getChecked('edit-sandpit'),
-        waterPlay: getChecked('edit-water-play'),
-        ropeGym: getChecked('edit-rope-gym'),
+        waterPlay: getChecked('edit-water_play'),
+        ropeGym: getChecked('edit-rope_gym'),
         // Equipment counts
-        babySwing: getValue('edit-baby-swing'),
-        beltSwing: getValue('edit-belt-swing'),
-        basketSwing: getValue('edit-basket-swing'),
-        dualSwing: getValue('edit-dual-swing'),
+        babySwing: getValue('edit-baby_swing'),
+        beltSwing: getValue('edit-belt_swing'),
+        basketSwing: getValue('edit-basket_swing'),
+        dualSwing: getValue('edit-dual_swing'),
         hammock: getValue('edit-hammock'),
-        doubleSlide: getValue('edit-double-slide'),
-        straightSlide: getValue('edit-straight-slide'),
-        tubeSlide: getValue('edit-tube-slide'),
-        spiralSlide: getValue('edit-spiral-slide'),
-        stairsClimbing: getValue('edit-stairs-climbing'),
-        metalClimbing: getValue('edit-metal-climbing'),
-        ropeClimbing: getValue('edit-rope-climbing'),
-        rockClimbing: getValue('edit-rock-climbing'),
-        monkeyClimbing: getValue('edit-monkey-climbing'),
-        otherClimbing: getValue('edit-other-climbing'),
-        spinningPole: getValue('edit-spinning-pole'),
-        spinningBucket: getValue('edit-spinning-bucket'),
-        merryGoRound: getValue('edit-merry-go-round'),
-        balanceBeam: getValue('edit-balance-beam'),
-        steppingStones: getValue('edit-stepping-stones'),
-        springRocker: getValue('edit-spring-rocker'),
+        doubleSlide: getValue('edit-double_slide'),
+        straightSlide: getValue('edit-straight_slide'),
+        tubeSlide: getValue('edit-tube_slide'),
+        spiralSlide: getValue('edit-spiral_slide'),
+        stairs: getValue('edit-stairs'),
+        metalLadder: getValue('edit-metal_ladder'),
+        ropeLadder: getValue('edit-rope_ladder'),
+        rockClimbing: getValue('edit-rock_climbing'),
+        monkeyBars: getValue('edit-monkey_bars'),
+        otherClimbing: getValue('edit-other_climbing'),
+        spinningPole: getValue('edit-spinning_pole'),
+        spinningBucket: getValue('edit-spinning_bucket'),
+        merryGoRound: getValue('edit-merry_go_round'),
+        balanceBeam: getValue('edit-balance_beam'),
+        steppingStones: getValue('edit-stepping_stones'),
+        springRocker: getValue('edit-spring_rocker'),
         seesaw: getValue('edit-seesaw'),
         bridge: getValue('edit-bridge'),
         tunnel: getValue('edit-tunnel'),
         trampoline: getValue('edit-trampoline'),
-        firemansPole: getValue('edit-firemans-pole'),
-        hamsterRollerWheel: getValue('edit-hamster-roller-wheel'),
+        firemansPole: getValue('edit-firemans_pole'),
+        hamsterWheel: getValue('edit-hamster_wheel'),
         // Media and contact
         photo: getValue('edit-photo'),
         link: getValue('edit-link'),
-        additionalComments: getValue('edit-additional-comments'),
         email: getValue('edit-email')
     };
 }
@@ -2356,7 +2266,7 @@ function handleSuggestions() {
     }
 
     const matches = playgroundData
-        .filter(pg => pg.Name && pg.Name.toLowerCase().includes(query))
+        .filter(pg => pg.name && pg.name.toLowerCase().includes(query))
         .slice(0, 6); // limit to 6 suggestions
 
     if (matches.length === 0) {
@@ -2367,15 +2277,15 @@ function handleSuggestions() {
     matches.forEach(match => {
         const suggestionItem = document.createElement('div');
         suggestionItem.className = 'dropdown-option';
-        suggestionItem.textContent = match.Name;
+        suggestionItem.textContent = match.name;
 
         suggestionItem.addEventListener('click', () => {
-            searchInput.value = match.Name;
+            searchInput.value = match.name;
             suggestionsContainer.innerHTML = '';
             suggestionsContainer.style.display = 'none';
             // Pan to playground
             map.setView([match.lat, match.lng], 16);
-            addSearchResultMarker(match.lat, match.lng, match.Name, true);
+            addSearchResultMarker(match.lat, match.lng, match.name, true);
         });
 
         suggestionsContainer.appendChild(suggestionItem);
@@ -2448,7 +2358,7 @@ function searchPlaygrounds(query) {
     const lowerQuery = query.toLowerCase();
     
     const match = playgroundData.find(playground => {
-        const name = playground.Name;
+        const name = playground.name;
         return name && name.toLowerCase().includes(lowerQuery);
     });
     
