@@ -1696,9 +1696,14 @@ function setupModalEventListeners() {
     const closeBtn = document.getElementById('closeModalBtn');
     
     if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
+        closeBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent any default behavior
+            e.stopPropagation(); // Stop event from bubbling
             modal.style.display = 'none';
+            console.log('Close button clicked'); // Debug log
         });
+    } else {
+        console.log('Close button not found!'); // Debug log
     }
     
     window.addEventListener('click', (event) => {
@@ -1707,7 +1712,6 @@ function setupModalEventListeners() {
         }
     });
 }
-
 
 // ===== SUBMIT EDIT TO SUPABASE STAGING =====
 // Updated setupFormSubmission to save to Supabase
@@ -2124,6 +2128,33 @@ function showSuccessMessage() {
     }, 3000);
 }
 
+function setupDrawerHandleText() {
+    const drawer = document.querySelector('.w-80.bg-white.shadow-lg');
+    const drawerHandleText = document.querySelector('.drawer-handle-text');
+    const playgroundCountMobile = document.getElementById('playgroundCountMobile');
+    
+    if (!drawer || !drawerHandleText) return;
+    
+    // Function to update text based on drawer state
+    function updateDrawerText() {
+        const isFullyExpanded = drawer.classList.contains('drawer-full');
+        const playgroundCount = playgroundCountMobile ? playgroundCountMobile.textContent : '33 playgrounds';
+        
+        if (isFullyExpanded) {
+            drawerHandleText.innerHTML = `<span class="playgroundCount">${playgroundCount}</span> • Tap to minimise`;
+        } else {
+            drawerHandleText.innerHTML = `<span class="playgroundCount">${playgroundCount}</span> • Tap to expand`;
+        }
+    }
+    
+    // Call initially
+    updateDrawerText();
+    
+    // Update text whenever drawer state changes
+    const observer = new MutationObserver(updateDrawerText);
+    observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
+}
+
 // ===== UI HELPER FUNCTIONS =====
 function toggleFooter() {
     const footer = document.getElementById('footer');
@@ -2182,6 +2213,9 @@ function setupEventListeners() {
     // Modal and form setup
     setupModalEventListeners();
     setupFormSubmission();
+
+    // Drawer handle text
+    setupDrawerHandleText();
 }
 
 function handleOutsideClick(event) {
