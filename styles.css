@@ -1043,6 +1043,135 @@ label,
 }
 
 
+/* Add New Playground Button */
+.add-new-playground-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--gradient-primary); /* Changed to match your purple gradient */
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-bottom: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.add-new-playground-btn:hover {
+  background: var(--gradient-contrast-dark); /* Changed to your teal gradient */
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(56, 134, 151, 0.3); /* Teal shadow */
+}
+
+.add-new-playground-btn:active {
+  transform: translateY(0);
+}
+
+.add-new-playground-btn.active {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); /* Keep red for "cancel" state */
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+/* Map click mode cursor */
+.map-click-mode {
+  cursor: crosshair !important;
+}
+
+.map-click-mode * {
+  cursor: crosshair !important;
+}
+
+/* Temporary location marker */
+.temp-location-marker {
+  font-size: 32px;
+  animation: bounce 0.5s ease;
+}
+
+.temp-location-marker-container {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Notification styles */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+}
+
+.notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-md) var(--space-xl);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 10000;
+  font-weight: 500;
+  font-size: var(--font-size-sm);
+  animation: fadeIn 0.3s ease;
+  max-width: 90vw;
+  text-align: center;
+}
+
+.notification-success {
+  background: var(--contrast-medium);
+  color: var(--contrast-dark);
+  border: 2px solid var(--contrast-dark);
+}
+
+.notification-error {
+  background: #fecaca;
+  color: #dc2626;
+  border: 2px solid #dc2626;
+}
+
+.notification-info {
+  background: var(--supplementary);
+  color: var(--primary);
+  border: 2px solid var(--primary);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .add-new-playground-btn {
+    font-size: var(--font-size-sm);
+    padding: var(--space-md);
+  }
+  
+  .notification {
+    top: 80px;
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--font-size-xs);
+    max-width: calc(100vw - 40px);
+  }
+}
+
+
 /* ===== DESKTOP SIDEBAR COLLAPSE ===== */
 @media (min-width: 769px) {
   /* Main container */

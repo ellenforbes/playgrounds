@@ -1697,21 +1697,224 @@ function setupModalEventListeners() {
     
     if (closeBtn) {
         closeBtn.addEventListener('click', (e) => {
-            e.preventDefault(); // Prevent any default behavior
-            e.stopPropagation(); // Stop event from bubbling
+            e.preventDefault();
+            e.stopPropagation();
             modal.style.display = 'none';
-            console.log('Close button clicked'); // Debug log
+            
+            // Reset modal header
+            const modalHeader = modal.querySelector('.modal-header h2');
+            const modalDescription = modal.querySelector('.modal-header p');
+            if (modalHeader) modalHeader.textContent = 'Suggest Edit';
+            if (modalDescription) modalDescription.textContent = 'Help keep playground info up to date';
+            
+            // Remove temp marker if exists
+            if (tempLocationMarker) {
+                map.removeLayer(tempLocationMarker);
+                tempLocationMarker = null;
+            }
+            
+            console.log('Close button clicked');
         });
-    } else {
-        console.log('Close button not found!'); // Debug log
     }
     
     window.addEventListener('click', (event) => {
         if (event.target === modal) {
             modal.style.display = 'none';
+            
+            // Reset modal header
+            const modalHeader = modal.querySelector('.modal-header h2');
+            const modalDescription = modal.querySelector('.modal-header p');
+            if (modalHeader) modalHeader.textContent = 'Suggest Edit';
+            if (modalDescription) modalDescription.textContent = 'Help keep playground info up to date';
+            
+            // Remove temp marker if exists
+            if (tempLocationMarker) {
+                map.removeLayer(tempLocationMarker);
+                tempLocationMarker = null;
+            }
         }
     });
 }
+
+// ===== ADD NEW PLAYGROUND FUNCTIONALITY =====
+let isSelectingLocation = false;
+let tempLocationMarker = null;
+let newPlaygroundCoords = null;
+
+function initializeAddNewPlayground() {
+    const addBtn = document.getElementById('addNewPlaygroundBtn');
+    if (!addBtn) return;
+    
+    addBtn.addEventListener('click', toggleLocationSelection);
+}
+
+function toggleLocationSelection() {
+    const addBtn = document.getElementById('addNewPlaygroundBtn');
+    const mapContainer = document.getElementById('map');
+    
+    isSelectingLocation = !isSelectingLocation;
+    
+    if (isSelectingLocation) {
+        // Activate location selection mode
+        addBtn.textContent = '❌ Cancel Selection';
+        addBtn.classList.add('active');
+        mapContainer.classList.add('map-click-mode');
+        
+        // Add click listener to map
+        map.on('click', handleMapClick);
+        
+        // Show instruction message
+        showNotification('Click anywhere on the map to select playground location', 'info');
+    } else {
+        // Deactivate location selection mode
+        deactivateLocationSelection();
+    }
+}
+
+function handleMapClick(e) {
+    if (!isSelectingLocation) return;
+    
+    const { lat, lng } = e.latlng;
+    newPlaygroundCoords = { lat, lng };
+    
+    // Remove any existing temp marker
+    if (tempLocationMarker) {
+        map.removeLayer(tempLocationMarker);
+    }
+    
+    // Add temporary marker at clicked location
+    tempLocationMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+            html: '<div class="temp-location-marker">📍</div>',
+            className: 'temp-location-marker-container',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32]
+        })
+    }).addTo(map);
+    
+    // Deactivate selection mode
+    deactivateLocationSelection();
+    
+    // Open modal for new playground
+    openNewPlaygroundModal(lat, lng);
+}
+
+function deactivateLocationSelection() {
+    const addBtn = document.getElementById('addNewPlaygroundBtn');
+    const mapContainer = document.getElementById('map');
+    
+    isSelectingLocation = false;
+    addBtn.textContent = '➕ Record New Playground';
+    addBtn.classList.remove('active');
+    mapContainer.classList.remove('map-click-mode');
+    
+    // Remove map click listener
+    map.off('click', handleMapClick);
+}
+
+function openNewPlaygroundModal(lat, lng) {
+    const modal = document.getElementById('editModal');
+    const modalHeader = modal.querySelector('.modal-header h2');
+    const modalDescription = modal.querySelector('.modal-header p');
+    
+    // Update modal title
+    modalHeader.textContent = 'Add New Playground';
+    modalDescription.textContent = `Location: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    
+    // Set current editing mode to "new"
+    currentEditingPlayground = {
+        uid: null, // No UID for new playgrounds
+        isNew: true,
+        lat: lat,
+        lng: lng,
+        data: {} // Empty data for new playground
+    };
+    
+    // Clear and show form
+    clearEditForm();
+    modal.style.display = 'block';
+    
+    showNotification('Fill in the playground details below', 'success');
+}
+
+function clearEditForm() {
+    const form = document.getElementById('editForm');
+    if (!form) return;
+    
+    // Reset all inputs
+    form.reset();
+    
+    // Clear all number inputs explicitly
+    const numberInputs = form.querySelectorAll('input[type="number"]');
+    numberInputs.forEach(input => input.value = '');
+    
+    // Uncheck all checkboxes
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(checkbox => checkbox.checked = false);
+    
+    // Reset all selects to first option
+    const selects = form.querySelectorAll('select');
+    selects.forEach(select => select.selectedIndex = 0);
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 20px;
+        background: ${type === 'success' ? 'var(--contrast-medium)' : type === 'error' ? '#fecaca' : 'var(--supplementary)'};
+        color: ${type === 'success' ? 'var(--contrast-dark)' : type === 'error' ? '#dc2626' : 'var(--primary)'};
+        border: 2px solid ${type === 'success' ? 'var(--contrast-dark)' : type === 'error' ? '#dc2626' : 'var(--primary)'};
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        font-weight: 500;
+        max-width: 90vw;
+        text-align: center;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Add CSS animations for notifications
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
 
 // ===== SUBMIT EDIT TO SUPABASE STAGING =====
 // Updated setupFormSubmission to save to Supabase
@@ -1756,105 +1959,178 @@ function setupFormSubmission() {
 // Submit edit suggestion to Supabase staging table
 async function submitEditToSupabase(formData) {
     try {
-        // Get the original playground data for comparison
-        const originalData = playgroundLookup[formData.playgroundId];
+        // Check if this is a new playground
+        const isNewPlayground = currentEditingPlayground.isNew === true;
         
-        // Prepare data for staging table - matching your actual schema
-        const editSuggestion = {
-            uid: formData.playgroundId, // Keep original playground uid
-            submitted_at: new Date().toISOString(),
-            submitted_by_email: formData.email || 'anonymous@playground.com',
-            status: 'pending', // pending, approved, rejected
+        if (isNewPlayground) {
+            // Generate new UID
+            const newUid = generateNewUid();
             
-            // Text fields
-            name: formData.name || null,
-            type: formData.type || null,
-            keywords: formData.keywords || null,
-            comments: formData.comments || null,
-            shade: formData.shade || null,
-            parking: formData.parking || null,
-            fencing: formData.fencing || null,
-            seating: formData.seating || null,
-            floor: formData.floor || null,
+            // Prepare data for new playground
+            const newPlayground = {
+                uid: newUid,
+                lat: currentEditingPlayground.lat,
+                lng: currentEditingPlayground.lng,
+                submitted_at: new Date().toISOString(),
+                submitted_by_email: formData.email || 'anonymous@playground.com',
+                status: 'pending',
+                
+                // All form fields
+                name: formData.name || null,
+                type: formData.type || null,
+                keywords: formData.keywords || null,
+                comments: formData.comments || null,
+                shade: formData.shade || null,
+                parking: formData.parking || null,
+                fencing: formData.fencing || null,
+                seating: formData.seating || null,
+                floor: formData.floor || null,
+                
+                // Boolean fields
+                toilet: formData.toilet,
+                bbq: formData.bbq,
+                bubbler: formData.bubbler,
+                accessible: formData.accessible,
+                basketball: formData.basketball,
+                pump_track: formData.pumpTrack,
+                scooter_track: formData.scooterTrack,
+                cricket_chute: formData.cricketChute,
+                tennis_court: formData.tennisCourt,
+                skate_park: formData.skatePark,
+                activity_wall: formData.activityWall,
+                talking_tube: formData.talkingTube,
+                musical_play: formData.musicalPlay,
+                sensory_play: formData.sensoryPlay,
+                sandpit: formData.sandpit,
+                water_play: formData.waterPlay,
+                
+                // Numeric fields (same as before)
+                baby_swing: parseInt(formData.babySwing) || null,
+                belt_swing: parseInt(formData.beltSwing) || null,
+                basket_swing: parseInt(formData.basketSwing) || null,
+                dual_swing: parseInt(formData.dualSwing) || null,
+                hammock: parseInt(formData.hammock) || null,
+                double_slide: parseInt(formData.doubleSlide) || null,
+                triple_slide: parseInt(formData.tripleSlide) || null,
+                straight_slide: parseInt(formData.straightSlide) || null,
+                tube_slide: parseInt(formData.tubeSlide) || null,
+                spiral_slide: parseInt(formData.spiralSlide) || null,
+                stairs: parseInt(formData.stairs) || null,
+                metal_ladder: parseInt(formData.metalLadder) || null,
+                rope_ladder: parseInt(formData.ropeLadder) || null,
+                rock_climbing: parseInt(formData.rockClimbing) || null,
+                monkey_bars: parseInt(formData.monkeyBars) || null,
+                other_climbing: parseInt(formData.otherClimbing) || null,
+                rope_gym: parseInt(formData.ropeGym) || null,
+                spinning_pole: parseInt(formData.spinningPole) || null,
+                spinning_bucket: parseInt(formData.spinningBucket) || null,
+                merry_go_round: parseInt(formData.merryGoRound) || null,
+                balance_beam: parseInt(formData.balanceBeam) || null,
+                stepping_stones: parseInt(formData.steppingStones) || null,
+                spring_rocker: parseInt(formData.springRocker) || null,
+                seesaw: parseInt(formData.seesaw) || null,
+                bridge: parseInt(formData.bridge) || null,
+                tunnel: parseInt(formData.tunnel) || null,
+                trampoline: parseInt(formData.trampoline) || null,
+                firemans_pole: parseInt(formData.firemansPole) || null,
+                hamster_wheel: parseInt(formData.hamsterWheel) || null,
+                
+                // Media
+                photo: formData.photo || null,
+                link: formData.link || null,
+            };
             
-            // Boolean fields (as actual booleans, not 'Yes'/'No')
-            toilet: formData.toilet,
-            bbq: formData.bbq,
-            bubbler: formData.bubbler,
-            accessible: formData.accessible,
-            basketball: formData.basketball,
-            pump_track: formData.pumpTrack,
-            scooter_track: formData.scooterTrack,
-            cricket_chute: formData.cricketChute,
-            tennis_court: formData.tennisCourt,
-            skate_park: formData.skatePark,
-            activity_wall: formData.activityWall,
-            talking_tube: formData.talkingTube,
-            musical_play: formData.musicalPlay,
-            sensory_play: formData.sensoryPlay,
-            sandpit: formData.sandpit,
-            water_play: formData.waterPlay,
+            // Insert new playground into staging table
+            const { data, error } = await supabase
+                .from('playgrounds_new_submissions')
+                .insert([newPlayground])
+                .select();
             
-            // Numeric fields
-            baby_swing: parseInt(formData.babySwing) || null,
-            belt_swing: parseInt(formData.beltSwing) || null,
-            basket_swing: parseInt(formData.basketSwing) || null,
-            dual_swing: parseInt(formData.dualSwing) || null,
-            hammock: parseInt(formData.hammock) || null,
-            double_slide: parseInt(formData.doubleSlide) || null,
-            triple_slide: parseInt(formData.tripleSlide) || null,
-            straight_slide: parseInt(formData.straightSlide) || null,
-            tube_slide: parseInt(formData.tubeSlide) || null,
-            spiral_slide: parseInt(formData.spiralSlide) || null,
-            stairs: parseInt(formData.stairs) || null,
-            metal_ladder: parseInt(formData.metalLadder) || null,
-            rope_ladder: parseInt(formData.ropeLadder) || null,
-            rock_climbing: parseInt(formData.rockClimbing) || null,
-            monkey_bars: parseInt(formData.monkeyBars) || null,
-            other_climbing: parseInt(formData.otherClimbing) || null,
-            rope_gym: parseInt(formData.ropeGym) || null,
-            spinning_pole: parseInt(formData.spinningPole) || null,
-            spinning_bucket: parseInt(formData.spinningBucket) || null,
-            merry_go_round: parseInt(formData.merryGoRound) || null,
-            balance_beam: parseInt(formData.balanceBeam) || null,
-            stepping_stones: parseInt(formData.steppingStones) || null,
-            spring_rocker: parseInt(formData.springRocker) || null,
-            seesaw: parseInt(formData.seesaw) || null,
-            bridge: parseInt(formData.bridge) || null,
-            tunnel: parseInt(formData.tunnel) || null,
-            trampoline: parseInt(formData.trampoline) || null,
-            firemans_pole: parseInt(formData.firemansPole) || null,
-            hamster_wheel: parseInt(formData.hamsterWheel) || null,
+            if (error) {
+                console.error('Supabase error:', error);
+                return { success: false, error: error.message };
+            }
             
-            // Media
-            photo: formData.photo || null,
-            link: formData.link || null,
-        };
-
-        // Calculate what changed
-        const changes = comparePlaygroundData(originalData, editSuggestion);
-
-        // Insert into staging table
-        const { data, error } = await supabase
-            .from('playgrounds_edit_suggestions')
-            .insert([editSuggestion])
-            .select();
-
-        if (error) {
-            console.error('Supabase error:', error);
-            return { success: false, error: error.message };
+            console.log('New playground submitted successfully:', data);
+            
+            // Send email notification for new playground
+            await sendNewPlaygroundEmail(newPlayground);
+            
+            // Remove temporary marker
+            if (tempLocationMarker) {
+                map.removeLayer(tempLocationMarker);
+                tempLocationMarker = null;
+            }
+            
+            return { success: true, data: data };
+            
+        } else {
+            // Existing edit functionality (keep your existing code)
+            const originalData = playgroundLookup[formData.playgroundId];
+            
+            const editSuggestion = {
+                uid: formData.playgroundId,
+                submitted_at: new Date().toISOString(),
+                submitted_by_email: formData.email || 'anonymous@playground.com',
+                status: 'pending',
+                
+                // ... rest of your existing edit code
+                name: formData.name || null,
+                type: formData.type || null,
+                // ... (keep all your existing fields)
+            };
+            
+            const changes = comparePlaygroundData(originalData, editSuggestion);
+            
+            const { data, error } = await supabase
+                .from('playgrounds_edit_suggestions')
+                .insert([editSuggestion])
+                .select();
+            
+            if (error) {
+                console.error('Supabase error:', error);
+                return { success: false, error: error.message };
+            }
+            
+            console.log('Edit suggestion submitted successfully:', data);
+            await sendEmailNotification(editSuggestion, changes);
+            
+            return { success: true, data: data };
         }
-
-        console.log('Edit suggestion submitted successfully:', data);
         
-        // Trigger email notification with changes
-        await sendEmailNotification(editSuggestion, changes);
-
-        return { success: true, data: data };
-
     } catch (error) {
         console.error('Error in submitEditToSupabase:', error);
         return { success: false, error: error.message };
+    }
+}
+
+// Generate a unique ID for new playgrounds
+function generateNewUid() {
+    return 'NEW_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Send email for new playground submission
+async function sendNewPlaygroundEmail(playgroundData) {
+    try {
+        const { data, error } = await supabase.functions.invoke('email-notification-new', {
+            body: {
+                playgroundUid: playgroundData.uid,
+                playgroundName: playgroundData.name,
+                lat: playgroundData.lat,
+                lng: playgroundData.lng,
+                submittedBy: playgroundData.submitted_by_email,
+                submittedAt: playgroundData.submitted_at,
+                allData: playgroundData
+            }
+        });
+        
+        if (error) {
+            console.error('Email notification error:', error);
+        } else {
+            console.log('Email notification sent successfully:', data);
+        }
+    } catch (error) {
+        console.error('Failed to send email notification:', error);
     }
 }
 
@@ -2216,6 +2492,9 @@ function setupEventListeners() {
 
     // Drawer handle text
     setupDrawerHandleText();
+
+    // Add new playground button
+    initializeAddNewPlayground();
 }
 
 function handleOutsideClick(event) {
