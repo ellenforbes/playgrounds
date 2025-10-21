@@ -661,12 +661,25 @@
             <label class="filter-label">External Link to Playground Review</label>
             <input type="text" id="edit-link" class="form-input">
             
-            <label class="filter-label">Your Email (optional)</label>
-            <input type="email" id="edit-email" class="form-input" placeholder="your.email@example.com">
-            <small style="color: #6b7280; font-size: 12px;">Only used if we need to follow up on your suggestion</small>
+          <!-- Email and Verified in same row -->
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-top: 15px;">
+            <div>
+              <label class="filter-label">Your Email (optional)</label>
+              <input type="email" id="edit-email" class="form-input" placeholder="your.email@example.com">
+              <small style="color: var(--text-tertiary); font-size: var(--font-size-xs); font-family: var(--font-family); display: block; margin-top: 5px;">Only used if we need to follow up on your suggestion</small>
+            </div>
+            
+            <div>
+              <label class="filter-label">Verified Method:</label>
+              <select id="edit-verified" name="verified" class="form-input">
+                <option value="">Select type...</option>
+              </select>
+            </div>
           </div>
 
-          <button type="submit" class="submit-btn">Submit Edit Suggestion</button>
+          <div>
+            <button type="submit" class="submit-btn">Submit Edit Suggestion</button>
+          </div>
         </form>
       </div>
     </div>

@@ -1,4 +1,5 @@
 // ===== GLOBAL VARIABLES =====
+
 let playgroundData = null;
 let markerClusterGroup;
 let currentEditingPlayground = null;
@@ -12,11 +13,13 @@ let allLGAs = [];
 let selectedLGAs = [];
 
 // ===== SUPABASE CLIENT =====
+
 const supabaseUrl = 'https://mrcodrddkxvoszuwdaks.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yY29kcmRka3h2b3N6dXdkYWtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNTc0NzUsImV4cCI6MjA3NTkzMzQ3NX0.GOKyB7-vdg968lE2jC5PxrOdVKp7IOis6QtyG2FNptQ';
 const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // ===== CONFIGURATION OBJECTS =====
+
 const sizeConfigs = {
     marker: {
         'Super': { radius: 20, fillColor: '#8b5cf6', borderColor: '#ffffff' },
@@ -76,6 +79,7 @@ const baseLayers = {
 };
 
 // ===== UTILITY FUNCTIONS =====
+
 function parseIntSafe(value) {
     if (!value) return 0;
     const parsed = parseInt(value);
@@ -155,8 +159,123 @@ function enlargePhoto(img) {
     };
 }
 
+// ===== UI HELPER FUNCTIONS =====
+function setupDrawerHandleText() {
+    const drawer = document.querySelector('.w-80.bg-white.shadow-lg');
+    const drawerHandleText = document.querySelector('.drawer-handle-text');
+    const playgroundCountMobile = document.getElementById('playgroundCountMobile');
+    
+    if (!drawer || !drawerHandleText) return;
+    
+    // Function to update text based on drawer state
+    function updateDrawerText() {
+        const isFullyExpanded = drawer.classList.contains('drawer-full');
+        const playgroundCount = playgroundCountMobile ? playgroundCountMobile.textContent : '33 playgrounds';
+        
+        if (isFullyExpanded) {
+            drawerHandleText.innerHTML = `<span class="playgroundCount">${playgroundCount}</span> • Tap to minimise`;
+        } else {
+            drawerHandleText.innerHTML = `<span class="playgroundCount">${playgroundCount}</span> • Tap to expand`;
+        }
+    }
+    
+    // Call initially
+    updateDrawerText();
+    
+    // Update text whenever drawer state changes
+    const observer = new MutationObserver(updateDrawerText);
+    observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
+}
+
+
+function toggleFooter() {
+    const footer = document.getElementById('footer');
+    const footerToggle = document.getElementById('footerToggle');
+    
+    if (!footer || !footerToggle) return;
+    
+    footer.classList.toggle('open');
+    footerToggle.style.display = footer.classList.contains('open') ? 'none' : 'block';
+}
+
+function setupEventListeners() {
+    // Dropdown toggles
+    const typeBtn = document.getElementById('typeDropdownBtn');
+    const shadeBtn = document.getElementById('shadeDropdownBtn');
+    const fencingBtn = document.getElementById('fencingDropdownBtn');
+    const parkingBtn = document.getElementById('parkingDropdownBtn'); 
+
+    if (typeBtn) {
+        typeBtn.addEventListener('click', () => 
+            toggleDropdown('typeDropdownMenu', 'lgaDropdownMenu', 'suburbDropdownMenu'));
+    }
+
+    if (shadeBtn) {
+        shadeBtn.addEventListener('click', () => toggleDropdown('shadeDropdownMenu'));
+    }
+
+    if (fencingBtn) {
+        fencingBtn.addEventListener('click', () => toggleDropdown('fencingDropdownMenu'));
+    }
+
+    if (parkingBtn) {
+        parkingBtn.addEventListener('click', () => toggleDropdown('parkingDropdownMenu'));
+    }
+
+    // Filter event listeners (excluding the old size filter checkboxes)
+    const filterIds = [
+        'filterHasTrampoline', 'filterHasSkatePark', 'filterHasLargeFlyingFox', 'filterHasSandpit', 'filterHasScootTrack', 'filterHasWaterPlay', 'filterHasAccessibleFeatures', 'filterHasToilet', 'filterHasBBQ', 'filterHasBubbler'
+    ];
+
+    filterIds.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.addEventListener('change', filterMarkers);
+    });
+    
+    // Initialise size slider
+    initialiseSizeSlider();
+    
+    // Footer toggle
+    const footerToggle = document.getElementById('footerToggle');
+    if (footerToggle) footerToggle.addEventListener('click', toggleFooter);
+    
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', handleOutsideClick);
+    
+    // Modal and form setup
+    setupModalEventListeners();
+    setupFormSubmission();
+
+    // Drawer handle text
+    setupDrawerHandleText();
+
+    // Add new playground button
+    initialiseAddNewPlayground();
+}
+
+function handleOutsideClick(event) {
+    const dropdownConfigs = [
+        { btn: 'typeDropdownBtn', menu: 'typeDropdownMenu' },
+        { btn: 'shadeDropdownBtn', menu: 'shadeDropdownMenu' },
+        { btn: 'fencingDropdownBtn', menu: 'fencingDropdownMenu' },
+        { btn: 'parkingDropdownBtn', menu: 'parkingDropdownMenu' }
+    ];
+    
+    dropdownConfigs.forEach(({ btn, menu }) => {
+        const button = document.getElementById(btn);
+        const dropdown = document.getElementById(menu);
+        
+        if (button && dropdown && 
+            !button.contains(event.target) && 
+            !dropdown.contains(event.target)) {
+            dropdown.classList.add('hidden');
+        }
+    });
+}
+
 // ===== MAP INITIALIZATION =====
-function initializeMap() {
+
+function initialiseMap() {
   // init map immediately (fallback view)
   try {
     map = L.map('map').setView([-32.75, 151.57], 12);
@@ -207,7 +326,7 @@ function initializeMap() {
   });
 }
 
-function initializeClusterGroup() {
+function initialiseClusterGroup() {
     markerClusterGroup = L.markerClusterGroup({
         maxClusterRadius: 50,
         spiderfyOnMaxZoom: true,
@@ -218,6 +337,7 @@ function initializeClusterGroup() {
 }
 
 // ===== CLUSTER FUNCTIONALITY =====
+
 function createClusterIcon(cluster) {
     const count = cluster.getChildCount();
     const markers = cluster.getAllChildMarkers();
@@ -282,6 +402,7 @@ function getClusterSizeConfig(dominantSize, count) {
 }
 
 // ===== MARKER FUNCTIONALITY =====
+
 function createMarker(playground) {
     playgroundLookup[playground.uid] = playground;
     const sizeConfig = getMarkerSizeConfig(playground.classification);
@@ -351,11 +472,6 @@ function getPlaygroundCoordinates(playground) {
 }
 
 function addMarkersToMap() {
-    console.log("Sample playground data:", playgroundData[0]);
-    console.log("addMarkersToMap called");
-    console.log("Map object exists:", !!map);
-    console.log("Map is initialized:", map && map._loaded);
-    
     if (!playgroundData || playgroundData.length === 0) {
         console.error('No playground data available');
         return;
@@ -377,31 +493,17 @@ function addMarkersToMap() {
         }
 
         const marker = createMarker(playground);
-        console.log("Created marker at:", lat, lng); // Add this
         markerClusterGroup.addLayer(marker);
         successCount++;
     });
-
-    console.log(`Markers created - Success: ${successCount}, Failed: ${failCount}`);
-    console.log("markerClusterGroup layer count:", markerClusterGroup.getLayers().length);
-    
-    // Check if markerClusterGroup was already added to map
-    console.log("markerClusterGroup already on map:", map.hasLayer(markerClusterGroup));
     
     if (!map.hasLayer(markerClusterGroup)) {
         map.addLayer(markerClusterGroup);
-        console.log("Cluster group added to map");
-    }
-    
-    if (markerClusterGroup.getLayers().length > 0) {
-        const bounds = markerClusterGroup.getBounds();
-        console.log("Marker bounds:", bounds);
-        console.log("Fitting bounds to:", bounds.toBBoxString());
-        map.fitBounds(bounds);
     }
 }
 
 // ===== POPUP FUNCTIONALITY =====
+
 function createPopupContent(props, coordinates) {
     const uniqueId = generateUniqueId(props);
     
@@ -467,7 +569,48 @@ function createPopupFooter(props, uniqueId) {
     `;
 }
 
+// ===== HOVER EFFECTS =====
+
+function highlightSection(category, uid) {
+    const elements = ['word', 'emoji'].map(type => 
+        document.getElementById(`${category}-${type}-${uid}`)
+    );
+    const detailsElement = document.getElementById(`${category}-details-${uid}`);
+    
+    elements.forEach(element => {
+        if (element) {
+            element.style.backgroundColor = 'var(--contrast-light)';
+            element.style.padding = '2px 4px';
+            element.style.borderRadius = '3px';
+        }
+    });
+    
+    if (detailsElement) {
+        detailsElement.style.display = 'inline';
+    }
+}
+
+function unhighlightSection(category, uid) {
+    const elements = ['word', 'emoji'].map(type => 
+        document.getElementById(`${category}-${type}-${uid}`)
+    );
+    const detailsElement = document.getElementById(`${category}-details-${uid}`);
+    
+    elements.forEach(element => {
+        if (element) {
+            element.style.backgroundColor = '';
+            element.style.padding = '';
+            element.style.borderRadius = '';
+        }
+    });
+    
+    if (detailsElement) {
+        detailsElement.style.display = 'none';
+    }
+}
+
 // ===== FEATURES LIST GENERATION =====
+
 function generateCompactFeaturesList(props) {
     const sections = [];
     
@@ -742,46 +885,8 @@ function createHoverableSection(category, uid, emojis, details) {
     `;
 }
 
-// ===== HOVER EFFECTS =====
-function highlightSection(category, uid) {
-    const elements = ['word', 'emoji'].map(type => 
-        document.getElementById(`${category}-${type}-${uid}`)
-    );
-    const detailsElement = document.getElementById(`${category}-details-${uid}`);
-    
-    elements.forEach(element => {
-        if (element) {
-            element.style.backgroundColor = 'var(--contrast-light)';
-            element.style.padding = '2px 4px';
-            element.style.borderRadius = '3px';
-        }
-    });
-    
-    if (detailsElement) {
-        detailsElement.style.display = 'inline';
-    }
-}
-
-function unhighlightSection(category, uid) {
-    const elements = ['word', 'emoji'].map(type => 
-        document.getElementById(`${category}-${type}-${uid}`)
-    );
-    const detailsElement = document.getElementById(`${category}-details-${uid}`);
-    
-    elements.forEach(element => {
-        if (element) {
-            element.style.backgroundColor = '';
-            element.style.padding = '';
-            element.style.borderRadius = '';
-        }
-    });
-    
-    if (detailsElement) {
-        detailsElement.style.display = 'none';
-    }
-}
-
 // ===== DROPDOWN FUNCTIONALITY =====
+
 function toggleDropdown(menuId) {
     const menu = document.getElementById(menuId);
     if (!menu) return;
@@ -876,6 +981,7 @@ function updateParkingSelection() {
 }
 
 // ===== KEYWORD SEARCH - Get Selected Suburbs/LGAs/Types =====
+
 function getSelectedTypes() {
     return getSelectedValues('.type-checkbox');
 }
@@ -892,7 +998,405 @@ function getSelectedParking() {
     return getSelectedValues('.parking-checkbox');
 }
 
+// ===== MULTI-SELECT SEARCH FUNCTIONALITY =====
+
+function extractUniqueValues(data, propertyName) {
+    return [...new Set(
+        data
+            .map(playground => playground[propertyName])
+            .filter(value => value)
+    )].sort();
+}
+
+function initialiseMultiSelectSearch(inputId, dropdownId, allItemsArray, selectedItemsArray, itemType) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    
+    if (!input || !dropdown) return;
+    
+    input.addEventListener('input', function() {
+        const searchTerm = this.value.trim().toLowerCase();
+        
+        if (searchTerm === '') {
+            dropdown.classList.add('hidden');
+            return;
+        }
+        
+        const matchingItems = allItemsArray.filter(item => 
+            item.toLowerCase().includes(searchTerm)
+        );
+        
+        if (matchingItems.length > 0) {
+            displayItemDropdown(dropdown, matchingItems, selectedItemsArray, itemType);
+        } else {
+            dropdown.classList.add('hidden');
+        }
+    });
+    
+    document.addEventListener('click', function(event) {
+        if (!input.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.classList.add('hidden');
+        }
+    });
+}
+
+function displayItemDropdown(dropdown, items, selectedItemsArray, itemType) {
+    dropdown.innerHTML = '';
+    dropdown.classList.remove('hidden');
+    
+    items.forEach(item => {
+        const option = document.createElement('div');
+        option.className = 'dropdown-option';
+        option.textContent = item;
+        
+        option.addEventListener('click', function() {
+            selectItem(item, selectedItemsArray, itemType);
+        });
+        
+        dropdown.appendChild(option);
+    });
+}
+
+function selectItem(item, selectedItemsArray, itemType) {
+    if (selectedItemsArray.includes(item)) {
+        return;
+    }
+    
+    selectedItemsArray.push(item);
+    updateSelectedItemsDisplay(selectedItemsArray, itemType);
+    
+    const inputId = `${itemType}SearchInput`;
+    const dropdownId = `${itemType}Dropdown`;
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    
+    if (input) input.value = '';
+    if (dropdown) dropdown.classList.add('hidden');
+    
+    filterMarkers();
+}
+
+function removeItem(item, selectedItemsArray, itemType) {
+    const index = selectedItemsArray.indexOf(item);
+    if (index > -1) {
+        selectedItemsArray.splice(index, 1);
+    }
+    updateSelectedItemsDisplay(selectedItemsArray, itemType);
+    filterMarkers();
+}
+
+function clearAllItems(selectedItemsArray, itemType) {
+    selectedItemsArray.length = 0;
+    updateSelectedItemsDisplay(selectedItemsArray, itemType);
+    filterMarkers();
+}
+
+function updateSelectedItemsDisplay(selectedItemsArray, itemType) {
+    const containerId = `selected${itemType.charAt(0).toUpperCase() + itemType.slice(1)}s`;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (selectedItemsArray.length === 0) {
+        const placeholder = document.createElement('span');
+        placeholder.className = 'keyword-placeholder';
+        placeholder.textContent = `No ${itemType}s selected`;
+        container.appendChild(placeholder);
+        return;
+    }
+    
+    selectedItemsArray.forEach(item => {
+        const tag = document.createElement('div');
+        tag.className = 'keyword-tag';
+        
+        const text = document.createElement('span');
+        text.textContent = item;
+        text.className = 'keyword-tag-text';
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '×';
+        removeBtn.className = 'keyword-tag-remove';
+        removeBtn.addEventListener('click', () => removeItem(item, selectedItemsArray, itemType));
+        
+        tag.appendChild(text);
+        tag.appendChild(removeBtn);
+        container.appendChild(tag);
+    });
+}
+
+function initialiseSuburbSearch() {
+    allSuburbs = extractUniqueValues(playgroundData, 'suburb'); // Changed from extractUniqueValuesForSearch
+    initialiseMultiSelectSearch('suburbSearchInput', 'suburbDropdown', allSuburbs, selectedSuburbs, 'suburb');
+}
+
+function clearAllSuburbs() {
+    clearAllItems(selectedSuburbs, 'suburb');
+}
+
+function initialiseLGASearch() {
+    allLGAs = extractUniqueValues(playgroundData, 'lga'); // Changed from extractUniqueValuesForSearch
+    initialiseMultiSelectSearch('lgaSearchInput', 'lgaDropdown', allLGAs, selectedLGAs, 'lga');
+}
+
+function clearAllLGAs() {
+    clearAllItems(selectedLGAs, 'lga');
+}
+
+
+// ===== KEYWORD SEARCH FUNCTIONALITY =====
+
+// Needs special function as this is comma separated values inside a cell 
+function extractAllKeywords(data) {
+    const keywordSet = new Set();
+    
+    if (!data || data.length === 0) return [];
+    
+    data.forEach(playground => {
+        const keywords = playground.keywords;
+        if (keywords && keywords.trim() !== '') {
+            keywords.split(',').forEach(keyword => {
+                const trimmed = keyword.trim();
+                if (trimmed) {
+                    keywordSet.add(trimmed);
+                }
+            });
+        }
+    });
+    
+    return Array.from(keywordSet).sort((a, b) => 
+        a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+}
+
+function initialiseKeywordSearch() {
+    allKeywords = extractAllKeywords(playgroundData);
+    initialiseMultiSelectSearch('keywordSearchInput', 'keywordDropdown', allKeywords, selectedKeywords, 'keyword');
+}
+
+function clearAllKeywords() {
+    clearAllItems(selectedKeywords, 'keyword');
+}
+
+function playgroundMatchesKeywords(playground) {
+    if (selectedKeywords.length === 0) return true;
+    
+    const playgroundKeywords = playground.keywords;
+    if (!playgroundKeywords || playgroundKeywords.trim() === '') return false;
+    
+    const playgroundKeywordList = playgroundKeywords
+        .split(',')
+        .map(k => k.trim().toLowerCase());
+    
+    return selectedKeywords.some(selectedKeyword => 
+        playgroundKeywordList.includes(selectedKeyword.toLowerCase())
+    );
+}
+
+// Show the other buttons once something is selected
+function updateSelectedItemsDisplay(selectedItemsArray, itemType) {
+    const containerId = `selected${itemType.charAt(0).toUpperCase() + itemType.slice(1)}s`;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // Find the closest .mt-2 wrapper (the section that should show/hide)
+    const wrapper = container.closest('.mt-2');
+    container.innerHTML = '';
+
+    if (selectedItemsArray.length === 0) {
+        const placeholder = document.createElement('span');
+        placeholder.className = 'keyword-placeholder';
+        placeholder.textContent = `No ${itemType}s selected`;
+        container.appendChild(placeholder);
+
+        // Hide the wrapper if it exists
+        if (wrapper) wrapper.style.display = 'none';
+        return;
+    }
+
+    // Otherwise, create tags for each selected item
+    selectedItemsArray.forEach(item => {
+        const tag = document.createElement('div');
+        tag.className = 'keyword-tag';
+        
+        const text = document.createElement('span');
+        text.textContent = item;
+        text.className = 'keyword-tag-text';
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '×';
+        removeBtn.className = 'keyword-tag-remove';
+        removeBtn.addEventListener('click', () => removeItem(item, selectedItemsArray, itemType));
+        
+        tag.appendChild(text);
+        tag.appendChild(removeBtn);
+        container.appendChild(tag);
+    });
+
+    // Show the wrapper when items exist
+    if (wrapper) wrapper.style.display = 'block';
+}
+
+
+// ===== SIZE SLIDER FUNCTIONALITY =====
+
+function initialiseSizeSlider() {
+    const slider = document.getElementById('sizeSlider');
+    if (!slider) return;
+
+    const startMinIndex = sizeSliderConfig.order.indexOf('Tiny');   // index of "Tiny"
+    const startMaxIndex = sizeSliderConfig.order.indexOf('Super');  // index of "Super"
+
+    noUiSlider.create(slider, {
+        start: [startMinIndex, startMaxIndex], // default to Tiny → Super
+        connect: true,
+        range: {
+            min: 0,
+            max: sizeSliderConfig.order.length - 1
+        },
+        step: 1
+    });
+
+    slider.noUiSlider.on('update', function(values) {
+        const minIndex = Math.round(values[0]);
+        const maxIndex = Math.round(values[1]);
+
+        const minSize = sizeSliderConfig.order[minIndex];
+        const maxSize = sizeSliderConfig.order[maxIndex];
+
+        document.getElementById('sizeSliderMinLabel').textContent = sizeSliderConfig.labels[minSize];
+        document.getElementById('sizeSliderMaxLabel').textContent = sizeSliderConfig.labels[maxSize];
+
+        filterMarkers();
+    });
+}
+
+function getSelectedSizesFromSlider() {
+    const slider = document.getElementById('sizeSlider');
+    if (!slider || !slider.noUiSlider) return [...sizeSliderConfig.order];
+
+    const values = slider.noUiSlider.get();
+    const minIndex = Math.round(parseFloat(values[0]));
+    const maxIndex = Math.round(parseFloat(values[1]));
+    
+    const selected = sizeSliderConfig.order.slice(minIndex, maxIndex + 1);
+    
+    return selected;
+}
+
+function isSizeIncluded(classification) {
+    const selectedSizes = getSelectedSizesFromSlider();
+    
+    // Normalize any missing classification
+    let normalizedClassification = classification;
+    if (!normalizedClassification || !sizeSliderConfig.order.includes(normalizedClassification)) {
+        normalizedClassification = 'Unverified';
+    }
+
+    const included = selectedSizes.includes(normalizedClassification);
+
+    return included;
+}
+
+// ===== FILTERING FUNCTIONALITY =====
+
+function filterMarkers() {
+    if (!playgroundData || playgroundData.length === 0) return;
+
+    const filters = getActiveFilters();
+    markerClusterGroup.clearLayers();
+    
+    playgroundData.forEach(playground => {
+        if (shouldShowPlayground(playground, filters)) {
+            // Just use lat/lng directly - no need to parse geometry
+            const marker = createMarker(playground); 
+            markerClusterGroup.addLayer(marker);
+        }
+    });
+    
+    updateVisiblePlaygroundCount();
+}
+
+function updatePlaygroundCount(count) {
+    // Select all elements with class 'playgroundCount'
+    const countElements = document.querySelectorAll('.playgroundCount');
+    countElements.forEach(element => {
+        element.textContent = `${count} playground${count !== 1 ? 's' : ''}`;
+    });
+}
+
+function updateVisiblePlaygroundCount() {
+    const bounds = map.getBounds();
+    let visibleCount = 0;
+    
+    // Count markers that are both filtered AND in view
+    markerClusterGroup.eachLayer(marker => {
+        if (bounds.contains(marker.getLatLng())) {
+            visibleCount++;
+        }
+    });
+    
+    updatePlaygroundCount(visibleCount);
+}
+
+function getActiveFilters() {
+    return {
+        hasTrampoline: document.getElementById('filterHasTrampoline')?.checked || false,
+        hasSkatePark: document.getElementById('filterHasSkatePark')?.checked || false,
+        hasLargeFlyingFox: document.getElementById('filterHasLargeFlyingFox')?.checked || false,
+        hasSandpit: document.getElementById('filterHasSandpit')?.checked || false,
+        hasScootTrack: document.getElementById('filterHasScootTrack')?.checked || false,
+        hasWaterPlay: document.getElementById('filterHasWaterPlay')?.checked || false,
+        selectedShade: getSelectedShade(),
+        selectedParking: getSelectedParking(),
+        selectedFencing: getSelectedFencing(),
+        hasAccessibleFeatures: document.getElementById('filterHasAccessibleFeatures')?.checked || false,
+        hasToilet: document.getElementById('filterHasToilet')?.checked || false,
+        hasBBQ: document.getElementById('filterHasBBQ')?.checked || false,
+        hasBubbler: document.getElementById('filterHasBubbler')?.checked || false,
+        selectedSuburbs: selectedSuburbs,
+        selectedLGAs: selectedLGAs,  
+        selectedTypes: getSelectedTypes()
+    };
+}
+
+function shouldShowPlayground(playground, filters) {
+    // Facility filters
+    if (filters.hasTrampoline && Number(playground.trampoline) <= 0) return false;
+    if (filters.hasSkatePark && playground.skate_park !== true) return false;
+    if (filters.hasLargeFlyingFox && playground.flying_fox !== 'Large') return false;
+    if (filters.hasSandpit && playground.sandpit !== true) return false;
+    if (filters.hasScootTrack && playground.scooter_track !== true) return false;
+    if (filters.hasWaterPlay && playground.water_play !== true) return false;
+    if (filters.hasAccessibleFeatures && playground.accessible !== true) return false;
+    if (filters.hasToilet && playground.toilet !== true) return false;
+    if (filters.hasBBQ && playground.bbq !== true) return false;
+    if (filters.hasBubbler && playground.bubbler !== true) return false;
+    
+    // Size filter using slider - determine classification: use Classification field, or 'Unverified' if null
+    let classification = playground.classification;
+    if (!classification || classification === null) {
+        classification = 'Unverified';
+    }
+
+    if (!isSizeIncluded(classification)) return false;
+    
+    // Location filters
+    if (filters.selectedSuburbs.length > 0 && !filters.selectedSuburbs.includes(playground.suburb)) return false;
+    if (filters.selectedLGAs.length > 0 && !filters.selectedLGAs.includes(playground.lga)) return false;
+    if (filters.selectedTypes.length > 0 && !filters.selectedTypes.includes(playground.type)) return false;
+    if (filters.selectedShade.length > 0 && !filters.selectedShade.includes(playground.shade)) return false;
+    if (filters.selectedFencing.length > 0 && !filters.selectedFencing.includes(playground.fencing)) return false;
+    if (filters.selectedParking.length > 0 && !filters.selectedParking.includes(playground.parking)) return false;
+    
+    // Keyword filter
+    if (!playgroundMatchesKeywords(playground)) return false;
+    
+    return true;
+}
+
 // ===== DATA LOADING AND PROCESSING =====
+
 async function loadPlaygroundData() {
     try {
         const { data, error } = await supabase
@@ -1045,480 +1549,8 @@ window.addEventListener('resize', function() {
 });
 
 
-// ===== SIZE SLIDER FUNCTIONALITY =====
-function initializeSizeSlider() {
-    const slider = document.getElementById('sizeSlider');
-    if (!slider) return;
-
-    const startMinIndex = sizeSliderConfig.order.indexOf('Tiny');   // index of "Tiny"
-    const startMaxIndex = sizeSliderConfig.order.indexOf('Super');  // index of "Super"
-
-    noUiSlider.create(slider, {
-        start: [startMinIndex, startMaxIndex], // default to Tiny → Super
-        connect: true,
-        range: {
-            min: 0,
-            max: sizeSliderConfig.order.length - 1
-        },
-        step: 1
-    });
-
-    slider.noUiSlider.on('update', function(values) {
-        const minIndex = Math.round(values[0]);
-        const maxIndex = Math.round(values[1]);
-
-        const minSize = sizeSliderConfig.order[minIndex];
-        const maxSize = sizeSliderConfig.order[maxIndex];
-
-        document.getElementById('sizeSliderMinLabel').textContent = sizeSliderConfig.labels[minSize];
-        document.getElementById('sizeSliderMaxLabel').textContent = sizeSliderConfig.labels[maxSize];
-
-        filterMarkers();
-    });
-}
-
-function getSelectedSizesFromSlider() {
-    const slider = document.getElementById('sizeSlider');
-    if (!slider || !slider.noUiSlider) return [...sizeSliderConfig.order];
-
-    const values = slider.noUiSlider.get();
-    const minIndex = Math.round(parseFloat(values[0]));
-    const maxIndex = Math.round(parseFloat(values[1]));
-    
-    const selected = sizeSliderConfig.order.slice(minIndex, maxIndex + 1);
-    
-    return selected;
-}
-
-function isSizeIncluded(classification) {
-    const selectedSizes = getSelectedSizesFromSlider();
-    
-    // Normalize any missing classification
-    let normalizedClassification = classification;
-    if (!normalizedClassification || !sizeSliderConfig.order.includes(normalizedClassification)) {
-        normalizedClassification = 'Unverified';
-    }
-
-    const included = selectedSizes.includes(normalizedClassification);
-
-    return included;
-}
-
-// ===== FILTERING FUNCTIONALITY =====
-function filterMarkers() {
-    if (!playgroundData || playgroundData.length === 0) return;
-
-    const filters = getActiveFilters();
-    markerClusterGroup.clearLayers();
-    
-    playgroundData.forEach(playground => {
-        if (shouldShowPlayground(playground, filters)) {
-            // Just use lat/lng directly - no need to parse geometry
-            const marker = createMarker(playground); 
-            markerClusterGroup.addLayer(marker);
-        }
-    });
-    
-    updateVisiblePlaygroundCount();
-}
-
-function updatePlaygroundCount(count) {
-    // Select all elements with class 'playgroundCount'
-    const countElements = document.querySelectorAll('.playgroundCount');
-    countElements.forEach(element => {
-        element.textContent = `${count} playground${count !== 1 ? 's' : ''}`;
-    });
-}
-
-// Move this function to global scope
-function updateVisiblePlaygroundCount() {
-    const bounds = map.getBounds();
-    let visibleCount = 0;
-    
-    // Count markers that are both filtered AND in view
-    markerClusterGroup.eachLayer(marker => {
-        if (bounds.contains(marker.getLatLng())) {
-            visibleCount++;
-        }
-    });
-    
-    updatePlaygroundCount(visibleCount);
-}
-
-function getActiveFilters() {
-    return {
-        hasTrampoline: document.getElementById('filterHasTrampoline')?.checked || false,
-        hasSkatePark: document.getElementById('filterHasSkatePark')?.checked || false,
-        hasLargeFlyingFox: document.getElementById('filterHasLargeFlyingFox')?.checked || false,
-        hasSandpit: document.getElementById('filterHasSandpit')?.checked || false,
-        hasScootTrack: document.getElementById('filterHasScootTrack')?.checked || false,
-        hasWaterPlay: document.getElementById('filterHasWaterPlay')?.checked || false,
-        selectedShade: getSelectedShade(),
-        selectedParking: getSelectedParking(),
-        selectedFencing: getSelectedFencing(),
-        hasAccessibleFeatures: document.getElementById('filterHasAccessibleFeatures')?.checked || false,
-        hasToilet: document.getElementById('filterHasToilet')?.checked || false,
-        hasBBQ: document.getElementById('filterHasBBQ')?.checked || false,
-        hasBubbler: document.getElementById('filterHasBubbler')?.checked || false,
-        selectedSuburbs: selectedSuburbs,
-        selectedLGAs: selectedLGAs,  
-        selectedTypes: getSelectedTypes()
-    };
-}
-
-function shouldShowPlayground(playground, filters) {
-    // Facility filters
-    if (filters.hasTrampoline && Number(playground.trampoline) <= 0) return false;
-    if (filters.hasSkatePark && playground.skate_park !== true) return false;
-    if (filters.hasLargeFlyingFox && playground.flying_fox !== 'Large') return false;
-    if (filters.hasSandpit && playground.sandpit !== true) return false;
-    if (filters.hasScootTrack && playground.scooter_track !== true) return false;
-    if (filters.hasWaterPlay && playground.water_play !== true) return false;
-    if (filters.hasAccessibleFeatures && playground.accessible !== true) return false;
-    if (filters.hasToilet && playground.toilet !== true) return false;
-    if (filters.hasBBQ && playground.bbq !== true) return false;
-    if (filters.hasBubbler && playground.bubbler !== true) return false;
-    
-    // Size filter using slider - determine classification: use Classification field, or 'Unverified' if null
-    let classification = playground.classification;
-    if (!classification || classification === null) {
-        classification = 'Unverified';
-    }
-
-    if (!isSizeIncluded(classification)) return false;
-    
-    // Location filters
-    if (filters.selectedSuburbs.length > 0 && !filters.selectedSuburbs.includes(playground.suburb)) return false;
-    if (filters.selectedLGAs.length > 0 && !filters.selectedLGAs.includes(playground.lga)) return false;
-    if (filters.selectedTypes.length > 0 && !filters.selectedTypes.includes(playground.type)) return false;
-    if (filters.selectedShade.length > 0 && !filters.selectedShade.includes(playground.shade)) return false;
-    if (filters.selectedFencing.length > 0 && !filters.selectedFencing.includes(playground.fencing)) return false;
-    if (filters.selectedParking.length > 0 && !filters.selectedParking.includes(playground.parking)) return false;
-    
-    // Keyword filter
-    if (!playgroundMatchesKeywords(playground)) return false;
-    
-    return true;
-}
-
-// ===== MULTI-SELECT SEARCH FUNCTIONALITY =====
-function extractUniqueValues(data, propertyName) {
-    return [...new Set(
-        data
-            .map(playground => playground[propertyName])
-            .filter(value => value)
-    )].sort();
-}
-
-function initializeMultiSelectSearch(inputId, dropdownId, allItemsArray, selectedItemsArray, itemType) {
-    const input = document.getElementById(inputId);
-    const dropdown = document.getElementById(dropdownId);
-    
-    if (!input || !dropdown) return;
-    
-    input.addEventListener('input', function() {
-        const searchTerm = this.value.trim().toLowerCase();
-        
-        if (searchTerm === '') {
-            dropdown.classList.add('hidden');
-            return;
-        }
-        
-        const matchingItems = allItemsArray.filter(item => 
-            item.toLowerCase().includes(searchTerm)
-        );
-        
-        if (matchingItems.length > 0) {
-            displayItemDropdown(dropdown, matchingItems, selectedItemsArray, itemType);
-        } else {
-            dropdown.classList.add('hidden');
-        }
-    });
-    
-    document.addEventListener('click', function(event) {
-        if (!input.contains(event.target) && !dropdown.contains(event.target)) {
-            dropdown.classList.add('hidden');
-        }
-    });
-}
-
-function displayItemDropdown(dropdown, items, selectedItemsArray, itemType) {
-    dropdown.innerHTML = '';
-    dropdown.classList.remove('hidden');
-    
-    items.forEach(item => {
-        const option = document.createElement('div');
-        option.className = 'dropdown-option';
-        option.textContent = item;
-        
-        option.addEventListener('click', function() {
-            selectItem(item, selectedItemsArray, itemType);
-        });
-        
-        dropdown.appendChild(option);
-    });
-}
-
-function selectItem(item, selectedItemsArray, itemType) {
-    if (selectedItemsArray.includes(item)) {
-        return;
-    }
-    
-    selectedItemsArray.push(item);
-    updateSelectedItemsDisplay(selectedItemsArray, itemType);
-    
-    const inputId = `${itemType}SearchInput`;
-    const dropdownId = `${itemType}Dropdown`;
-    const input = document.getElementById(inputId);
-    const dropdown = document.getElementById(dropdownId);
-    
-    if (input) input.value = '';
-    if (dropdown) dropdown.classList.add('hidden');
-    
-    filterMarkers();
-}
-
-function removeItem(item, selectedItemsArray, itemType) {
-    const index = selectedItemsArray.indexOf(item);
-    if (index > -1) {
-        selectedItemsArray.splice(index, 1);
-    }
-    updateSelectedItemsDisplay(selectedItemsArray, itemType);
-    filterMarkers();
-}
-
-function clearAllItems(selectedItemsArray, itemType) {
-    selectedItemsArray.length = 0;
-    updateSelectedItemsDisplay(selectedItemsArray, itemType);
-    filterMarkers();
-}
-
-function updateSelectedItemsDisplay(selectedItemsArray, itemType) {
-    const containerId = `selected${itemType.charAt(0).toUpperCase() + itemType.slice(1)}s`;
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (selectedItemsArray.length === 0) {
-        const placeholder = document.createElement('span');
-        placeholder.className = 'keyword-placeholder';
-        placeholder.textContent = `No ${itemType}s selected`;
-        container.appendChild(placeholder);
-        return;
-    }
-    
-    selectedItemsArray.forEach(item => {
-        const tag = document.createElement('div');
-        tag.className = 'keyword-tag';
-        
-        const text = document.createElement('span');
-        text.textContent = item;
-        text.className = 'keyword-tag-text';
-        
-        const removeBtn = document.createElement('button');
-        removeBtn.innerHTML = '×';
-        removeBtn.className = 'keyword-tag-remove';
-        removeBtn.addEventListener('click', () => removeItem(item, selectedItemsArray, itemType));
-        
-        tag.appendChild(text);
-        tag.appendChild(removeBtn);
-        container.appendChild(tag);
-    });
-}
-
-function initializeSuburbSearch() {
-    allSuburbs = extractUniqueValues(playgroundData, 'suburb'); // Changed from extractUniqueValuesForSearch
-    initializeMultiSelectSearch('suburbSearchInput', 'suburbDropdown', allSuburbs, selectedSuburbs, 'suburb');
-}
-
-function clearAllSuburbs() {
-    clearAllItems(selectedSuburbs, 'suburb');
-}
-
-function initializeLGASearch() {
-    allLGAs = extractUniqueValues(playgroundData, 'lga'); // Changed from extractUniqueValuesForSearch
-    initializeMultiSelectSearch('lgaSearchInput', 'lgaDropdown', allLGAs, selectedLGAs, 'lga');
-}
-
-function clearAllLGAs() {
-    clearAllItems(selectedLGAs, 'lga');
-}
-
-
-// ===== KEYWORD SEARCH FUNCTIONALITY =====
-// Needs special function as this is comma separated values inside a cell 
-function extractAllKeywords(data) {
-    const keywordSet = new Set();
-    
-    if (!data || data.length === 0) return [];
-    
-    data.forEach(playground => {
-        const keywords = playground.keywords;
-        if (keywords && keywords.trim() !== '') {
-            keywords.split(',').forEach(keyword => {
-                const trimmed = keyword.trim();
-                if (trimmed) {
-                    keywordSet.add(trimmed);
-                }
-            });
-        }
-    });
-    
-    return Array.from(keywordSet).sort((a, b) => 
-        a.toLowerCase().localeCompare(b.toLowerCase())
-    );
-}
-
-function initializeKeywordSearch() {
-    allKeywords = extractAllKeywords(playgroundData);
-    initializeMultiSelectSearch('keywordSearchInput', 'keywordDropdown', allKeywords, selectedKeywords, 'keyword');
-}
-
-function clearAllKeywords() {
-    clearAllItems(selectedKeywords, 'keyword');
-}
-
-function playgroundMatchesKeywords(playground) {
-    if (selectedKeywords.length === 0) return true;
-    
-    const playgroundKeywords = playground.keywords;
-    if (!playgroundKeywords || playgroundKeywords.trim() === '') return false;
-    
-    const playgroundKeywordList = playgroundKeywords
-        .split(',')
-        .map(k => k.trim().toLowerCase());
-    
-    return selectedKeywords.some(selectedKeyword => 
-        playgroundKeywordList.includes(selectedKeyword.toLowerCase())
-    );
-}
-
-// Show the other buttons once something is selected
-function updateSelectedItemsDisplay(selectedItemsArray, itemType) {
-    const containerId = `selected${itemType.charAt(0).toUpperCase() + itemType.slice(1)}s`;
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    // Find the closest .mt-2 wrapper (the section that should show/hide)
-    const wrapper = container.closest('.mt-2');
-    container.innerHTML = '';
-
-    if (selectedItemsArray.length === 0) {
-        const placeholder = document.createElement('span');
-        placeholder.className = 'keyword-placeholder';
-        placeholder.textContent = `No ${itemType}s selected`;
-        container.appendChild(placeholder);
-
-        // Hide the wrapper if it exists
-        if (wrapper) wrapper.style.display = 'none';
-        return;
-    }
-
-    // Otherwise, create tags for each selected item
-    selectedItemsArray.forEach(item => {
-        const tag = document.createElement('div');
-        tag.className = 'keyword-tag';
-        
-        const text = document.createElement('span');
-        text.textContent = item;
-        text.className = 'keyword-tag-text';
-        
-        const removeBtn = document.createElement('button');
-        removeBtn.innerHTML = '×';
-        removeBtn.className = 'keyword-tag-remove';
-        removeBtn.addEventListener('click', () => removeItem(item, selectedItemsArray, itemType));
-        
-        tag.appendChild(text);
-        tag.appendChild(removeBtn);
-        container.appendChild(tag);
-    });
-
-    // Show the wrapper when items exist
-    if (wrapper) wrapper.style.display = 'block';
-}
-
-
-// ===== MOBILE DRAWER FUNCTIONALITY =====
-function initializeMobileDrawer() {
-  if (window.innerWidth > 768) return; // Only on mobile
-
-  const sidebar = document.querySelector('.w-80');
-  const handle = document.getElementById('drawerHandle');
-  
-  if (!sidebar || !handle) return;
-
-  // Start in partial state
-  sidebar.classList.add('drawer-collapsed');
-  let currentState = 'collapsed';
-
-  // Click to cycle states
-  handle.addEventListener('click', () => {
-    sidebar.classList.remove('drawer-collapsed', 'drawer-partial', 'drawer-full');
-    
-    if (currentState === 'collapsed') {
-      sidebar.classList.add('drawer-partial');
-      currentState = 'partial';
-    } else if (currentState === 'partial') {
-      sidebar.classList.add('drawer-full');
-      currentState = 'full';
-    } else {
-      sidebar.classList.add('drawer-collapsed');
-      currentState = 'collapsed';
-    }
-  });
-
-  // Touch drag handling
-  let touchStartY = 0;
-  let isDragging = false;
-  let initialState = '';
-
-  handle.addEventListener('touchstart', (e) => {
-    isDragging = true;
-    touchStartY = e.touches[0].clientY;
-    initialState = currentState;
-  });
-
-  document.addEventListener('touchmove', (e) => {
-    if (!isDragging) return;
-    
-    const touchCurrentY = e.touches[0].clientY;
-    const deltaY = touchCurrentY - touchStartY;
-    
-    sidebar.classList.remove('drawer-collapsed', 'drawer-partial', 'drawer-full');
-    
-    if (deltaY > 100 && initialState === 'full') {
-      sidebar.classList.add('drawer-partial');
-      currentState = 'partial';
-      isDragging = false;
-    } else if (deltaY > 100 && initialState === 'partial') {
-      sidebar.classList.add('drawer-collapsed');
-      currentState = 'collapsed';
-      isDragging = false;
-    } else if (deltaY < -100 && initialState === 'collapsed') {
-      sidebar.classList.add('drawer-partial');
-      currentState = 'partial';
-      isDragging = false;
-    } else if (deltaY < -100 && initialState === 'partial') {
-      sidebar.classList.add('drawer-full');
-      currentState = 'full';
-      isDragging = false;
-    } else {
-      sidebar.classList.add(currentState);
-    }
-  });
-
-  document.addEventListener('touchend', () => {
-    isDragging = false;
-  });
-console.log('Drawer initialized');
-}
-
-
-
-// ===== MODAL AND EDIT FUNCTIONALITY =====
-
 // ===== POPULATE EDIT FORM DROPDOWNS FROM DATABASE =====
+
 
 // Call this function when loading playground data
 function populateEditFormDropdowns() {
@@ -1534,6 +1566,7 @@ function populateEditFormDropdowns() {
     const parkingOptions = extractUniqueValues(playgroundData, 'parking');
     const seatingOptions = extractUniqueValues(playgroundData, 'seating');
     const floorOptions = extractUniqueValues(playgroundData, 'floor');
+    const verifiedOptions = extractUniqueValues(playgroundData, 'verified');
 
     // Sort with custom order (optional)
     const typesSorted = sortWithCustomOrder(types, [
@@ -1563,8 +1596,7 @@ function populateEditFormDropdowns() {
     populateFormDropdown('edit-parking', parkingOptions);
     populateFormDropdown('edit-seating', seatingOptions);
     populateFormDropdown('edit-floor', floorOptions);
-
-    console.log('Edit form dropdowns populated from database');
+    populateFormDropdown('edit-verified', verifiedOptions);
 }
 
 // Helper function to populate a single dropdown
@@ -1631,7 +1663,6 @@ function editPlayground(uniqueId) {
 
 // populateEditForm to work with dropdowns
 function populateEditForm(playgroundData) {
-    console.log("Populating form with data:", playgroundData);
     
     // Text inputs - direct mapping
     const textFields = ['name', 'keywords', 'comments', 'link'];
@@ -1642,7 +1673,7 @@ function populateEditForm(playgroundData) {
     });
     
     // Dropdown fields - direct mapping
-    const dropdownFields = ['type', 'shade', 'parking', 'fencing', 'seating', 'floor'];
+    const dropdownFields = ['type', 'shade', 'parking', 'fencing', 'seating', 'floor', 'verified'];
     
     dropdownFields.forEach(field => {
         const element = document.getElementById(`edit-${field}`);
@@ -1661,7 +1692,6 @@ function populateEditForm(playgroundData) {
         const element = document.getElementById(`edit-${field}`);
         if (element) {
             element.checked = playgroundData[field] === true;
-            console.log(`${field}: Value = ${playgroundData[field]}, Checked = ${element.checked}`);
         }
     });
     
@@ -1685,7 +1715,6 @@ function populateEditForm(playgroundData) {
         const element = document.getElementById(`edit-${field}`);
         if (element) {
             element.value = playgroundData[field] || '';
-            console.log(`${field}: Value = ${playgroundData[field]}`);
         }
     });
 }
@@ -1711,8 +1740,6 @@ function setupModalEventListeners() {
                 map.removeLayer(tempLocationMarker);
                 tempLocationMarker = null;
             }
-            
-            console.log('Close button clicked');
         });
     }
     
@@ -1735,12 +1762,16 @@ function setupModalEventListeners() {
     });
 }
 
+// ===== MODAL AND EDIT FUNCTIONALITY =====
+
+
 // ===== ADD NEW PLAYGROUND FUNCTIONALITY =====
+
 let isSelectingLocation = false;
 let tempLocationMarker = null;
 let newPlaygroundCoords = null;
 
-function initializeAddNewPlayground() {
+function initialiseAddNewPlayground() {
     const addBtn = document.getElementById('addNewPlaygroundBtn');
     if (!addBtn) return;
     
@@ -1916,6 +1947,115 @@ style.textContent = `
 document.head.appendChild(style);
 
 // ===== SUBMIT EDIT TO SUPABASE STAGING =====
+// Updated collectFormData to include skate park
+function collectFormData() {
+    const getValue = (id) => document.getElementById(id)?.value || '';
+    const getChecked = (id) => document.getElementById(id)?.checked || false;
+    
+    return {
+        playgroundId: currentEditingPlayground.uid,
+        // Basic info
+        name: getValue('edit-name'),
+        type: getValue('edit-type'),
+        keywords: getValue('edit-keywords'),
+        comments: getValue('edit-comments'),
+        // Facilities
+        shade: getValue('edit-shade'),
+        parking: getValue('edit-parking'),
+        fencing: getValue('edit-fencing'),
+        seating: getValue('edit-seating'),
+        floor: getValue('edit-floor'),
+        toilet: getChecked('edit-toilet'),
+        bbq: getChecked('edit-bbq'),
+        bubbler: getChecked('edit-bubbler'),
+        accessible: getChecked('edit-accessible'),
+        // Activities
+        basketball: getChecked('edit-basketball'),
+        skatePark: getChecked('edit-skate_park'),
+        pumpTrack: getChecked('edit-pump_track'),
+        scooterTrack: getChecked('edit-scooter_track'),
+        cricketChute: getChecked('edit-cricket_chute'),
+        tennisCourt: getChecked('edit-tennis_court'),
+        activityWall: getChecked('edit-activity_wall'),
+        talkingTube: getChecked('edit-talking_tube'),
+        musicalPlay: getChecked('edit-musical_play'),
+        sensoryPlay: getChecked('edit-sensory_play'),
+        sandpit: getChecked('edit-sandpit'),
+        waterPlay: getChecked('edit-water_play'),
+        // Equipment counts
+        babySwing: getValue('edit-baby_swing'),
+        beltSwing: getValue('edit-belt_swing'),
+        basketSwing: getValue('edit-basket_swing'),
+        dualSwing: getValue('edit-dual_swing'),
+        hammock: getValue('edit-hammock'),
+        doubleSlide: getValue('edit-double_slide'),
+        tripleSlide: getValue('edit-triple_slide'),
+        straightSlide: getValue('edit-straight_slide'),
+        tubeSlide: getValue('edit-tube_slide'),
+        spiralSlide: getValue('edit-spiral_slide'),
+        stairs: getValue('edit-stairs'),
+        metalLadder: getValue('edit-metal_ladder'),
+        ropeLadder: getValue('edit-rope_ladder'),
+        rockClimbing: getValue('edit-rock_climbing'),
+        monkeyBars: getValue('edit-monkey_bars'),
+        otherClimbing: getValue('edit-other_climbing'),
+        ropeGym: getValue('edit-rope_gym'),
+        spinningPole: getValue('edit-spinning_pole'),
+        spinningBucket: getValue('edit-spinning_bucket'),
+        merryGoRound: getValue('edit-merry_go_round'),
+        balanceBeam: getValue('edit-balance_beam'),
+        steppingStones: getValue('edit-stepping_stones'),
+        springRocker: getValue('edit-spring_rocker'),
+        seesaw: getValue('edit-seesaw'),
+        bridge: getValue('edit-bridge'),
+        tunnel: getValue('edit-tunnel'),
+        trampoline: getValue('edit-trampoline'),
+        firemansPole: getValue('edit-firemans_pole'),
+        hamsterWheel: getValue('edit-hamster_wheel'),
+        // Media and contact
+        photo: getValue('edit-photo'),
+        link: getValue('edit-link'),
+        email: getValue('edit-email'),
+        verified: getValue('edit-verified')
+    };
+}
+
+// Show error message
+function showErrorMessage(errorText) {
+    const errorMessage = document.getElementById('error-message');
+    const editForm = document.getElementById('editForm');
+    
+    if (errorMessage) {
+        errorMessage.textContent = `Error: ${errorText}`;
+        errorMessage.style.display = 'block';
+    } else {
+        alert(`Error submitting edit: ${errorText}`);
+    }
+    
+    setTimeout(() => {
+        if (errorMessage) errorMessage.style.display = 'none';
+    }, 5000);
+}
+
+// Keep your existing showSuccessMessage function
+function showSuccessMessage() {
+    const successMessage = document.getElementById('success-message');
+    const editForm = document.getElementById('editForm');
+    const modal = document.getElementById('editModal');
+    
+    if (successMessage) successMessage.style.display = 'block';
+    if (editForm) editForm.style.display = 'none';
+    
+    setTimeout(() => {
+        if (modal) modal.style.display = 'none';
+        if (successMessage) successMessage.style.display = 'none';
+        if (editForm) {
+            editForm.style.display = 'block';
+            editForm.reset();
+        }
+    }, 3000);
+}
+
 // Updated setupFormSubmission to save to Supabase
 function setupFormSubmission() {
     const form = document.getElementById('editForm');
@@ -1933,8 +2073,6 @@ function setupFormSubmission() {
         
         try {
             const formData = collectFormData();
-            console.log('Submitting edit:', formData);
-            
             // Submit to Supabase
             const result = await submitEditToSupabase(formData);
             
@@ -1986,10 +2124,37 @@ function getOrCreateSessionId() {
     return sessionId;
 }
 
+// Send email notification (using Supabase Edge Function)
+async function sendEmailNotification(editData, changes, editRecordId) {
+    try {
+        // Call your Supabase Edge Function to send email
+        const { data, error } = await supabase.functions.invoke('email-notification-edit', {
+            body: {
+                editId: editRecordId,  // ADDED: The ID of the record in playgrounds_edits
+                playgroundUid: editData.uid,
+                playgroundName: editData.name,
+                submittedBy: editData.submitted_by_email,
+                submittedAt: editData.submitted_at,
+                changes: changes // Pass the changes array
+            }
+        });
+
+        if (error) {
+            console.error('Email notification error:', error);
+            console.error('Error details:', error.message, error.context);
+        } else {
+            console.log('Email notification sent successfully:');
+        }
+    } catch (error) {
+        console.error('Failed to send email notification:', error);
+        console.error('Error type:', error.constructor.name);
+        // Don't fail the whole submission if email fails
+    }
+}
+
 // Submit edit suggestion to Supabase staging table
 async function submitEditToSupabase(formData) {
     try {
-        console.log('formData:', formData);
         // Check if this is a new playground
         const isNewPlayground = currentEditingPlayground.isNew === true;
         
@@ -2077,6 +2242,7 @@ async function submitEditToSupabase(formData) {
                 // Media
                 photo: formData.photo || null,
                 link: formData.link || null,
+                verified: formData.verified || null,
             };
             
             // Insert new playground into staging table
@@ -2103,7 +2269,7 @@ async function submitEditToSupabase(formData) {
             }
 
             const data = result.data;
-            console.log('New playground submitted successfully:', data);
+            console.log('New playground submitted successfully:');
             
             // Send email notification for new playground
             await sendNewPlaygroundEmail(newPlayground);
@@ -2119,10 +2285,6 @@ async function submitEditToSupabase(formData) {
         } else {
             // Existing edit functionality
             const originalData = playgroundLookup[formData.playgroundId];
-
-            console.log('Editing playground:', formData.playgroundId, 'Type:', typeof formData.playgroundId);
-            console.log('Original data exists:', !!originalData);
-
             const editSuggestion = {
                 uid: formData.playgroundId,
                 submitted_at: new Date().toISOString(),
@@ -2203,6 +2365,7 @@ async function submitEditToSupabase(formData) {
                 // Media
                 photo: formData.photo || null,
                 link: formData.link || null,
+                verified: formData.verified || null,
             };
 
             const changes = comparePlaygroundData(originalData, editSuggestion);
@@ -2231,7 +2394,7 @@ async function submitEditToSupabase(formData) {
 
             const data = result.data;
             
-            console.log('Edit suggestion submitted successfully:', data);
+            console.log('Edit suggestion submitted successfully:');
             await sendEmailNotification(editSuggestion, changes, data.id);
             
             return { success: true, data: data };
@@ -2261,7 +2424,7 @@ async function sendNewPlaygroundEmail(playgroundData) {
         if (error) {
             console.error('Email notification error:', error);
         } else {
-            console.log('Email notification sent successfully:', data);
+            console.log('Email notification sent successfully:');
         }
     } catch (error) {
         console.error('Failed to send email notification:', error);
@@ -2329,7 +2492,8 @@ function comparePlaygroundData(original, edited) {
         firemans_pole: 'Firemans Poles',
         hamster_wheel: 'Hamster Roller Wheels',
         photo: 'Photo',
-        link: 'Link'
+        link: 'Link',
+        verified: 'Verified'
     };
     
     // Compare each field - now both objects use the same field names!
@@ -2404,255 +2568,6 @@ function formatValue(value) {
     return String(value);
 }
 
-// Send email notification (using Supabase Edge Function)
-async function sendEmailNotification(editData, changes, editRecordId) {
-    try {
-        // Call your Supabase Edge Function to send email
-        const { data, error } = await supabase.functions.invoke('email-notification-edit', {
-            body: {
-                editId: editRecordId,  // ADDED: The ID of the record in playgrounds_edits
-                playgroundUid: editData.uid,
-                playgroundName: editData.name,
-                submittedBy: editData.submitted_by_email,
-                submittedAt: editData.submitted_at,
-                changes: changes // Pass the changes array
-            }
-        });
-
-        if (error) {
-            console.error('Email notification error:', error);
-            console.error('Error details:', error.message, error.context);
-        } else {
-            console.log('Email notification sent successfully:', data);
-        }
-    } catch (error) {
-        console.error('Failed to send email notification:', error);
-        console.error('Error type:', error.constructor.name);
-        // Don't fail the whole submission if email fails
-    }
-}
-
-// Updated collectFormData to include skate park
-function collectFormData() {
-    const getValue = (id) => document.getElementById(id)?.value || '';
-    const getChecked = (id) => document.getElementById(id)?.checked || false;
-    
-    return {
-        playgroundId: currentEditingPlayground.uid,
-        // Basic info
-        name: getValue('edit-name'),
-        type: getValue('edit-type'),
-        keywords: getValue('edit-keywords'),
-        comments: getValue('edit-comments'),
-        // Facilities
-        shade: getValue('edit-shade'),
-        parking: getValue('edit-parking'),
-        fencing: getValue('edit-fencing'),
-        seating: getValue('edit-seating'),
-        floor: getValue('edit-floor'),
-        toilet: getChecked('edit-toilet'),
-        bbq: getChecked('edit-bbq'),
-        bubbler: getChecked('edit-bubbler'),
-        accessible: getChecked('edit-accessible'),
-        // Activities
-        basketball: getChecked('edit-basketball'),
-        skatePark: getChecked('edit-skate_park'),
-        pumpTrack: getChecked('edit-pump_track'),
-        scooterTrack: getChecked('edit-scooter_track'),
-        cricketChute: getChecked('edit-cricket_chute'),
-        tennisCourt: getChecked('edit-tennis_court'),
-        activityWall: getChecked('edit-activity_wall'),
-        talkingTube: getChecked('edit-talking_tube'),
-        musicalPlay: getChecked('edit-musical_play'),
-        sensoryPlay: getChecked('edit-sensory_play'),
-        sandpit: getChecked('edit-sandpit'),
-        waterPlay: getChecked('edit-water_play'),
-        // Equipment counts
-        babySwing: getValue('edit-baby_swing'),
-        beltSwing: getValue('edit-belt_swing'),
-        basketSwing: getValue('edit-basket_swing'),
-        dualSwing: getValue('edit-dual_swing'),
-        hammock: getValue('edit-hammock'),
-        doubleSlide: getValue('edit-double_slide'),
-        tripleSlide: getValue('edit-triple_slide'),
-        straightSlide: getValue('edit-straight_slide'),
-        tubeSlide: getValue('edit-tube_slide'),
-        spiralSlide: getValue('edit-spiral_slide'),
-        stairs: getValue('edit-stairs'),
-        metalLadder: getValue('edit-metal_ladder'),
-        ropeLadder: getValue('edit-rope_ladder'),
-        rockClimbing: getValue('edit-rock_climbing'),
-        monkeyBars: getValue('edit-monkey_bars'),
-        otherClimbing: getValue('edit-other_climbing'),
-        ropeGym: getValue('edit-rope_gym'),
-        spinningPole: getValue('edit-spinning_pole'),
-        spinningBucket: getValue('edit-spinning_bucket'),
-        merryGoRound: getValue('edit-merry_go_round'),
-        balanceBeam: getValue('edit-balance_beam'),
-        steppingStones: getValue('edit-stepping_stones'),
-        springRocker: getValue('edit-spring_rocker'),
-        seesaw: getValue('edit-seesaw'),
-        bridge: getValue('edit-bridge'),
-        tunnel: getValue('edit-tunnel'),
-        trampoline: getValue('edit-trampoline'),
-        firemansPole: getValue('edit-firemans_pole'),
-        hamsterWheel: getValue('edit-hamster_wheel'),
-        // Media and contact
-        photo: getValue('edit-photo'),
-        link: getValue('edit-link'),
-        email: getValue('edit-email')
-    };
-}
-
-// Show error message
-function showErrorMessage(errorText) {
-    const errorMessage = document.getElementById('error-message');
-    const editForm = document.getElementById('editForm');
-    
-    if (errorMessage) {
-        errorMessage.textContent = `Error: ${errorText}`;
-        errorMessage.style.display = 'block';
-    } else {
-        alert(`Error submitting edit: ${errorText}`);
-    }
-    
-    setTimeout(() => {
-        if (errorMessage) errorMessage.style.display = 'none';
-    }, 5000);
-}
-
-// Keep your existing showSuccessMessage function
-function showSuccessMessage() {
-    const successMessage = document.getElementById('success-message');
-    const editForm = document.getElementById('editForm');
-    const modal = document.getElementById('editModal');
-    
-    if (successMessage) successMessage.style.display = 'block';
-    if (editForm) editForm.style.display = 'none';
-    
-    setTimeout(() => {
-        if (modal) modal.style.display = 'none';
-        if (successMessage) successMessage.style.display = 'none';
-        if (editForm) {
-            editForm.style.display = 'block';
-            editForm.reset();
-        }
-    }, 3000);
-}
-
-function setupDrawerHandleText() {
-    const drawer = document.querySelector('.w-80.bg-white.shadow-lg');
-    const drawerHandleText = document.querySelector('.drawer-handle-text');
-    const playgroundCountMobile = document.getElementById('playgroundCountMobile');
-    
-    if (!drawer || !drawerHandleText) return;
-    
-    // Function to update text based on drawer state
-    function updateDrawerText() {
-        const isFullyExpanded = drawer.classList.contains('drawer-full');
-        const playgroundCount = playgroundCountMobile ? playgroundCountMobile.textContent : '33 playgrounds';
-        
-        if (isFullyExpanded) {
-            drawerHandleText.innerHTML = `<span class="playgroundCount">${playgroundCount}</span> • Tap to minimise`;
-        } else {
-            drawerHandleText.innerHTML = `<span class="playgroundCount">${playgroundCount}</span> • Tap to expand`;
-        }
-    }
-    
-    // Call initially
-    updateDrawerText();
-    
-    // Update text whenever drawer state changes
-    const observer = new MutationObserver(updateDrawerText);
-    observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
-}
-
-// ===== UI HELPER FUNCTIONS =====
-function toggleFooter() {
-    const footer = document.getElementById('footer');
-    const footerToggle = document.getElementById('footerToggle');
-    
-    if (!footer || !footerToggle) return;
-    
-    footer.classList.toggle('open');
-    footerToggle.style.display = footer.classList.contains('open') ? 'none' : 'block';
-}
-
-function setupEventListeners() {
-    // Dropdown toggles
-    const typeBtn = document.getElementById('typeDropdownBtn');
-    const shadeBtn = document.getElementById('shadeDropdownBtn');
-    const fencingBtn = document.getElementById('fencingDropdownBtn');
-    const parkingBtn = document.getElementById('parkingDropdownBtn'); 
-
-    if (typeBtn) {
-        typeBtn.addEventListener('click', () => 
-            toggleDropdown('typeDropdownMenu', 'lgaDropdownMenu', 'suburbDropdownMenu'));
-    }
-
-    if (shadeBtn) {
-        shadeBtn.addEventListener('click', () => toggleDropdown('shadeDropdownMenu'));
-    }
-
-    if (fencingBtn) {
-        fencingBtn.addEventListener('click', () => toggleDropdown('fencingDropdownMenu'));
-    }
-
-    if (parkingBtn) {
-        parkingBtn.addEventListener('click', () => toggleDropdown('parkingDropdownMenu'));
-    }
-
-    // Filter event listeners (excluding the old size filter checkboxes)
-    const filterIds = [
-        'filterHasTrampoline', 'filterHasSkatePark', 'filterHasLargeFlyingFox', 'filterHasSandpit', 'filterHasScootTrack', 'filterHasWaterPlay', 'filterHasAccessibleFeatures', 'filterHasToilet', 'filterHasBBQ', 'filterHasBubbler'
-    ];
-
-    filterIds.forEach(id => {
-        const element = document.getElementById(id);
-        if (element) element.addEventListener('change', filterMarkers);
-    });
-    
-    // Initialize size slider
-    initializeSizeSlider();
-    
-    // Footer toggle
-    const footerToggle = document.getElementById('footerToggle');
-    if (footerToggle) footerToggle.addEventListener('click', toggleFooter);
-    
-    // Close dropdowns when clicking outside
-    document.addEventListener('click', handleOutsideClick);
-    
-    // Modal and form setup
-    setupModalEventListeners();
-    setupFormSubmission();
-
-    // Drawer handle text
-    setupDrawerHandleText();
-
-    // Add new playground button
-    initializeAddNewPlayground();
-}
-
-function handleOutsideClick(event) {
-    const dropdownConfigs = [
-        { btn: 'typeDropdownBtn', menu: 'typeDropdownMenu' },
-        { btn: 'shadeDropdownBtn', menu: 'shadeDropdownMenu' },
-        { btn: 'fencingDropdownBtn', menu: 'fencingDropdownMenu' },
-        { btn: 'parkingDropdownBtn', menu: 'parkingDropdownMenu' }
-    ];
-    
-    dropdownConfigs.forEach(({ btn, menu }) => {
-        const button = document.getElementById(btn);
-        const dropdown = document.getElementById(menu);
-        
-        if (button && dropdown && 
-            !button.contains(event.target) && 
-            !dropdown.contains(event.target)) {
-            dropdown.classList.add('hidden');
-        }
-    });
-}
-
 // ===== SEARCH FUNCTIONALITY =====
 function addSearchControl() {
     const mapContainer = document.getElementById('map');
@@ -2678,7 +2593,6 @@ function addSearchControl() {
     setTimeout(() => {
         const layersControl = document.querySelector('.leaflet-control-layers');
         if (layersControl && searchContainer) {
-            console.log('Moving layers control into search container');
             searchContainer.appendChild(layersControl);
         }
     }, 100);
@@ -2705,6 +2619,7 @@ function addSearchControl() {
 }
 
 function handleSuggestions() {
+    const searchInput = document.getElementById('searchInput');
     const query = searchInput.value.trim().toLowerCase();
     const suggestionsContainer = document.getElementById('suggestions');
     suggestionsContainer.innerHTML = '';
@@ -2861,35 +2776,111 @@ function addSearchResultMarker(lat, lng, displayName, isPlayground) {
     }, 8000);
 }
 
-// ===== INITIALIZATION =====
-function initializeApp() {
-    console.log('initializeApp started');
-    
-    initializeMap();
-    initializeClusterGroup();
-    
-    // Load data first, THEN initialize search after data is loaded
-    loadPlaygroundData().then(() => {
-        console.log('Data loaded, initializing searches');
-        initializeKeywordSearch();
-        initializeSuburbSearch();
-        initializeLGASearch();
-        addSearchControl();
-    });
-    
-    setupEventListeners();
-    initializeMobileDrawer();
+// ===== MOBILE DRAWER FUNCTIONALITY =====
 
-    // Update count when map moves/zooms
-    map.on('moveend zoomend', updateVisiblePlaygroundCount);
+function initialiseMobileDrawer() {
+  if (window.innerWidth > 768) return; // Only on mobile
+
+  const sidebar = document.querySelector('.w-80');
+  const handle = document.getElementById('drawerHandle');
+  
+  if (!sidebar || !handle) return;
+
+  // Start in partial state
+  sidebar.classList.add('drawer-collapsed');
+  let currentState = 'collapsed';
+
+  // Click to cycle states
+  handle.addEventListener('click', () => {
+    sidebar.classList.remove('drawer-collapsed', 'drawer-partial', 'drawer-full');
     
-    console.log('initializeApp completed');
+    if (currentState === 'collapsed') {
+      sidebar.classList.add('drawer-partial');
+      currentState = 'partial';
+    } else if (currentState === 'partial') {
+      sidebar.classList.add('drawer-full');
+      currentState = 'full';
+    } else {
+      sidebar.classList.add('drawer-collapsed');
+      currentState = 'collapsed';
+    }
+  });
+
+  // Touch drag handling
+  let touchStartY = 0;
+  let isDragging = false;
+  let initialState = '';
+
+  handle.addEventListener('touchstart', (e) => {
+    isDragging = true;
+    touchStartY = e.touches[0].clientY;
+    initialState = currentState;
+  });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    
+    const touchCurrentY = e.touches[0].clientY;
+    const deltaY = touchCurrentY - touchStartY;
+    
+    sidebar.classList.remove('drawer-collapsed', 'drawer-partial', 'drawer-full');
+    
+    if (deltaY > 100 && initialState === 'full') {
+      sidebar.classList.add('drawer-partial');
+      currentState = 'partial';
+      isDragging = false;
+    } else if (deltaY > 100 && initialState === 'partial') {
+      sidebar.classList.add('drawer-collapsed');
+      currentState = 'collapsed';
+      isDragging = false;
+    } else if (deltaY < -100 && initialState === 'collapsed') {
+      sidebar.classList.add('drawer-partial');
+      currentState = 'partial';
+      isDragging = false;
+    } else if (deltaY < -100 && initialState === 'partial') {
+      sidebar.classList.add('drawer-full');
+      currentState = 'full';
+      isDragging = false;
+    } else {
+      sidebar.classList.add(currentState);
+    }
+  });
+
+  document.addEventListener('touchend', () => {
+    isDragging = false;
+  });
+console.log('Drawer initialised');
 }
 
+
+// ===== ===== ===== ===== ===== ===== ===== ===== INITIALIZATION ===== ===== ===== ===== ===== ===== ===== ===== 
 // ===== BACKWARD COMPATIBILITY =====
+
 function getMarkerColor(classification) {
     return getMarkerSizeConfig(classification).fillColor;
 }
 
-// ===== APP STARTUP =====
-document.addEventListener('DOMContentLoaded', initializeApp);
+// ===== APP ENTRY =====
+
+function initialiseApp() {
+    initialiseMap();
+    initialiseClusterGroup();
+    
+    // Load data first, then initialise searches after data is loaded
+    loadPlaygroundData().then(() => {
+        initialiseKeywordSearch();
+        initialiseSuburbSearch();
+        initialiseLGASearch();
+        addSearchControl();
+    });
+    
+    setupEventListeners();
+    initialiseMobileDrawer();
+
+    // Update count when map moves/zooms
+    map.on('moveend zoomend', updateVisiblePlaygroundCount);
+    
+    console.log('initialiseApp completed');
+}
+
+document.addEventListener('DOMContentLoaded', initialiseApp);
