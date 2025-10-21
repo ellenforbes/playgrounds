@@ -1956,9 +1956,41 @@ function setupFormSubmission() {
     });
 }
 
+// Generate a browser fingerprint
+function generateFingerprint() {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillText('fingerprint', 2, 2);
+    
+    const fingerprint = {
+        canvas: canvas.toDataURL(),
+        screen: `${screen.width}x${screen.height}x${screen.colorDepth}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: navigator.language,
+        platform: navigator.platform,
+        userAgent: navigator.userAgent
+    };
+    
+    // Hash it
+    return btoa(JSON.stringify(fingerprint)).substring(0, 32);
+}
+
+// Generate session ID (persists in browser storage)
+function getOrCreateSessionId() {
+    let sessionId = sessionStorage.getItem('playground_session');
+    if (!sessionId) {
+        sessionId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('playground_session', sessionId);
+    }
+    return sessionId;
+}
+
 // Submit edit suggestion to Supabase staging table
 async function submitEditToSupabase(formData) {
     try {
+        console.log('formData:', formData);
         // Check if this is a new playground
         const isNewPlayground = currentEditingPlayground.isNew === true;
         
@@ -2035,22 +2067,46 @@ async function submitEditToSupabase(formData) {
                 firemans_pole: parseInt(formData.firemansPole) || null,
                 hamster_wheel: parseInt(formData.hamsterWheel) || null,
                 
+                // TRACKING FIELDS
+                browser_fingerprint: generateFingerprint(),
+                session_id: getOrCreateSessionId(),
+                user_agent: navigator.userAgent,
+                submission_metadata: {
+                    screen_resolution: `${screen.width}x${screen.height}`,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    language: navigator.language,
+                    referrer: document.referrer,
+                },
+
                 // Media
                 photo: formData.photo || null,
                 link: formData.link || null,
             };
             
             // Insert new playground into staging table
-            const { data, error } = await supabase
-                .from('playgrounds_new_submissions')
-                .insert([newPlayground])
-                .select();
-            
-            if (error) {
-                console.error('Supabase error:', error);
-                return { success: false, error: error.message };
+            const response = await fetch(
+                `${supabaseUrl}/functions/v1/get-ip-on-submit`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${supabaseKey}`
+                    },
+                    body: JSON.stringify({
+                        table: 'playgrounds_new',
+                        data: newPlayground
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (!result.success) {
+                console.error('Supabase error:', result.error);
+                return { success: false, error: result.error };
             }
-            
+
+            const data = result.data;
             console.log('New playground submitted successfully:', data);
             
             // Send email notification for new playground
@@ -2065,32 +2121,119 @@ async function submitEditToSupabase(formData) {
             return { success: true, data: data };
             
         } else {
-            // Existing edit functionality (keep your existing code)
+            // Existing edit functionality
             const originalData = playgroundLookup[formData.playgroundId];
-            
+
+            console.log('Editing playground:', formData.playgroundId, 'Type:', typeof formData.playgroundId);
+            console.log('Original data exists:', !!originalData);
+
             const editSuggestion = {
                 uid: formData.playgroundId,
                 submitted_at: new Date().toISOString(),
                 submitted_by_email: formData.email || 'anonymous@playground.com',
                 status: 'pending',
                 
-                // ... rest of your existing edit code
+                // All form fields (same as newPlayground)
                 name: formData.name || null,
                 type: formData.type || null,
-                // ... (keep all your existing fields)
+                keywords: formData.keywords || null,
+                comments: formData.comments || null,
+                shade: formData.shade || null,
+                parking: formData.parking || null,
+                fencing: formData.fencing || null,
+                seating: formData.seating || null,
+                floor: formData.floor || null,
+                
+                // Boolean fields
+                toilet: formData.toilet,
+                bbq: formData.bbq,
+                bubbler: formData.bubbler,
+                accessible: formData.accessible,
+                basketball: formData.basketball,
+                pump_track: formData.pumpTrack,
+                scooter_track: formData.scooterTrack,
+                cricket_chute: formData.cricketChute,
+                tennis_court: formData.tennisCourt,
+                skate_park: formData.skatePark,
+                activity_wall: formData.activityWall,
+                talking_tube: formData.talkingTube,
+                musical_play: formData.musicalPlay,
+                sensory_play: formData.sensoryPlay,
+                sandpit: formData.sandpit,
+                water_play: formData.waterPlay,
+                
+                // Numeric fields
+                baby_swing: parseInt(formData.babySwing) || null,
+                belt_swing: parseInt(formData.beltSwing) || null,
+                basket_swing: parseInt(formData.basketSwing) || null,
+                dual_swing: parseInt(formData.dualSwing) || null,
+                hammock: parseInt(formData.hammock) || null,
+                double_slide: parseInt(formData.doubleSlide) || null,
+                triple_slide: parseInt(formData.tripleSlide) || null,
+                straight_slide: parseInt(formData.straightSlide) || null,
+                tube_slide: parseInt(formData.tubeSlide) || null,
+                spiral_slide: parseInt(formData.spiralSlide) || null,
+                stairs: parseInt(formData.stairs) || null,
+                metal_ladder: parseInt(formData.metalLadder) || null,
+                rope_ladder: parseInt(formData.ropeLadder) || null,
+                rock_climbing: parseInt(formData.rockClimbing) || null,
+                monkey_bars: parseInt(formData.monkeyBars) || null,
+                other_climbing: parseInt(formData.otherClimbing) || null,
+                rope_gym: parseInt(formData.ropeGym) || null,
+                spinning_pole: parseInt(formData.spinningPole) || null,
+                spinning_bucket: parseInt(formData.spinningBucket) || null,
+                merry_go_round: parseInt(formData.merryGoRound) || null,
+                balance_beam: parseInt(formData.balanceBeam) || null,
+                stepping_stones: parseInt(formData.steppingStones) || null,
+                spring_rocker: parseInt(formData.springRocker) || null,
+                seesaw: parseInt(formData.seesaw) || null,
+                bridge: parseInt(formData.bridge) || null,
+                tunnel: parseInt(formData.tunnel) || null,
+                trampoline: parseInt(formData.trampoline) || null,
+                firemans_pole: parseInt(formData.firemansPole) || null,
+                hamster_wheel: parseInt(formData.hamsterWheel) || null,
+                
+                // TRACKING FIELDS
+                browser_fingerprint: generateFingerprint(),
+                session_id: getOrCreateSessionId(),
+                user_agent: navigator.userAgent,
+                submission_metadata: {
+                    screen_resolution: `${screen.width}x${screen.height}`,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    language: navigator.language,
+                    referrer: document.referrer,
+                },
+
+                // Media
+                photo: formData.photo || null,
+                link: formData.link || null,
             };
-            
+
             const changes = comparePlaygroundData(originalData, editSuggestion);
             
-            const { data, error } = await supabase
-                .from('playgrounds_edit_suggestions')
-                .insert([editSuggestion])
-                .select();
-            
-            if (error) {
-                console.error('Supabase error:', error);
-                return { success: false, error: error.message };
+            const response = await fetch(
+                `${supabaseUrl}/functions/v1/get-ip-on-submit`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${supabaseKey}`
+                    },
+                    body: JSON.stringify({
+                        table: 'playgrounds_edits',
+                        data: editSuggestion
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (!result.success) {
+                console.error('Supabase error:', result.error);
+                return { success: false, error: result.error };
             }
+
+            const data = result.data;
             
             console.log('Edit suggestion submitted successfully:', data);
             await sendEmailNotification(editSuggestion, changes);
@@ -2332,7 +2475,6 @@ function collectFormData() {
         sensoryPlay: getChecked('edit-sensory_play'),
         sandpit: getChecked('edit-sandpit'),
         waterPlay: getChecked('edit-water_play'),
-        ropeGym: getChecked('edit-rope_gym'),
         // Equipment counts
         babySwing: getValue('edit-baby_swing'),
         beltSwing: getValue('edit-belt_swing'),
@@ -2340,6 +2482,7 @@ function collectFormData() {
         dualSwing: getValue('edit-dual_swing'),
         hammock: getValue('edit-hammock'),
         doubleSlide: getValue('edit-double_slide'),
+        tripleSlide: getValue('edit-triple_slide'),
         straightSlide: getValue('edit-straight_slide'),
         tubeSlide: getValue('edit-tube_slide'),
         spiralSlide: getValue('edit-spiral_slide'),
@@ -2349,6 +2492,7 @@ function collectFormData() {
         rockClimbing: getValue('edit-rock_climbing'),
         monkeyBars: getValue('edit-monkey_bars'),
         otherClimbing: getValue('edit-other_climbing'),
+        ropeGym: getValue('edit-rope_gym'),
         spinningPole: getValue('edit-spinning_pole'),
         spinningBucket: getValue('edit-spinning_bucket'),
         merryGoRound: getValue('edit-merry_go_round'),
