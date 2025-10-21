@@ -87,7 +87,7 @@ function hasValue(value) {
 }
 
 function generateUniqueId(props) {
-    return props.uid || props.id || Math.random().toString(36).substr(2, 9);
+    return props.uid;
 }
 
 function createElement(tag, className, innerHTML, attributes = {}) {
@@ -448,8 +448,7 @@ function createPopupFooter(props, uniqueId) {
 
     const comments = props.comments ? `<div style="font-style: italic; margin-bottom: 8px;">${props.comments}</div>` : '';
     
-    // Use the uniqueId parameter instead of props.uid
-    const playgroundId = uniqueId || props.uid || props.id;
+    const playgroundId = uniqueId;
    
     return `
         <div style="margin-top: 12px; padding-top: 8px; border-top: 2px dotted var(--text-light);">
@@ -1995,12 +1994,9 @@ async function submitEditToSupabase(formData) {
         const isNewPlayground = currentEditingPlayground.isNew === true;
         
         if (isNewPlayground) {
-            // Generate new UID
-            const newUid = generateNewUid();
             
             // Prepare data for new playground
             const newPlayground = {
-                uid: newUid,
                 lat: currentEditingPlayground.lat,
                 lng: currentEditingPlayground.lng,
                 submitted_at: new Date().toISOString(),
@@ -2236,7 +2232,7 @@ async function submitEditToSupabase(formData) {
             const data = result.data;
             
             console.log('Edit suggestion submitted successfully:', data);
-            await sendEmailNotification(editSuggestion, changes);
+            await sendEmailNotification(editSuggestion, changes, data.id);
             
             return { success: true, data: data };
         }
@@ -2245,11 +2241,6 @@ async function submitEditToSupabase(formData) {
         console.error('Error in submitEditToSupabase:', error);
         return { success: false, error: error.message };
     }
-}
-
-// Generate a unique ID for new playgrounds
-function generateNewUid() {
-    return 'NEW_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
 // Send email for new playground submission
@@ -2414,12 +2405,13 @@ function formatValue(value) {
 }
 
 // Send email notification (using Supabase Edge Function)
-async function sendEmailNotification(editData, changes) {
+async function sendEmailNotification(editData, changes, editRecordId) {
     try {
         // Call your Supabase Edge Function to send email
         const { data, error } = await supabase.functions.invoke('email-notification-edit', {
             body: {
-                playgrounduid: editData.uid,
+                editId: editRecordId,  // ADDED: The ID of the record in playgrounds_edits
+                playgroundUid: editData.uid,
                 playgroundName: editData.name,
                 submittedBy: editData.submitted_by_email,
                 submittedAt: editData.submitted_at,
