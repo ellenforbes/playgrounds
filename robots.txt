@@ -1,0 +1,10 @@
+User-agent: *
+Crawl-delay: 10
+
+# Playground data collection
+User-agent: *
+Disallow: /api/
+Disallow: /.supabase/
+
+# Terms: Automated data collection prohibited without written permission
+# Contact: ellenmarieforbes@gmail.com for data licensing inquiries
