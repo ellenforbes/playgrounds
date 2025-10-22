@@ -49,12 +49,12 @@ const sizeConfigs = {
 };
 
 const sizeSliderConfig = {
-    order: ['Unverified', 'Unsure If Exists', 'Under Construction', 'Exists: Not Digitally Classifiable', 'Tiny', 'Small', 'Medium', 'Large', 'Super'],
+    order: ['Unverified', 'Unsure If Exists', 'Exists: Not Digitally Classifiable', 'Under Construction', 'Tiny', 'Small', 'Medium', 'Large', 'Super'],
     labels: {
-        'Unverified': 'Unverified',
-        'Unsure If Exists': 'Unsure',
+        'Unverified': 'Unverified', 
+        'Unsure If Exists': 'Unverified',
+        'Exists: Not Digitally Classifiable': 'Unverified',
         'Under Construction': 'Rebuild',
-        'Exists: Not Digitally Classifiable': 'Unclassified',
         'Tiny': 'Tiny',
         'Small': 'Small', 
         'Medium': 'Medium',
@@ -538,10 +538,13 @@ function createPopupHeader(props) {
 }
 
 function createPopupFooter(props, uniqueId) {
-    const photo = props.photo ? `
+    const baseUrl = 'https://mrcodrddkxvoszuwdaks.supabase.co/storage/v1/object/public/Photos/';
+    const photoUrl = props.photo ? `${baseUrl}${props.photo}` : null;
+
+    const photo = photoUrl ? `
         <div style="margin-bottom: 4px;">
             <img
-                src="${props.photo}"
+                src="${photoUrl}"
                 style="max-width: 100%; height: auto; border-radius: 4px; cursor: zoom-in;"
                 alt="Playground photo"
                 onclick="enlargePhoto(this)"
@@ -1239,47 +1242,91 @@ function updateSelectedItemsDisplay(selectedItemsArray, itemType) {
 
 
 // ===== SIZE SLIDER FUNCTIONALITY =====
+function getSizeColor(sizeCategory) {
+    // Map all "Unverified" labeled items to the Unverified color
+    if (['Unverified', 'Unsure If Exists', 'Exists: Not Digitally Classifiable'].includes(sizeCategory)) {
+        return sizeConfigs.marker['Unverified'].fillColor;
+    }
+    return sizeConfigs.marker[sizeCategory]?.fillColor || '#6b7280';
+}
+
+// Create a visual-only order that groups unverified categories and map visual index to actual categories
+const visualSliderOrder = ['Unverified', 'Under Construction', 'Tiny', 'Small', 'Medium', 'Large', 'Super'];
+const visualToActualCategories = {
+    0: ['Unverified', 'Unsure If Exists', 'Exists: Not Digitally Classifiable'], // All unverified types
+    1: ['Under Construction'],
+    2: ['Tiny'],
+    3: ['Small'],
+    4: ['Medium'],
+    5: ['Large'],
+    6: ['Super']
+};
 
 function initialiseSizeSlider() {
     const slider = document.getElementById('sizeSlider');
     if (!slider) return;
 
-    const startMinIndex = sizeSliderConfig.order.indexOf('Tiny');   // index of "Tiny"
-    const startMaxIndex = sizeSliderConfig.order.indexOf('Super');  // index of "Super"
+    const startMinIndex = visualSliderOrder.indexOf('Tiny');   // index of "Tiny"
+    const startMaxIndex = visualSliderOrder.indexOf('Super');  // index of "Super"
+
+    // Add class for multi-color styling
+    slider.classList.add('size-slider-track');
 
     noUiSlider.create(slider, {
         start: [startMinIndex, startMaxIndex], // default to Tiny → Super
         connect: true,
         range: {
             min: 0,
-            max: sizeSliderConfig.order.length - 1
+            max: visualSliderOrder.length - 1
         },
         step: 1
     });
 
-    slider.noUiSlider.on('update', function(values) {
+    // Update handle colors dynamically
+    slider.noUiSlider.on('update', function(values, handle) {
         const minIndex = Math.round(values[0]);
         const maxIndex = Math.round(values[1]);
 
-        const minSize = sizeSliderConfig.order[minIndex];
-        const maxSize = sizeSliderConfig.order[maxIndex];
+        const minSize = visualSliderOrder[minIndex];
+        const maxSize = visualSliderOrder[maxIndex];
 
         document.getElementById('sizeSliderMinLabel').textContent = sizeSliderConfig.labels[minSize];
         document.getElementById('sizeSliderMaxLabel').textContent = sizeSliderConfig.labels[maxSize];
 
+        // Update handle colors based on position
+        const handles = slider.querySelectorAll('.noUi-handle');
+        if (handles.length >= 2) {
+            handles[0].style.background = getSizeColor(minSize);
+            handles[1].style.background = getSizeColor(maxSize);
+        }
+
         filterMarkers();
     });
+
+    // Set initial handle colors
+    const handles = slider.querySelectorAll('.noUi-handle');
+    if (handles.length >= 2) {
+        handles[0].style.background = getSizeColor('Tiny');
+        handles[1].style.background = getSizeColor('Super');
+    }
 }
 
 function getSelectedSizesFromSlider() {
     const slider = document.getElementById('sizeSlider');
-    if (!slider || !slider.noUiSlider) return [...sizeSliderConfig.order];
+    if (!slider || !slider.noUiSlider) {
+        // Return all categories if slider not initialized
+        return [...sizeSliderConfig.order];
+    }
 
     const values = slider.noUiSlider.get();
     const minIndex = Math.round(parseFloat(values[0]));
     const maxIndex = Math.round(parseFloat(values[1]));
     
-    const selected = sizeSliderConfig.order.slice(minIndex, maxIndex + 1);
+    // Collect all actual categories from the selected visual range
+    let selected = [];
+    for (let i = minIndex; i <= maxIndex; i++) {
+        selected.push(...visualToActualCategories[i]);
+    }
     
     return selected;
 }

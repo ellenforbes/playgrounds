@@ -85,11 +85,6 @@
     line-height: 1.4;
 }
 
-.popup-edit-btn:hover {
-    background: var(--gradient-contrast-dark) !important;
-    transform: translateY(-1px);
-}
-
 .playground-tooltip {
     background: rgba(123, 44, 191, 0.9);
     color: var(--bg-white);
@@ -141,23 +136,8 @@
     white-space: nowrap;
 }
 
-.close-footer {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: none;
-    border: none;
-    font-size: var(--font-size-xl);
-    cursor: pointer;
-    color: var(--gradient-contrast-dark);
-    transition: color var(--transition-fast);
-    z-index: 10;
-}
 
-.close-footer:hover {
-    color: var(--primary);
-}
-
+/* ===== FOOTER ===== */
 .close {
     position: absolute;
     z-index: 1001;
@@ -170,11 +150,23 @@
     transition: opacity var(--transition-fast);
 }
 
-.close:hover {
-    opacity: 0.7;
+.open-footer {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: var(--font-size-xl);
+    cursor: pointer;
+    color: var(--primary);
+    transition: color var(--transition-fast);
+    z-index: 10;
 }
 
-/* ===== FOOTER ===== */
+.open-footer:hover {
+    color: var(--contrast-dark);
+}
+
 .toggle-footer {
     position: fixed;
     bottom: 20px;
@@ -642,6 +634,7 @@ label,
     border-bottom: 1px solid var(--supplementary);
 }
 
+/* ===== SLIDER ===== */
 /* ===== SLIDERS ===== */
 .slider-container {
     display: flex;
@@ -661,29 +654,47 @@ label,
 
 .noUi-target {
     flex: 1;
-    height: 4px;
-    background: var(--supplementary);
-    border-radius: 2px;
+    height: 6px;
+    border-radius: 3px;
     border: none;
     margin: 0 var(--space-xs);
     position: relative;
+    box-shadow: none;
 }
 
+/* Multi-colored track background - now with grouped Unverified section */
+.noUi-target.size-slider-track {
+    background: linear-gradient(to right,
+        #6b7280 0%,      /* Unverified group - gray */
+        #6b7280 14.28%,  /* End Unverified (1/7 of track) */
+        #facc15 14.28%,  /* Under Construction - yellow */
+        #facc15 28.56%,  /* End Under Construction */
+        #eab308 28.56%,  /* Tiny - yellow/gold */
+        #eab308 42.84%,  /* End Tiny */
+        #faaa3c 42.84%,  /* Small - orange */
+        #faaa3c 57.12%,  /* End Small */
+        #ea580c 57.12%,  /* Medium - darker orange */
+        #ea580c 71.4%,   /* End Medium */
+        #dc2626 71.4%,   /* Large - red */
+        #dc2626 85.68%,  /* End Large */
+        #8b5cf6 85.68%,  /* Super - purple */
+        #8b5cf6 100%     /* End Super */
+    );
+}
+
+/* The connect bar (selected range) - make it semi-transparent or styled */
 .noUi-connect {
-    background: var(--gradient-primary);
-    height: 100%;
-    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: inset 0 0 2px rgba(0,0,0,0.1);
 }
-
 .noUi-horizontal .noUi-handle {
     top: 50%;
     transform: translate(-50%, -50%);
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    background: var(--gradient-primary);
-    border: 2px solid var(--bg-white);
-    box-shadow: var(--shadow-sm);
+    border: 3px solid var(--bg-white);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     cursor: grab;
 }
 
