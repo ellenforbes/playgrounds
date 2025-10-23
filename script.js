@@ -563,8 +563,7 @@ function createPopupFooter(props, uniqueId) {
                 <div style="color: var(--text-tertiary);">
                     Verified: ${props.last_visit_date ? new Date(props.last_visit_date).toLocaleDateString('en-GB') : 'Unknown'}, ${props.verified || 'Unknown'}
                 </div>
-                <button onclick="editPlayground('${playgroundId}')"
-                        style="background: var(--primary); border: none; border-radius: 4px; padding: 4px 12px; color: white; cursor: pointer; font-weight: 500;">
+                <button class="submit-btn" style="padding: 6px 12px; font-size: var(--font-size-sm); width: auto;" onclick="editPlayground('${playgroundId}')">
                     Edit Details
                 </button>
             </div>
@@ -1598,7 +1597,6 @@ window.addEventListener('resize', function() {
 
 // ===== POPULATE EDIT FORM DROPDOWNS FROM DATABASE =====
 
-
 // Call this function when loading playground data
 function populateEditFormDropdowns() {
     if (!playgroundData || playgroundData.length === 0) {
@@ -1693,7 +1691,6 @@ function sortWithCustomOrder(items, customOrder) {
     });
 }
 
-
 function editPlayground(uniqueId) {
     const normalizedId = uniqueId ? uniqueId.toString().trim() : null;
     const playgroundData = playgroundLookup[normalizedId];
@@ -1702,8 +1699,10 @@ function editPlayground(uniqueId) {
     
     const modal = document.getElementById('editModal');
 
-    populateEditForm(playgroundData); 
-    
+    populateEditForm(playgroundData);
+        // Initialize keyword functionality
+    initialiseEditModalKeywords();
+    populateEditModalKeywords(playgroundData);
     // Ensure the modal is visible (assuming modal CSS has high z-index and fixed positioning)
     modal.style.display = 'block'; 
 }
@@ -1782,6 +1781,19 @@ function setupModalEventListeners() {
             if (modalHeader) modalHeader.textContent = 'Suggest Edit';
             if (modalDescription) modalDescription.textContent = 'Help keep playground info up to date';
             
+            // Clear photo preview
+            const photoInput = document.getElementById('edit-photo');
+            const previewImg = document.getElementById('preview-img');
+            if (photoInput) photoInput.value = '';
+            if (previewImg) {
+                previewImg.src = '';
+                previewImg.style.display = 'none';
+            }
+            
+            // Clear keywords
+            editModalSelectedKeywords = [];
+            updateEditModalKeywordsDisplay();
+            
             // Remove temp marker if exists
             if (tempLocationMarker) {
                 map.removeLayer(tempLocationMarker);
@@ -1800,6 +1812,15 @@ function setupModalEventListeners() {
             if (modalHeader) modalHeader.textContent = 'Suggest Edit';
             if (modalDescription) modalDescription.textContent = 'Help keep playground info up to date';
             
+            // Clear photo preview
+            const photoInput = document.getElementById('edit-photo');
+            const previewImg = document.getElementById('preview-img');
+            if (photoInput) photoInput.value = '';
+            if (previewImg) {
+                previewImg.src = '';
+                previewImg.style.display = 'none';
+            }
+            
             // Remove temp marker if exists
             if (tempLocationMarker) {
                 map.removeLayer(tempLocationMarker);
@@ -1808,8 +1829,6 @@ function setupModalEventListeners() {
         }
     });
 }
-
-// ===== MODAL AND EDIT FUNCTIONALITY =====
 
 
 // ===== ADD NEW PLAYGROUND FUNCTIONALITY =====
@@ -1993,18 +2012,174 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+
+// ===== KEYWORD SELECTION IN EDIT MODAL =====
+
+let editModalSelectedKeywords = [];
+
+function initialiseEditModalKeywords() {
+    const input = document.getElementById('edit-keywords');
+    const dropdown = document.getElementById('editKeywordDropdown');
+    
+    if (!input || !dropdown) return;
+    
+    // Clear previous listeners
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+    const inputElement = document.getElementById('edit-keywords');
+    
+    inputElement.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        
+        if (searchTerm === '') {
+            dropdown.style.display = 'none';
+            return;
+        }
+        
+        // Filter keywords that match search term
+        const matchingKeywords = allKeywords.filter(keyword => 
+            keyword.toLowerCase().includes(searchTerm) &&
+            !editModalSelectedKeywords.includes(keyword)
+        );
+        
+        if (matchingKeywords.length === 0) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        
+        // Display matching keywords
+        dropdown.innerHTML = '';
+        matchingKeywords.slice(0, 10).forEach(keyword => {
+            const item = document.createElement('div');
+            item.className = 'keyword-dropdown-item';
+            item.textContent = keyword;
+            item.addEventListener('click', () => {
+                addEditModalKeyword(keyword);
+                inputElement.value = '';
+                dropdown.style.display = 'none';
+            });
+            dropdown.appendChild(item);
+        });
+        
+        dropdown.style.display = 'block';
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!inputElement.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+    
+    // Handle Enter key to add custom keyword
+    inputElement.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const value = inputElement.value.trim();
+            if (value) {
+                addEditModalKeyword(value);
+                inputElement.value = '';
+                dropdown.style.display = 'none';
+            }
+        }
+    });
+}
+
+function addEditModalKeyword(keyword) {
+    if (!editModalSelectedKeywords.includes(keyword)) {
+        editModalSelectedKeywords.push(keyword);
+        updateEditModalKeywordsDisplay();
+    }
+}
+
+function removeEditModalKeyword(keyword) {
+    editModalSelectedKeywords = editModalSelectedKeywords.filter(k => k !== keyword);
+    updateEditModalKeywordsDisplay();
+}
+
+function updateEditModalKeywordsDisplay() {
+    const container = document.getElementById('editSelectedKeywords');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (editModalSelectedKeywords.length === 0) {
+        return;
+    }
+    
+    editModalSelectedKeywords.forEach(keyword => {
+        const tag = document.createElement('div');
+        tag.className = 'keyword-tag';
+        
+        const text = document.createElement('span');
+        text.textContent = keyword;
+        text.className = 'keyword-tag-text';
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '×';
+        removeBtn.className = 'keyword-tag-remove';
+        removeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            removeEditModalKeyword(keyword);
+        });
+        
+        tag.appendChild(text);
+        tag.appendChild(removeBtn);
+        container.appendChild(tag);
+    });
+}
+
+// Populate keywords when opening edit modal
+function populateEditModalKeywords(playground) {
+    editModalSelectedKeywords = [];
+    
+    if (playground.keywords && playground.keywords.trim() !== '') {
+        editModalSelectedKeywords = playground.keywords
+            .split(',')
+            .map(k => k.trim())
+            .filter(k => k !== '');
+    }
+    
+    updateEditModalKeywordsDisplay();
+    
+    // Clear the input
+    const input = document.getElementById('edit-keywords');
+    if (input) input.value = '';
+}
+
 // ===== SUBMIT EDIT TO SUPABASE STAGING =====
-// Updated collectFormData to include skate park
-function collectFormData() {
+async function collectFormData() {
     const getValue = (id) => document.getElementById(id)?.value || '';
     const getChecked = (id) => document.getElementById(id)?.checked || false;
+
+    // Handle photo file
+    const photoInput = document.getElementById('edit-photo');
+    let photoPath = null;
+    
+    try {
+        if (photoInput && photoInput.files && photoInput.files[0]) {
+            photoPath = await uploadPhotoToSupabase(photoInput.files[0]);
+        } else {
+            console.log('No photo file selected');
+        }
+    } catch (photoError) {
+        console.error('Photo upload failed:', photoError);
+        // Ask user if they want to continue without photo
+        const continueWithoutPhoto = confirm(
+            `Photo upload failed: ${photoError.message}\n\nDo you want to submit without a photo?`
+        );
+        if (!continueWithoutPhoto) {
+            throw new Error('Submission cancelled by user');
+        }
+        photoPath = null;
+    }
     
     return {
         playgroundId: currentEditingPlayground.uid,
         // Basic info
         name: getValue('edit-name'),
         type: getValue('edit-type'),
-        keywords: getValue('edit-keywords'),
+        keywords: editModalSelectedKeywords.join(', '), 
         comments: getValue('edit-comments'),
         // Facilities
         shade: getValue('edit-shade'),
@@ -2060,11 +2235,65 @@ function collectFormData() {
         firemansPole: getValue('edit-firemans_pole'),
         hamsterWheel: getValue('edit-hamster_wheel'),
         // Media and contact
-        photo: getValue('edit-photo'),
+        photo: photoPath,
         link: getValue('edit-link'),
         email: getValue('edit-email'),
         verified: getValue('edit-verified')
     };
+}
+
+// For photo uploads
+async function uploadPhotoToSupabase(file) {
+    try {
+        console.log('Starting photo upload...');
+        console.log('File:', file.name, 'Size:', file.size, 'Type:', file.type);
+        
+        // Check if supabase client exists
+        if (typeof supabase === 'undefined') {
+            throw new Error('Supabase client not initialized');
+        }
+        
+        // Validate file
+        if (!file) {
+            throw new Error('No file provided');
+        }
+        
+        // Check file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+            throw new Error('File too large. Maximum size is 5MB');
+        }
+        
+        // Check file type
+        if (!file.type.startsWith('image/')) {
+            throw new Error('File must be an image');
+        }
+        
+        // Generate a unique filename
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 15);
+        const fileExt = file.name.split('.').pop();
+        const fileName = `playground_${timestamp}_${randomString}.${fileExt}`;
+        
+        // Upload to Supabase Storage
+        const {error } = await supabase
+            .storage
+            .from('PhotosStaging')
+            .upload(fileName, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
+        
+        if (error) {
+            throw new Error(`Upload failed: ${error.message}`);
+        }
+        
+        console.log('Photo uploaded successfully:', fileName);
+        return fileName;
+        
+    } catch (error) {
+        throw error;
+    }
 }
 
 // Show error message
@@ -2099,6 +2328,13 @@ function showSuccessMessage() {
         if (editForm) {
             editForm.style.display = 'block';
             editForm.reset();
+            
+            // Clear photo preview
+            const previewImg = document.getElementById('preview-img');
+            if (previewImg) {
+                previewImg.src = '';
+                previewImg.style.display = 'none';
+            }
         }
     }, 3000);
 }
@@ -2116,10 +2352,15 @@ function setupFormSubmission() {
         
         // Show loading state
         submitButton.disabled = true;
-        submitButton.textContent = 'Submitting...';
+        submitButton.textContent = 'Uploading photo...';
         
         try {
-            const formData = collectFormData();
+            // collectFormData is now async because it uploads the photo
+            const formData = await collectFormData();
+            
+            // Update button text for submission
+            submitButton.textContent = 'Submitting...';
+            
             // Submit to Supabase
             const result = await submitEditToSupabase(formData);
             
@@ -2139,6 +2380,28 @@ function setupFormSubmission() {
         }
     });
 }
+
+// Add preview when photo is selected for submission
+document.addEventListener('DOMContentLoaded', function() {
+    const photoInput = document.getElementById('edit-photo');
+    const previewImg = document.getElementById('preview-img');
+    
+    if (photoInput && previewImg) {
+        photoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    previewImg.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewImg.style.display = 'none';
+            }
+        });
+    }
+});
 
 // Generate a browser fingerprint
 function generateFingerprint() {

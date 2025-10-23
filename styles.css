@@ -1344,3 +1344,69 @@ label,
     height: 42px;
     white-space: nowrap;
 }
+
+/* Keyword dropdown and tags in edit modal */
+.keyword-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: var(--shadow-md);
+    z-index: 1000;
+    margin-top: 2px;
+}
+
+.keyword-dropdown-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.keyword-dropdown-item:hover {
+    background: var(--bg-light);
+}
+
+.selected-keywords-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.keyword-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: var(--gradient-primary);
+    color: white;
+    border-radius: 4px;
+    font-size: var(--font-size-xs);
+}
+
+.keyword-tag-text {
+    line-height: 1;
+}
+
+.keyword-tag-remove {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.keyword-tag-remove:hover {
+    opacity: 0.8;
+}

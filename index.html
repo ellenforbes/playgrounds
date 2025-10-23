@@ -361,8 +361,18 @@
             <input type="text" id="edit-name" class="form-input" required>
             
             <label class="filter-label">Keywords</label>
-            <input type="text" id="edit-keywords" class="form-input">
-            
+            <div style="position: relative;">
+                <input 
+                    type="text" 
+                    id="edit-keywords" 
+                    class="form-input" 
+                    placeholder="Start typing to search keywords..."
+                    autocomplete="off"
+                >
+                <div id="editKeywordDropdown" class="keyword-dropdown" style="display: none;"></div>
+            </div>
+            <div id="editSelectedKeywords" class="selected-keywords-container" style="margin-top: 8px;"></div>
+
             <label class="filter-label">Comments</label>
             <input type="text" id="edit-comments" class="form-input">
           </div>
@@ -660,9 +670,10 @@
             
             <label class="filter-label">External Link to Playground Review</label>
             <input type="text" id="edit-link" class="form-input">
-            
+
+
           <!-- Email and Verified in same row -->
-          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-top: 15px;">
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-top: 15px;">
             <div>
               <label class="filter-label">Your Email (optional)</label>
               <input type="email" id="edit-email" class="form-input" placeholder="your.email@example.com">
@@ -674,6 +685,7 @@
               <select id="edit-verified" name="verified" class="form-input">
                 <option value="">Select type...</option>
               </select>
+            </div>
             </div>
           </div>
 
