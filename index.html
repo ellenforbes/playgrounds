@@ -41,7 +41,7 @@
     </button>
 
     <!-- Sidebar -->
-    <div class="w-80 bg-white shadow-lg overflow-y-auto">
+    <div class="w-80 bg-white shadow-lg">
 
       <!-- Collapse for Mobile View -->
       <div class="drawer-handle" id="drawerHandle">
@@ -57,260 +57,263 @@
         <p>Hunter Region and Brisbane</p>
       </div>
 
-      <div class="p-4 bg-white rounded-lg shadow">
+      <!-- NEW: Scrollable wrapper for mobile -->
+      <div class="drawer-content-wrapper">
 
-         <!-- Count in Desktop View -->
-        <div class="">
-          <span id="playgroundCountDesktop" class="playgroundCount">33 playgrounds</span>
-        </div>
+        <div class="p-4 bg-white rounded-lg shadow">
 
-        <!-- Add A Playground -->
-        <div class="p-4">
-          <button id="addNewPlaygroundBtn" class="add-new-playground-btn">
-            ➕ Record New Playground
-          </button>
-        </div>
-
-        <!-- Playground Size Slider -->
-        <div class="filter-section">
-          <label class="filter-label" for="sizeSlider">Playground Size Range:</label>
-          <div class="slider-container">
-            <span id="sizeSliderMinLabel">Unverified</span>
-            <div id="sizeSlider" class="size-slider"></div>
-            <span id="sizeSliderMaxLabel">Super</span>
+          <!-- Count in Desktop View -->
+          <div class="">
+            <span id="playgroundCountDesktop" class="playgroundCount">33 playgrounds</span>
           </div>
-        </div>
 
-        <!-- Type Dropdown -->
-        <div class="dropdown-wrapper">
-          <label class="filter-label">Type:</label>
-          <button type="button" id="typeDropdownBtn" class="dropdown-btn">
-            <span id="typeSelected" class="dropdown-btn-text">All types</span>
-            <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <div id="typeDropdownMenu" class="dropdown-menu hidden">
-            <label class="dropdown-option dropdown-option-all">
-              <input type="checkbox" id="allTypes" onchange="toggleAllTypes()">
-              <span>All types</span>
-            </label>
-            <div id="typeOptions">
-              <!-- Options populated by JavaScript -->
+          <!-- Add A Playground -->
+          <div class="p-4">
+            <button id="addNewPlaygroundBtn" class="add-new-playground-btn">
+              ➕ Record New Playground
+            </button>
+          </div>
+
+          <!-- Playground Size Slider -->
+          <div class="filter-section">
+            <label class="filter-label" for="sizeSlider">Playground Size Range:</label>
+            <div class="slider-container">
+              <span id="sizeSliderMinLabel">Unverified</span>
+              <div id="sizeSlider" class="size-slider"></div>
+              <span id="sizeSliderMaxLabel">Super</span>
             </div>
           </div>
-        </div>
 
-        <!-- Suburb Search -->
-        <div class="filter-section">
-          <label class="filter-label">Refine Location:</label>
+          <!-- Type Dropdown -->
           <div class="dropdown-wrapper">
-            <input 
-              type="text" 
-              id="suburbSearchInput"
-              placeholder="Search suburbs..."
-              class="form-input small"
-            />
-            <div id="suburbDropdown" class="dropdown-menu hidden"></div>
-          </div>
-          
-          <div class="mt-2">
-            <div class="flex justify-between items-center mb-1">
-              <span class="text-xs text-gray-500">Selected:</span>
-              <button 
-                onclick="clearAllSuburbs()"
-                class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
-              >
-                Clear all
-              </button>
-            </div>
-            <div 
-              id="selectedSuburbs"
-              class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
-            >
-              <span class="text-gray-400 text-xs">No suburbs selected</span>
+            <label class="filter-label">Type:</label>
+            <button type="button" id="typeDropdownBtn" class="dropdown-btn">
+              <span id="typeSelected" class="dropdown-btn-text">All types</span>
+              <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div id="typeDropdownMenu" class="dropdown-menu hidden">
+              <label class="dropdown-option dropdown-option-all">
+                <input type="checkbox" id="allTypes" onchange="toggleAllTypes()">
+                <span>All types</span>
+              </label>
+              <div id="typeOptions">
+                <!-- Options populated by JavaScript -->
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- LGA Search -->
-        <div class="filter-section">
+          <!-- Suburb Search -->
+          <div class="filter-section">
+            <label class="filter-label">Refine Location:</label>
+            <div class="dropdown-wrapper">
+              <input 
+                type="text" 
+                id="suburbSearchInput"
+                placeholder="Search suburbs..."
+                class="form-input small"
+              />
+              <div id="suburbDropdown" class="dropdown-menu hidden"></div>
+            </div>
+            
+            <div class="mt-2">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs text-gray-500">Selected:</span>
+                <button 
+                  onclick="clearAllSuburbs()"
+                  class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+                >
+                  Clear all
+                </button>
+              </div>
+              <div 
+                id="selectedSuburbs"
+                class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
+              >
+                <span class="text-gray-400 text-xs">No suburbs selected</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- LGA Search -->
+          <div class="filter-section">
+            <div class="dropdown-wrapper">
+              <input 
+                type="text" 
+                id="lgaSearchInput"
+                placeholder="Search LGAs..."
+                class="form-input small"
+              />
+              <div id="lgaDropdown" class="dropdown-menu hidden"></div>
+            </div>
+            
+            <div class="mt-2">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs text-gray-500">Selected:</span>
+                <button 
+                  onclick="clearAllLGAs()"
+                  class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+                >
+                  Clear all
+                </button>
+              </div>
+              <div 
+                id="selectedLgas"
+                class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
+              >
+                <span class="text-gray-400 text-xs">No LGAs selected</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Features Filter -->
+          <div class="filter-section">
+            <label class="filter-label">Filter on Features:</label>
+            <div class="feature-filter">
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasAccessibleFeatures">
+                Accessible ♿
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasToilet">
+                Toilet 🚻
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasBBQ">
+                BBQ 🔥
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasBubbler">
+                Bubbler 💧
+              </label>
+            </div>
+          </div>
+
+          <!-- Shade Dropdown -->
           <div class="dropdown-wrapper">
-            <input 
-              type="text" 
-              id="lgaSearchInput"
-              placeholder="Search LGAs..."
-              class="form-input small"
-            />
-            <div id="lgaDropdown" class="dropdown-menu hidden"></div>
-          </div>
-          
-          <div class="mt-2">
-            <div class="flex justify-between items-center mb-1">
-              <span class="text-xs text-gray-500">Selected:</span>
-              <button 
-                onclick="clearAllLGAs()"
-                class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
-              >
-                Clear all
-              </button>
-            </div>
-            <div 
-              id="selectedLgas"
-              class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
-            >
-              <span class="text-gray-400 text-xs">No LGAs selected</span>
+            <label class="filter-label">Refine Infrastructure:</label>
+            <button type="button" id="shadeDropdownBtn" class="dropdown-btn">
+              <span id="shadeSelected" class="dropdown-btn-text">All shade types</span>
+              <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div id="shadeDropdownMenu" class="dropdown-menu hidden">
+              <label class="dropdown-option dropdown-option-all">
+                <input type="checkbox" id="allshades" onchange="toggleAllShade()">
+                <span>Any shade</span>
+              </label>
+              <div id="shadeOptions">
+                <!-- Options populated by JavaScript -->
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Features Filter -->
-        <div class="filter-section">
-          <label class="filter-label">Filter on Features:</label>
-          <div class="feature-filter">
-            <label class="feature-filter-option">
-              <input type="checkbox" id="filterHasAccessibleFeatures">
-              Accessible ♿
-            </label>
-            <label class="feature-filter-option">
-              <input type="checkbox" id="filterHasToilet">
-              Toilet 🚻
-            </label>
-            <label class="feature-filter-option">
-              <input type="checkbox" id="filterHasBBQ">
-              BBQ 🔥
-            </label>
-            <label class="feature-filter-option">
-              <input type="checkbox" id="filterHasBubbler">
-              Bubbler 💧
-            </label>
-          </div>
-        </div>
-
-        <!-- Shade Dropdown -->
-        <div class="dropdown-wrapper">
-          <label class="filter-label">Refine Infrastructure:</label>
-          <button type="button" id="shadeDropdownBtn" class="dropdown-btn">
-            <span id="shadeSelected" class="dropdown-btn-text">All shade types</span>
-            <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <div id="shadeDropdownMenu" class="dropdown-menu hidden">
-            <label class="dropdown-option dropdown-option-all">
-              <input type="checkbox" id="allshades" onchange="toggleAllShade()">
-              <span>Any shade</span>
-            </label>
-            <div id="shadeOptions">
-              <!-- Options populated by JavaScript -->
-            </div>
-          </div>
-        </div>
-
-        <!-- Fencing Dropdown -->
-        <div class="dropdown-wrapper">
-          <button type="button" id="fencingDropdownBtn" class="dropdown-btn">
-            <span id="fenceSelected" class="dropdown-btn-text">All fence types</span>
-            <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <div id="fencingDropdownMenu" class="dropdown-menu hidden">
-            <label class="dropdown-option dropdown-option-all">
-              <input type="checkbox" id="allfencing" onchange="toggleAllFencing()">
-              <span>Any fencing</span>
-            </label>
-            <div id="fencingOptions">
-              <!-- Options populated by JavaScript -->
-            </div>
-          </div>
-        </div>
-
-        <!-- Parking Dropdown -->
-        <div class="dropdown-wrapper">
-          <button type="button" id="parkingDropdownBtn" class="dropdown-btn">
-            <span id="parkingSelected" class="dropdown-btn-text">All parking</span>
-            <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <div id="parkingDropdownMenu" class="dropdown-menu hidden">
-            <label class="dropdown-option dropdown-option-all">
-              <input type="checkbox" id="allparking" onchange="toggleAllParking()">
-              <span>Any parking</span>
-            </label>
-            <div id="parkingOptions">
-              <!-- Options populated by JavaScript -->
-            </div>
-          </div>
-        </div>
-
-        <!-- Keyword Search -->
-        <div class="filter-section">
-          <label class="filter-label">Search Keywords:</label>
+          <!-- Fencing Dropdown -->
           <div class="dropdown-wrapper">
-            <input 
-              type="text" 
-              id="keywordSearchInput"
-              placeholder="Search keywords (e.g. Train, Boat)..."
-              class="form-input small"
-            />
-            <div id="keywordDropdown" class="dropdown-menu hidden"></div>
+            <button type="button" id="fencingDropdownBtn" class="dropdown-btn">
+              <span id="fenceSelected" class="dropdown-btn-text">All fence types</span>
+              <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div id="fencingDropdownMenu" class="dropdown-menu hidden">
+              <label class="dropdown-option dropdown-option-all">
+                <input type="checkbox" id="allfencing" onchange="toggleAllFencing()">
+                <span>Any fencing</span>
+              </label>
+              <div id="fencingOptions">
+                <!-- Options populated by JavaScript -->
+              </div>
+            </div>
           </div>
-          
-          <div class="mt-2">
-            <div class="flex justify-between items-center mb-1">
-              <span class="text-xs text-gray-500">Selected:</span>
-              <button 
-                onclick="clearAllKeywords()"
-                class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+
+          <!-- Parking Dropdown -->
+          <div class="dropdown-wrapper">
+            <button type="button" id="parkingDropdownBtn" class="dropdown-btn">
+              <span id="parkingSelected" class="dropdown-btn-text">All parking</span>
+              <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div id="parkingDropdownMenu" class="dropdown-menu hidden">
+              <label class="dropdown-option dropdown-option-all">
+                <input type="checkbox" id="allparking" onchange="toggleAllParking()">
+                <span>Any parking</span>
+              </label>
+              <div id="parkingOptions">
+                <!-- Options populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Keyword Search -->
+          <div class="filter-section">
+            <label class="filter-label">Search Keywords:</label>
+            <div class="dropdown-wrapper">
+              <input 
+                type="text" 
+                id="keywordSearchInput"
+                placeholder="Search keywords (e.g. Train, Boat)..."
+                class="form-input small"
+              />
+              <div id="keywordDropdown" class="dropdown-menu hidden"></div>
+            </div>
+            
+            <div class="mt-2">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs text-gray-500">Selected:</span>
+                <button 
+                  onclick="clearAllKeywords()"
+                  class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+                >
+                  Clear all
+                </button>
+              </div>
+              <div 
+                id="selectedKeywords"
+                class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
               >
-                Clear all
-              </button>
-            </div>
-            <div 
-              id="selectedKeywords"
-              class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
-            >
-              <span class="text-gray-400 text-xs">No keywords selected</span>
+                <span class="text-gray-400 text-xs">No keywords selected</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Quick Favourites -->
-        <div class="filter-section">
-          <label class="filter-label">Quick Favourites:</label>
-          <div class="feature-filter">
-            <label class="feature-filter-option">
-              <input type="checkbox" id="filterHasWaterPlay">
-              Water Play 💦
-            </label>
-            <label class="feature-filter-option">
-              <input type="checkbox" id="filterHasScootTrack">
-              Scooter Track 🛴
-            </label>
-            <label class="feature-filter-option">
-              <input type="checkbox" id="filterHasSandpit">
-              Sandpit ⛱️
-            </label>
-            <label class="feature-filter-option">
-              <input type="checkbox" id="filterHasLargeFlyingFox">
-              Large Flying Fox 🦇
-            </label>
-            <label class="feature-filter-option">
-              <input type="checkbox" id="filterHasSkatePark">
-              Skate Park 🛹
-            </label>
-            <label class="feature-filter-option">
-              <input type="checkbox" id="filterHasTrampoline">
-              Trampoline 🦘
-            </label>
+          <!-- Quick Favourites -->
+          <div class="filter-section">
+            <label class="filter-label">Quick Favourites:</label>
+            <div class="feature-filter">
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasWaterPlay">
+                Water Play 💦
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasScootTrack">
+                Scooter Track 🛴
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasSandpit">
+                Sandpit ⛱️
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasLargeFlyingFox">
+                Large Flying Fox 🦇
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasSkatePark">
+                Skate Park 🛹
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasTrampoline">
+                Trampoline 🦘
+              </label>
+            </div>
           </div>
+
         </div>
-
-      </div>
-    </div>
-
+      </div> <!-- Close drawer-content-wrapper -->
+    </div> <!-- Close w-80 sidebar -->
     <!-- Map -->
     <div class="flex-1">
       <div id="map" style="height: 100%; width: 100%;"></div>
