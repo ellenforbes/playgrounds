@@ -852,7 +852,7 @@ function createActivitiesSection(props) {
         { key: 'skate_park', emoji: '🛹', name: 'Skate Park' },
         { key: 'scooter_track', emoji: '🛴', name: 'Scooter Track' },
         { key: 'pump_track', emoji: '🚂', name: 'Pump Track' },
-        { key: 'cricket_chute', emoji: '🏏', name: 'Cricket' }
+        { key: 'cricket_net', emoji: '🏏', name: 'Cricket' }
     ];
     
     activityTypes.forEach(({ key, emoji, name }) => {
@@ -1729,7 +1729,7 @@ function populateEditForm(playgroundData) {
     // Checkboxes - direct mapping
     const checkboxFields = [
         'toilet', 'bbq', 'bubbler', 'accessible', 'basketball', 
-        'skate_park', 'scooter_track', 'cricket_chute', 'tennis_court', 
+        'skate_park', 'scooter_track', 'cricket_net', 'tennis_court', 
         'pump_track', 'activity_wall', 'talking_tube', 'musical_play', 
         'sensory_play', 'sandpit', 'water_play'
     ];
@@ -2196,7 +2196,7 @@ async function collectFormData() {
         skatePark: getChecked('edit-skate_park'),
         pumpTrack: getChecked('edit-pump_track'),
         scooterTrack: getChecked('edit-scooter_track'),
-        cricketChute: getChecked('edit-cricket_chute'),
+        cricketNet: getChecked('edit-cricket_net'),
         tennisCourt: getChecked('edit-tennis_court'),
         activityWall: getChecked('edit-activity_wall'),
         talkingTube: getChecked('edit-talking_tube'),
@@ -2497,7 +2497,7 @@ async function submitEditToSupabase(formData) {
                 basketball: formData.basketball,
                 pump_track: formData.pumpTrack,
                 scooter_track: formData.scooterTrack,
-                cricket_chute: formData.cricketChute,
+                cricket_net: formData.cricketNet,
                 tennis_court: formData.tennisCourt,
                 skate_park: formData.skatePark,
                 activity_wall: formData.activityWall,
@@ -2620,7 +2620,7 @@ async function submitEditToSupabase(formData) {
                 basketball: formData.basketball,
                 pump_track: formData.pumpTrack,
                 scooter_track: formData.scooterTrack,
-                cricket_chute: formData.cricketChute,
+                cricket_net: formData.cricketNet,
                 tennis_court: formData.tennisCourt,
                 skate_park: formData.skatePark,
                 activity_wall: formData.activityWall,
@@ -2763,7 +2763,7 @@ function comparePlaygroundData(original, edited) {
         basketball: 'Basketball',
         pump_track: 'Pump Track',
         scooter_track: 'Scooter Track',
-        cricket_chute: 'Cricket Chute',
+        cricket_net: 'Cricket Net',
         tennis_court: 'Tennis Court',
         skate_park: 'Skate Park',
         activity_wall: 'Activity Wall',
