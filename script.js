@@ -2580,9 +2580,12 @@ async function submitEditToSupabase(formData) {
 
             const data = result.data;
             console.log('New playground submitted successfully:');
+            console.log('Data returned from database:', data);  // <-- Add this
+            console.log('UID:', data?.uid);  // <-- And this
+            console.log('New playground submitted successfully:');
             
             // Send email notification for new playground
-            await sendNewPlaygroundEmail(newPlayground);
+            await sendNewPlaygroundEmail(data); 
             
             // Remove temporary marker
             if (tempLocationMarker) {
