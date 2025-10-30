@@ -201,7 +201,7 @@ function updateUserLocationMarker(lat, lng, accuracy) {
     userLocationMarker.setLatLng([lat, lng]);
   } else {
     userLocationMarker = L.circleMarker([lat, lng], {
-      radius: 8,
+      radius: 6,
       fillColor: '#6097f0ff',
       color: '#caecf6ff',
       weight: 3,
@@ -2207,29 +2207,42 @@ async function collectFormData() {
     const getValue = (id) => document.getElementById(id)?.value || '';
     const getChecked = (id) => document.getElementById(id)?.checked || false;
 
+    // Check if there's text in the keywords input that hasn't been added yet
+    const keywordsInput = document.getElementById('edit-keywords');
+    if (keywordsInput && keywordsInput.value.trim()) {
+        const pendingKeyword = keywordsInput.value.trim();
+        if (!editModalSelectedKeywords.includes(pendingKeyword)) {
+            editModalSelectedKeywords.push(pendingKeyword);
+        }
+    }
+
     // Handle photo file
     const photoInput = document.getElementById('edit-photo');
-    let photoPath = null;
+    let photoPath = undefined; // undefined means "no change"
+    let hasNewPhoto = false;
     
     try {
         if (photoInput && photoInput.files && photoInput.files[0]) {
             photoPath = await uploadPhotoToSupabase(photoInput.files[0]);
+            hasNewPhoto = true;
         } else {
-            console.log('No photo file selected');
+            console.log('No photo file selected - will not change photo field');
         }
     } catch (photoError) {
         console.error('Photo upload failed:', photoError);
-        // Ask user if they want to continue without photo
+        // Ask user if they want to continue without photo change
         const continueWithoutPhoto = confirm(
-            `Photo upload failed: ${photoError.message}\n\nDo you want to submit without a photo?`
+            `Photo upload failed: ${photoError.message}\n\nDo you want to submit without changing the photo?`
         );
         if (!continueWithoutPhoto) {
             throw new Error('Submission cancelled by user');
         }
-        photoPath = null;
+        // Don't change photo on error
+        photoPath = undefined;
+        hasNewPhoto = false;
     }
     
-    return {
+    const formDataObj = {
         playgroundId: currentEditingPlayground.uid,
         // Basic info
         name: getValue('edit-name'),
@@ -2290,11 +2303,18 @@ async function collectFormData() {
         firemansPole: getValue('edit-firemans_pole'),
         hamsterWheel: getValue('edit-hamster_wheel'),
         // Media and contact
-        photo: photoPath,
         link: getValue('edit-link'),
         email: getValue('edit-email'),
-        verified: getValue('edit-verified')
+        verified: getValue('edit-verified'),
+        hasNewPhoto: hasNewPhoto
     };
+    
+    // Only include photo if a new one was uploaded
+    if (hasNewPhoto) {
+        formDataObj.photo = photoPath;
+    }
+    
+    return formDataObj;
 }
 
 // For photo uploads
@@ -2635,8 +2655,8 @@ async function submitEditToSupabase(formData) {
 
             const data = result.data;
             console.log('New playground submitted successfully:');
-            console.log('Data returned from database:', data);  // <-- Add this
-            console.log('UID:', data?.uid);  // <-- And this
+            console.log('Data returned from database:', data);
+            console.log('UID:', data?.uid);
             console.log('New playground submitted successfully:');
             
             // Send email notification for new playground
@@ -2731,10 +2751,14 @@ async function submitEditToSupabase(formData) {
                 },
 
                 // Media
-                photo: formData.photo || null,
                 link: formData.link || null,
                 verified: formData.verified || null,
             };
+            
+            // Only include photo field if a new photo was uploaded
+            if (formData.hasNewPhoto) {
+                editSuggestion.photo = formData.photo || null;
+            }
 
             const changes = comparePlaygroundData(originalData, editSuggestion);
             
@@ -2866,6 +2890,11 @@ function comparePlaygroundData(original, edited) {
     
     // Compare each field - now both objects use the same field names!
     for (const field of Object.keys(displayNames)) {
+        // Skip photo comparison if it wasn't included in the edit (no new photo uploaded)
+        if (field === 'photo' && !edited.hasOwnProperty('photo')) {
+            continue;
+        }
+        
         const originalValue = original[field];
         const editedValue = edited[field];
         
@@ -2884,31 +2913,6 @@ function comparePlaygroundData(original, edited) {
     }
     
     return changes;
-}
-
-// Normalize values for comparison (handle null, undefined, empty strings, 0)
-function normalizeValue(value) {
-    if (value === null || value === undefined || value === '' || value === 0) {
-        return null;
-    }
-    if (typeof value === 'boolean') {
-        return value;
-    }
-    if (typeof value === 'string') {
-        return value.trim().toLowerCase();
-    }
-    return value;
-}
-
-// Format value for display in email
-function formatValue(value) {
-    if (value === null || value === undefined || value === '') {
-        return '<em>empty</em>';
-    }
-    if (typeof value === 'boolean') {
-        return value ? 'Yes' : 'No';
-    }
-    return String(value);
 }
 
 // Normalize values for comparison (handle null, undefined, empty strings, 0)
