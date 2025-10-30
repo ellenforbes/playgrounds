@@ -188,33 +188,38 @@ function setupDrawerHandleText() {
     observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
 }
 
-function addUserLocationMarker(lat, lng) {
-  // Remove existing marker if it exists
+function updateUserLocationMarker(lat, lng, accuracy) {
+  // Update or create blue dot marker
   if (userLocationMarker) {
-    map.removeLayer(userLocationMarker);
+    userLocationMarker.setLatLng([lat, lng]);
+  } else {
+    userLocationMarker = L.circleMarker([lat, lng], {
+      radius: 8,
+      fillColor: '#4285F4',
+      color: '#ffffff',
+      weight: 3,
+      opacity: 1,
+      fillOpacity: 1,
+      interactive: false,
+      zIndexOffset: 1000 // Keep on top of other markers
+    }).addTo(map);
   }
   
-  // Create blue dot marker
-  userLocationMarker = L.circleMarker([lat, lng], {
-    radius: 8,
-    fillColor: '#4285F4',
-    color: '#ffffff',
-    weight: 3,
-    opacity: 1,
-    fillOpacity: 1,
-    interactive: false
-  }).addTo(map);
-  
-  // Add accuracy circle (optional - shows GPS accuracy)
-  const accuracyCircle = L.circle([lat, lng], {
-    radius: 50, // meters - you could use pos.coords.accuracy if available
-    fillColor: '#4285F4',
-    color: '#4285F4',
-    weight: 1,
-    opacity: 0.2,
-    fillOpacity: 0.1,
-    interactive: false
-  }).addTo(map);
+  // Update or create accuracy circle
+  if (userAccuracyCircle) {
+    userAccuracyCircle.setLatLng([lat, lng]);
+    userAccuracyCircle.setRadius(accuracy);
+  } else {
+    userAccuracyCircle = L.circle([lat, lng], {
+      radius: accuracy,
+      fillColor: '#4285F4',
+      color: '#4285F4',
+      weight: 1,
+      opacity: 0.2,
+      fillOpacity: 0.1,
+      interactive: false
+    }).addTo(map);
+  }
 }
 
 function toggleFooter() {
@@ -330,27 +335,64 @@ function initialiseMap() {
       return;
     }
 
+let userLocationMarker = null;
+let userAccuracyCircle = null;
+let watchId = null;
+
+function initialiseMap() {
+  // init map immediately (fallback view)
+  try {
+    map = L.map('map').setView([-32.75, 151.57], 12);
+  } catch (err) {
+    console.error('Leaflet map init failed:', err);
+    return;
+  }
+
+  // add base layers & controls immediately
+  if (baseLayers && baseLayers["Greyscale"]) baseLayers["Greyscale"].addTo(map);
+  L.control.layers(baseLayers || {}).addTo(map);
+
+  // ensure map container is ready before trying to pan
+  map.whenReady(() => {
+    // check secure context / geolocation availability first
+    const secure = (location.protocol === 'https:' || location.hostname === 'localhost');
+    if (!('geolocation' in navigator)) {
+      console.warn('Geolocation not supported.');
+      return;
+    }
+    if (!secure) {
+      console.warn('Geolocation requires HTTPS or localhost. Skipping auto-locate.');
+      return;
+    }
+
     try {
-      navigator.geolocation.getCurrentPosition(
+      // Use watchPosition to continuously track user location
+      watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          // animate to user's location
-          try {
-            map.setView([lat, lng], 14, { animate: true });
-          } catch (e2) {
-            // fallback if setView with options fails
-            map.setView([lat, lng], 14);
+          const accuracy = pos.coords.accuracy;
+          
+          // On first position, center the map
+          if (!userLocationMarker) {
+            try {
+              map.setView([lat, lng], 14, { animate: true });
+            } catch (e2) {
+              map.setView([lat, lng], 14);
+            }
           }
           
-          // Add blue dot marker for user location
-          addUserLocationMarker(lat, lng);
+          // Update or add blue dot marker
+          updateUserLocationMarker(lat, lng, accuracy);
         },
         (err) => {
-          console.warn('Geolocation error (auto-pan):', err && err.message ? err.message : err);
-          // do nothing — keep default view
+          console.warn('Geolocation error:', err && err.message ? err.message : err);
         },
-        { enableHighAccuracy: false, timeout: 7000, maximumAge: 60000 }
+        { 
+          enableHighAccuracy: true, // Use GPS for better accuracy
+          timeout: 10000, 
+          maximumAge: 0 // Always get fresh location
+        }
       );
     } catch (err) {
       console.warn('navigator.geolocation threw:', err);
