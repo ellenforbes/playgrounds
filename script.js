@@ -166,20 +166,20 @@ function enlargePhoto(img) {
 function setupDrawerHandleText() {
     const drawer = document.querySelector('.w-80.bg-white.shadow-lg');
     const drawerHandleText = document.querySelector('.drawer-handle-text');
-    const playgroundCountMobile = document.getElementById('playgroundCountMobile');
     
     if (!drawer || !drawerHandleText) return;
     
     // Function to update text based on drawer state
     function updateDrawerText() {
         const isFullyExpanded = drawer.classList.contains('drawer-full');
-        const playgroundCount = playgroundCountMobile ? playgroundCountMobile.textContent : '33 playgrounds';
         
-        if (isFullyExpanded) {
-            drawerHandleText.innerHTML = `<span class="playgroundCount">${playgroundCount}</span> • Tap to minimise`;
-        } else {
-            drawerHandleText.innerHTML = `<span class="playgroundCount">${playgroundCount}</span> • Tap to expand`;
-        }
+        // Get current count from the span (preserve it!)
+        let countSpan = drawerHandleText.querySelector('.playgroundCount');
+        const currentCount = countSpan ? countSpan.textContent : '? playgrounds';
+        
+        // Update the entire text but keep the count
+        const actionText = isFullyExpanded ? ' • Tap to minimise' : ' • Tap to expand';
+        drawerHandleText.innerHTML = `<span id="playgroundCountMobile" class="playgroundCount">${currentCount}</span>${actionText}`;
     }
     
     // Call initially
@@ -192,7 +192,6 @@ function setupDrawerHandleText() {
 
 function addUserLocationMarker(lat, lng) {
   // This function is now handled by updateUserLocationMarker
-  // Keeping for backwards compatibility
   updateUserLocationMarker(lat, lng, 50);
 }
 
@@ -203,8 +202,8 @@ function updateUserLocationMarker(lat, lng, accuracy) {
   } else {
     userLocationMarker = L.circleMarker([lat, lng], {
       radius: 8,
-      fillColor: '#4285F4',
-      color: '#ffffff',
+      fillColor: '#6097f0ff',
+      color: '#caecf6ff',
       weight: 3,
       opacity: 1,
       fillOpacity: 1,
@@ -486,12 +485,16 @@ function createMarker(playground) {
     // Bind popup and tooltip (works for both types)
     const coordinates = [playground.lng, playground.lat];
     marker.bindPopup(createPopupContent(playground, coordinates));
-    marker.bindTooltip(playground.name || 'Unnamed Playground', {
-        permanent: false,
-        direction: 'top',
-        offset: [0, -10],
-        className: 'playground-tooltip'
-    });
+    
+    // Bind tooltip only on desktop
+    if (window.innerWidth > 768) {
+        marker.bindTooltip(playground.name || 'Unnamed Playground', {
+            permanent: false,
+            direction: 'top',
+            offset: [0, -10],
+            className: 'playground-tooltip'
+        });
+    }
 
     marker.playgroundData = playground;
     return marker;
