@@ -12,6 +12,8 @@ let selectedSuburbs = [];
 let allLGAs = [];
 let selectedLGAs = [];
 let userLocationMarker = null;
+let userAccuracyCircle = null;
+let watchId = null;
 
 // ===== SUPABASE CLIENT =====
 
@@ -188,6 +190,12 @@ function setupDrawerHandleText() {
     observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
 }
 
+function addUserLocationMarker(lat, lng) {
+  // This function is now handled by updateUserLocationMarker
+  // Keeping for backwards compatibility
+  updateUserLocationMarker(lat, lng, 50);
+}
+
 function updateUserLocationMarker(lat, lng, accuracy) {
   // Update or create blue dot marker
   if (userLocationMarker) {
@@ -308,36 +316,6 @@ function handleOutsideClick(event) {
 }
 
 // ===== MAP INITIALIZATION =====
-
-function initialiseMap() {
-  // init map immediately (fallback view)
-  try {
-    map = L.map('map').setView([-32.75, 151.57], 12);
-  } catch (err) {
-    console.error('Leaflet map init failed:', err);
-    return;
-  }
-
-  // add base layers & controls immediately
-  if (baseLayers && baseLayers["Greyscale"]) baseLayers["Greyscale"].addTo(map);
-  L.control.layers(baseLayers || {}).addTo(map);
-
-  // ensure map container is ready before trying to pan
-  map.whenReady(() => {
-    // check secure context / geolocation availability first
-    const secure = (location.protocol === 'https:' || location.hostname === 'localhost');
-    if (!('geolocation' in navigator)) {
-      console.warn('Geolocation not supported.');
-      return;
-    }
-    if (!secure) {
-      console.warn('Geolocation requires HTTPS or localhost. Skipping auto-locate.');
-      return;
-    }
-
-let userLocationMarker = null;
-let userAccuracyCircle = null;
-let watchId = null;
 
 function initialiseMap() {
   // init map immediately (fallback view)
