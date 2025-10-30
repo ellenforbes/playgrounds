@@ -11,6 +11,7 @@ let allSuburbs = [];
 let selectedSuburbs = [];
 let allLGAs = [];
 let selectedLGAs = [];
+let userLocationMarker = null;
 
 // ===== SUPABASE CLIENT =====
 
@@ -187,6 +188,34 @@ function setupDrawerHandleText() {
     observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
 }
 
+function addUserLocationMarker(lat, lng) {
+  // Remove existing marker if it exists
+  if (userLocationMarker) {
+    map.removeLayer(userLocationMarker);
+  }
+  
+  // Create blue dot marker
+  userLocationMarker = L.circleMarker([lat, lng], {
+    radius: 8,
+    fillColor: '#4285F4',
+    color: '#ffffff',
+    weight: 3,
+    opacity: 1,
+    fillOpacity: 1,
+    interactive: false
+  }).addTo(map);
+  
+  // Add accuracy circle (optional - shows GPS accuracy)
+  const accuracyCircle = L.circle([lat, lng], {
+    radius: 50, // meters - you could use pos.coords.accuracy if available
+    fillColor: '#4285F4',
+    color: '#4285F4',
+    weight: 1,
+    opacity: 0.2,
+    fillOpacity: 0.1,
+    interactive: false
+  }).addTo(map);
+}
 
 function toggleFooter() {
     const footer = document.getElementById('footer');
@@ -306,13 +335,16 @@ function initialiseMap() {
         (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          // animate to user's location; no marker added
+          // animate to user's location
           try {
             map.setView([lat, lng], 14, { animate: true });
           } catch (e2) {
             // fallback if setView with options fails
             map.setView([lat, lng], 14);
           }
+          
+          // Add blue dot marker for user location
+          addUserLocationMarker(lat, lng);
         },
         (err) => {
           console.warn('Geolocation error (auto-pan):', err && err.message ? err.message : err);

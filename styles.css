@@ -523,6 +523,7 @@ label,
     .number-input-group.four-columns {
         grid-template-columns: repeat(3, 1fr);
     }
+    
 }
 
 @media (max-width: 480px) {
@@ -530,6 +531,25 @@ label,
     .number-input-group.four-columns {
         grid-template-columns: repeat(2, 1fr);
     }
+}
+
+/* Force number input spinners to show on mobile devices only */
+@media (max-width: 768px) {
+  input[type="number"] {
+    -webkit-appearance: textfield;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: inner-spin-button !important;
+    opacity: 1;
+    position: relative;
+    display: inline-block !important;
+    margin: 0;
+    height: auto;
+  }
 }
 
 /* ===== PLAYGROUND COUNT ON DESKTOP ===== */
@@ -1421,3 +1441,4 @@ label,
 .keyword-tag-remove:hover {
     opacity: 0.8;
 }
+
