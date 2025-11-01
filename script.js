@@ -1824,6 +1824,9 @@ function setupModalEventListeners() {
     const modal = document.getElementById('editModal');
     const closeBtn = document.getElementById('closeModalBtn');
     
+    // Setup photo input functionality
+    setupPhotoInput();
+    
     if (closeBtn) {
         closeBtn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -2282,140 +2285,238 @@ function checkFileSize(file) {
 }
 
 // Setup photo input with size checking and preview
+// Compress image if needed
+async function compressImage(file, maxSizeMB = 5) {
+    return new Promise((resolve, reject) => {
+        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+        
+        // If already under size, return as-is
+        if (file.size <= maxSizeBytes) {
+            resolve(file);
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                // Calculate scaling to reduce file size
+                // Start with quality reduction, then resize if needed
+                let quality = 0.7;
+                const ctx = canvas.getContext('2d');
+                
+                // Try progressively smaller sizes
+                const tryCompress = (scale, qual) => {
+                    canvas.width = width * scale;
+                    canvas.height = height * scale;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    canvas.toBlob((blob) => {
+                        if (blob.size <= maxSizeBytes || qual <= 0.3) {
+                            // Success or tried our best
+                            const compressedFile = new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            resolve(compressedFile);
+                        } else {
+                            // Try again with lower quality or smaller size
+                            if (qual > 0.3) {
+                                tryCompress(scale, qual - 0.1);
+                            } else if (scale > 0.5) {
+                                tryCompress(scale - 0.1, 0.7);
+                            } else {
+                                resolve(compressedFile);
+                            }
+                        }
+                    }, 'image/jpeg', qual);
+                };
+                
+                tryCompress(1.0, quality);
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// Check file size and show warning
+function checkFileSize(file) {
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    
+    if (file.size > maxSize) {
+        return {
+            valid: false,
+            message: `⚠️ File size (${sizeMB} MB) exceeds 5 MB limit. The image will be automatically compressed.`
+        };
+    }
+    return { valid: true, message: null };
+}
+
+// Setup photo input with size checking and preview
 function setupPhotoInput() {
     const photoInput = document.getElementById('edit-photo');
     const previewImg = document.getElementById('preview-img');
+    
+    console.log('setupPhotoInput called, photoInput exists:', !!photoInput);
+    
+    if (!photoInput) return;
+    
+    // Create warning div
     const warningDiv = document.createElement('div');
     warningDiv.id = 'photo-size-warning';
     warningDiv.style.cssText = 'color: #f59e0b; font-size: 14px; margin-top: 8px; display: none;';
     
-    if (photoInput && photoInput.parentElement) {
-        // Check if mobile device
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    // Check if mobile device (strict mobile-only detection)
+    const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    console.log('Mobile detection:', isMobile, 'UserAgent:', navigator.userAgent);
+    
+    if (isMobile) {
+        // Hide the original input
+        photoInput.style.display = 'none';
         
-        if (isMobile) {
-            // Hide the original input
-            photoInput.style.display = 'none';
+        // Create camera input (hidden)
+        const cameraInput = document.createElement('input');
+        cameraInput.type = 'file';
+        cameraInput.accept = 'image/*';
+        cameraInput.capture = 'environment';
+        cameraInput.style.display = 'none';
+        cameraInput.id = 'mobile-camera-input';
+        
+        // Create gallery input (hidden)
+        const galleryInput = document.createElement('input');
+        galleryInput.type = 'file';
+        galleryInput.accept = 'image/*';
+        galleryInput.style.display = 'none';
+        galleryInput.id = 'mobile-gallery-input';
+        
+        // Create button container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;';
+        
+        // Create Take Photo button
+        const cameraBtn = document.createElement('button');
+        cameraBtn.type = 'button';
+        cameraBtn.innerHTML = '📷 Take Photo';
+        cameraBtn.style.cssText = 'flex: 1; min-width: 140px; padding: 12px; background: linear-gradient(135deg, #386e97 0%, #388697 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+        cameraBtn.onclick = (e) => {
+            e.preventDefault();
+            cameraInput.click();
+        };
+        
+        // Create Choose Photo button
+        const galleryBtn = document.createElement('button');
+        galleryBtn.type = 'button';
+        galleryBtn.innerHTML = '🖼️ Choose Photo';
+        galleryBtn.style.cssText = 'flex: 1; min-width: 140px; padding: 12px; background: linear-gradient(135deg, #562cbf 0%, #7b2cbf 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+        galleryBtn.onclick = (e) => {
+            e.preventDefault();
+            galleryInput.click();
+        };
+        
+        // Add buttons and inputs to DOM
+        buttonContainer.appendChild(cameraBtn);
+        buttonContainer.appendChild(galleryBtn);
+        
+        const parentElement = photoInput.parentElement;
+        parentElement.insertBefore(buttonContainer, photoInput);
+        parentElement.insertBefore(cameraInput, photoInput);
+        parentElement.insertBefore(galleryInput, photoInput);
+        parentElement.appendChild(warningDiv);
+        
+        // Shared file handler
+        const handleFileSelect = (e) => {
+            const file = e.target.files[0];
             
-            // Create camera input
-            const cameraInput = document.createElement('input');
-            cameraInput.type = 'file';
-            cameraInput.accept = 'image/*';
-            cameraInput.capture = 'environment';
-            cameraInput.style.display = 'none';
-            cameraInput.id = 'camera-input';
-            
-            // Create gallery input
-            const galleryInput = document.createElement('input');
-            galleryInput.type = 'file';
-            galleryInput.accept = 'image/*';
-            galleryInput.style.display = 'none';
-            galleryInput.id = 'gallery-input';
-            
-            // Create button container
-            const buttonContainer = document.createElement('div');
-            buttonContainer.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
-            
-            // Create Take Photo button
-            const cameraBtn = document.createElement('button');
-            cameraBtn.type = 'button';
-            cameraBtn.textContent = '📷 Take Photo';
-            cameraBtn.style.cssText = 'flex: 1; padding: 10px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;';
-            cameraBtn.onclick = () => cameraInput.click();
-            
-            // Create Choose Photo button
-            const galleryBtn = document.createElement('button');
-            galleryBtn.type = 'button';
-            galleryBtn.textContent = '🖼️ Choose Photo';
-            galleryBtn.style.cssText = 'flex: 1; padding: 10px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;';
-            galleryBtn.onclick = () => galleryInput.click();
-            
-            buttonContainer.appendChild(cameraBtn);
-            buttonContainer.appendChild(galleryBtn);
-            
-            // Insert buttons before the original input
-            photoInput.parentElement.insertBefore(buttonContainer, photoInput);
-            photoInput.parentElement.insertBefore(cameraInput, photoInput);
-            photoInput.parentElement.insertBefore(galleryInput, photoInput);
-            photoInput.parentElement.appendChild(warningDiv);
-            
-            // Handle file selection for both inputs
-            const handleFileSelect = async (e) => {
-                const file = e.target.files[0];
-                if (!file) {
-                    warningDiv.style.display = 'none';
-                    if (previewImg) {
-                        previewImg.style.display = 'none';
-                        previewImg.src = '';
-                    }
-                    return;
-                }
-                
-                // Copy file to the original input so collectFormData works
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                photoInput.files = dataTransfer.files;
-                
-                // Check size and show warning
-                const sizeCheck = checkFileSize(file);
-                if (!sizeCheck.valid) {
-                    warningDiv.textContent = sizeCheck.message;
-                    warningDiv.style.display = 'block';
-                } else {
-                    warningDiv.style.display = 'none';
-                }
-                
-                // Show preview
+            if (!file) {
+                warningDiv.style.display = 'none';
                 if (previewImg) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        previewImg.src = event.target.result;
-                        previewImg.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
+                    previewImg.style.display = 'none';
+                    previewImg.src = '';
                 }
-            };
+                // Clear the original input
+                try {
+                    photoInput.value = '';
+                } catch (ex) {}
+                return;
+            }
             
-            cameraInput.addEventListener('change', handleFileSelect);
-            galleryInput.addEventListener('change', handleFileSelect);
+            // Copy to original input using DataTransfer
+            try {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                photoInput.files = dt.files;
+            } catch (ex) {
+                // Fallback: store file reference for manual retrieval
+                console.log('DataTransfer not supported, using fallback');
+                photoInput._selectedFile = file;
+            }
             
-        } else {
-            // Desktop: use original input with normal styling
-            photoInput.parentElement.appendChild(warningDiv);
-            photoInput.accept = 'image/*';
-            photoInput.removeAttribute('capture');
+            // Check size
+            const sizeCheck = checkFileSize(file);
+            if (!sizeCheck.valid) {
+                warningDiv.textContent = sizeCheck.message;
+                warningDiv.style.display = 'block';
+            } else {
+                warningDiv.style.display = 'none';
+            }
             
-            photoInput.addEventListener('change', async (e) => {
-                const file = e.target.files[0];
-                if (!file) {
-                    warningDiv.style.display = 'none';
-                    if (previewImg) {
-                        previewImg.style.display = 'none';
-                        previewImg.src = '';
-                    }
-                    return;
-                }
-                
-                // Check size and show warning
-                const sizeCheck = checkFileSize(file);
-                if (!sizeCheck.valid) {
-                    warningDiv.textContent = sizeCheck.message;
-                    warningDiv.style.display = 'block';
-                } else {
-                    warningDiv.style.display = 'none';
-                }
-                
-                // Show preview
+            // Show preview
+            if (previewImg) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    previewImg.src = event.target.result;
+                    previewImg.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+        
+        cameraInput.addEventListener('change', handleFileSelect);
+        galleryInput.addEventListener('change', handleFileSelect);
+        
+    } else {
+        // Desktop
+        photoInput.parentElement.appendChild(warningDiv);
+        photoInput.accept = 'image/*';
+        
+        photoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            
+            if (!file) {
+                warningDiv.style.display = 'none';
                 if (previewImg) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        previewImg.src = event.target.result;
-                        previewImg.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
+                    previewImg.style.display = 'none';
+                    previewImg.src = '';
                 }
-            });
-        }
+                return;
+            }
+            
+            const sizeCheck = checkFileSize(file);
+            if (!sizeCheck.valid) {
+                warningDiv.textContent = sizeCheck.message;
+                warningDiv.style.display = 'block';
+            } else {
+                warningDiv.style.display = 'none';
+            }
+            
+            if (previewImg) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    previewImg.src = event.target.result;
+                    previewImg.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
     }
 }
 
