@@ -2402,21 +2402,21 @@ function setupPhotoInput() {
         const buttonContainer = document.createElement('div');
         buttonContainer.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;';
         
-        // Create Take Photo button
+        // Create Take Photo button (styled like desktop file input)
         const cameraBtn = document.createElement('button');
         cameraBtn.type = 'button';
-        cameraBtn.innerHTML = '📷 Take Photo';
-        cameraBtn.style.cssText = 'flex: 1; min-width: 140px; padding: 12px; background: linear-gradient(135deg, #386e97 0%, #388697 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+        cameraBtn.innerHTML = 'Take Photo';
+        cameraBtn.style.cssText = 'flex: 1; min-width: 140px; padding: 8px 16px; background: #e5e7eb; color: #374151; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 400;';
         cameraBtn.onclick = (e) => {
             e.preventDefault();
             cameraInput.click();
         };
         
-        // Create Choose Photo button
+        // Create Choose Photo button (styled like desktop file input)
         const galleryBtn = document.createElement('button');
         galleryBtn.type = 'button';
-        galleryBtn.innerHTML = '🖼️ Choose Photo';
-        galleryBtn.style.cssText = 'flex: 1; min-width: 140px; padding: 12px; background: linear-gradient(135deg, #562cbf 0%, #7b2cbf 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+        galleryBtn.innerHTML = 'Choose File';
+        galleryBtn.style.cssText = 'flex: 1; min-width: 140px; padding: 8px 16px; background: #e5e7eb; color: #374151; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 400;';
         galleryBtn.onclick = (e) => {
             e.preventDefault();
             galleryInput.click();
@@ -2519,6 +2519,7 @@ function setupPhotoInput() {
         });
     }
 }
+
 
 
 // ===== SUBMIT EDIT TO SUPABASE STAGING =====
