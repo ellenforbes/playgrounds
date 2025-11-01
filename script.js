@@ -196,6 +196,12 @@ function addUserLocationMarker(lat, lng) {
 }
 
 function updateUserLocationMarker(lat, lng, accuracy) {
+  // Create a custom pane for user location on first call (only once)
+  if (!map.getPane('userLocationPane')) {
+    map.createPane('userLocationPane');
+    map.getPane('userLocationPane').style.zIndex = 650; // Higher than markers (400) and marker clusters (600)
+  }
+  
   // Update or create blue dot marker
   if (userLocationMarker) {
     userLocationMarker.setLatLng([lat, lng]);
@@ -208,7 +214,7 @@ function updateUserLocationMarker(lat, lng, accuracy) {
       opacity: 1,
       fillOpacity: 1,
       interactive: false,
-      zIndexOffset: 1000 // Keep on top of other markers
+      pane: 'userLocationPane' // Use custom pane
     }).addTo(map);
   }
   
@@ -224,7 +230,8 @@ function updateUserLocationMarker(lat, lng, accuracy) {
       weight: 1,
       opacity: 0.2,
       fillOpacity: 0.1,
-      interactive: false
+      interactive: false,
+      pane: 'userLocationPane' // Use same custom pane
     }).addTo(map);
   }
 }
