@@ -1839,11 +1839,13 @@ function setupModalEventListeners() {
             // Clear photo preview
             const photoInput = document.getElementById('edit-photo');
             const previewImg = document.getElementById('preview-img');
+            const warningDiv = document.getElementById('photo-size-warning');
             if (photoInput) photoInput.value = '';
             if (previewImg) {
                 previewImg.src = '';
                 previewImg.style.display = 'none';
             }
+            if (warningDiv) warningDiv.style.display = 'none';
             
             // Clear keywords
             editModalSelectedKeywords = [];
@@ -1870,11 +1872,13 @@ function setupModalEventListeners() {
             // Clear photo preview
             const photoInput = document.getElementById('edit-photo');
             const previewImg = document.getElementById('preview-img');
+            const warningDiv = document.getElementById('photo-size-warning');
             if (photoInput) photoInput.value = '';
             if (previewImg) {
                 previewImg.src = '';
                 previewImg.style.display = 'none';
             }
+            if (warningDiv) warningDiv.style.display = 'none';
             
             // Remove temp marker if exists
             if (tempLocationMarker) {
@@ -2202,12 +2206,135 @@ function populateEditModalKeywords(playground) {
     if (input) input.value = '';
 }
 
+// Compress image if needed
+async function compressImage(file, maxSizeMB = 5) {
+    return new Promise((resolve, reject) => {
+        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+        
+        // If already under size, return as-is
+        if (file.size <= maxSizeBytes) {
+            resolve(file);
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                // Calculate scaling to reduce file size
+                // Start with quality reduction, then resize if needed
+                let quality = 0.7;
+                const ctx = canvas.getContext('2d');
+                
+                // Try progressively smaller sizes
+                const tryCompress = (scale, qual) => {
+                    canvas.width = width * scale;
+                    canvas.height = height * scale;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    canvas.toBlob((blob) => {
+                        if (blob.size <= maxSizeBytes || qual <= 0.3) {
+                            // Success or tried our best
+                            const compressedFile = new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            resolve(compressedFile);
+                        } else {
+                            // Try again with lower quality or smaller size
+                            if (qual > 0.3) {
+                                tryCompress(scale, qual - 0.1);
+                            } else if (scale > 0.5) {
+                                tryCompress(scale - 0.1, 0.7);
+                            } else {
+                                resolve(compressedFile);
+                            }
+                        }
+                    }, 'image/jpeg', qual);
+                };
+                
+                tryCompress(1.0, quality);
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// Check file size and show warning
+function checkFileSize(file) {
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    
+    if (file.size > maxSize) {
+        return {
+            valid: false,
+            message: `⚠️ File size (${sizeMB} MB) exceeds 5 MB limit. The image will be automatically compressed.`
+        };
+    }
+    return { valid: true, message: null };
+}
+
+// Setup photo input with size checking and preview
+function setupPhotoInput() {
+    const photoInput = document.getElementById('edit-photo');
+    const previewImg = document.getElementById('preview-img');
+    const warningDiv = document.createElement('div');
+    warningDiv.id = 'photo-size-warning';
+    warningDiv.style.cssText = 'color: #f59e0b; font-size: 14px; margin-top: 8px; display: none;';
+    
+    if (photoInput && photoInput.parentElement) {
+        photoInput.parentElement.appendChild(warningDiv);
+        
+        // Add accept attribute and capture for mobile camera
+        photoInput.accept = 'image/*';
+        photoInput.capture = 'environment'; // Use back camera on mobile
+        
+        photoInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) {
+                warningDiv.style.display = 'none';
+                if (previewImg) {
+                    previewImg.style.display = 'none';
+                    previewImg.src = '';
+                }
+                return;
+            }
+            
+            // Check size and show warning
+            const sizeCheck = checkFileSize(file);
+            if (!sizeCheck.valid) {
+                warningDiv.textContent = sizeCheck.message;
+                warningDiv.style.display = 'block';
+            } else {
+                warningDiv.style.display = 'none';
+            }
+            
+            // Show preview
+            if (previewImg) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    previewImg.src = event.target.result;
+                    previewImg.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+}
+
 // ===== SUBMIT EDIT TO SUPABASE STAGING =====
+// Collects form data to submit
 async function collectFormData() {
     const getValue = (id) => document.getElementById(id)?.value || '';
     const getChecked = (id) => document.getElementById(id)?.checked || false;
 
-    // Check if there's text in the keywords input that hasn't been added yet
     const keywordsInput = document.getElementById('edit-keywords');
     if (keywordsInput && keywordsInput.value.trim()) {
         const pendingKeyword = keywordsInput.value.trim();
@@ -2216,9 +2343,8 @@ async function collectFormData() {
         }
     }
 
-    // Handle photo file
     const photoInput = document.getElementById('edit-photo');
-    let photoPath = undefined; // undefined means "no change"
+    let photoPath = undefined;
     let hasNewPhoto = false;
     
     try {
@@ -2230,26 +2356,22 @@ async function collectFormData() {
         }
     } catch (photoError) {
         console.error('Photo upload failed:', photoError);
-        // Ask user if they want to continue without photo change
         const continueWithoutPhoto = confirm(
             `Photo upload failed: ${photoError.message}\n\nDo you want to submit without changing the photo?`
         );
         if (!continueWithoutPhoto) {
             throw new Error('Submission cancelled by user');
         }
-        // Don't change photo on error
         photoPath = undefined;
         hasNewPhoto = false;
     }
     
     const formDataObj = {
         playgroundId: currentEditingPlayground.uid,
-        // Basic info
         name: getValue('edit-name'),
         type: getValue('edit-type'),
         keywords: editModalSelectedKeywords.join(', '), 
         comments: getValue('edit-comments'),
-        // Facilities
         shade: getValue('edit-shade'),
         parking: getValue('edit-parking'),
         fencing: getValue('edit-fencing'),
@@ -2259,7 +2381,6 @@ async function collectFormData() {
         bbq: getChecked('edit-bbq'),
         bubbler: getChecked('edit-bubbler'),
         accessible: getChecked('edit-accessible'),
-        // Activities
         basketball: getChecked('edit-basketball'),
         skatePark: getChecked('edit-skate_park'),
         pumpTrack: getChecked('edit-pump_track'),
@@ -2272,7 +2393,6 @@ async function collectFormData() {
         sensoryPlay: getChecked('edit-sensory_play'),
         sandpit: getChecked('edit-sandpit'),
         waterPlay: getChecked('edit-water_play'),
-        // Equipment counts
         babySwing: getValue('edit-baby_swing'),
         beltSwing: getValue('edit-belt_swing'),
         basketSwing: getValue('edit-basket_swing'),
@@ -2302,14 +2422,12 @@ async function collectFormData() {
         trampoline: getValue('edit-trampoline'),
         firemansPole: getValue('edit-firemans_pole'),
         hamsterWheel: getValue('edit-hamster_wheel'),
-        // Media and contact
         link: getValue('edit-link'),
         email: getValue('edit-email'),
         verified: getValue('edit-verified'),
         hasNewPhoto: hasNewPhoto
     };
     
-    // Only include photo if a new one was uploaded
     if (hasNewPhoto) {
         formDataObj.photo = photoPath;
     }
@@ -2317,44 +2435,50 @@ async function collectFormData() {
     return formDataObj;
 }
 
-// For photo uploads
+
+// For photo uploads and with option for compression
 async function uploadPhotoToSupabase(file) {
     try {
         console.log('Starting photo upload...');
         console.log('File:', file.name, 'Size:', file.size, 'Type:', file.type);
         
-        // Check if supabase client exists
         if (typeof supabase === 'undefined') {
             throw new Error('Supabase client not initialized');
         }
         
-        // Validate file
         if (!file) {
             throw new Error('No file provided');
         }
         
-        // Check file size (max 5MB)
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        if (file.size > maxSize) {
-            throw new Error('File too large. Maximum size is 5MB');
-        }
-        
-        // Check file type
         if (!file.type.startsWith('image/')) {
             throw new Error('File must be an image');
         }
         
-        // Generate a unique filename
+        // Compress if needed
+        const maxSize = 5 * 1024 * 1024;
+        let uploadFile = file;
+        
+        if (file.size > maxSize) {
+            console.log('Compressing image...');
+            uploadFile = await compressImage(file, 5);
+            console.log('Compressed size:', uploadFile.size);
+            
+            if (uploadFile.size > maxSize) {
+                throw new Error('Unable to compress image below 5MB. Please use a smaller image.');
+            }
+        }
+        
+        // Generate unique filename
         const timestamp = Date.now();
         const randomString = Math.random().toString(36).substring(2, 15);
-        const fileExt = file.name.split('.').pop();
+        const fileExt = uploadFile.name.split('.').pop();
         const fileName = `playground_${timestamp}_${randomString}.${fileExt}`;
         
         // Upload to Supabase Storage
-        const {error } = await supabase
+        const { error } = await supabase
             .storage
             .from('PhotosStaging')
-            .upload(fileName, file, {
+            .upload(fileName, uploadFile, {
                 cacheControl: '3600',
                 upsert: false
             });
