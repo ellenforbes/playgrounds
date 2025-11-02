@@ -1674,6 +1674,7 @@ function populateEditFormDropdowns() {
     const seatingOptions = extractUniqueValues(playgroundData, 'seating');
     const floorOptions = extractUniqueValues(playgroundData, 'floor');
     const verifiedOptions = extractUniqueValues(playgroundData, 'verified');
+    const flyingFoxOptions = extractUniqueValues(playgroundData, 'flying_fox');
 
     // Sort with custom order (optional)
     const typesSorted = sortWithCustomOrder(types, [
@@ -1696,6 +1697,13 @@ function populateEditFormDropdowns() {
         'No Fence'
     ]);
 
+    const flyingFoxSorted = sortWithCustomOrder(flyingFoxOptions, [
+        'None',
+        'Small', 
+        'Large'
+    ]);
+
+
     // Populate the form dropdowns
     populateFormDropdown('edit-type', typesSorted);
     populateFormDropdown('edit-shade', shadeSorted);
@@ -1704,6 +1712,7 @@ function populateEditFormDropdowns() {
     populateFormDropdown('edit-seating', seatingOptions);
     populateFormDropdown('edit-floor', floorOptions);
     populateFormDropdown('edit-verified', verifiedOptions);
+    populateFormDropdown('edit-flying_fox', flyingFoxSorted);
 }
 
 // Helper function to populate a single dropdown
@@ -1781,7 +1790,7 @@ function populateEditForm(playgroundData) {
     });
     
     // Dropdown fields - direct mapping
-    const dropdownFields = ['type', 'shade', 'parking', 'fencing', 'seating', 'floor', 'verified'];
+    const dropdownFields = ['type', 'shade', 'parking', 'fencing', 'seating', 'floor', 'verified', 'flying_fox'];
     
     dropdownFields.forEach(field => {
         const element = document.getElementById(`edit-${field}`);
@@ -2639,6 +2648,7 @@ async function collectFormData() {
         steppingStones: getValue('edit-stepping_stones'),
         springRocker: getValue('edit-spring_rocker'),
         seesaw: getValue('edit-seesaw'),
+        flyingFox: getValue('edit-flying_fox'),
         bridge: getValue('edit-bridge'),
         tunnel: getValue('edit-tunnel'),
         trampoline: getValue('edit-trampoline'),
@@ -2952,6 +2962,7 @@ async function submitEditToSupabase(formData) {
                 stepping_stones: parseInt(formData.steppingStones) || null,
                 spring_rocker: parseInt(formData.springRocker) || null,
                 seesaw: parseInt(formData.seesaw) || null,
+                flying_fox: formData.flyingFox || null,
                 bridge: parseInt(formData.bridge) || null,
                 tunnel: parseInt(formData.tunnel) || null,
                 trampoline: parseInt(formData.trampoline) || null,
@@ -3078,6 +3089,7 @@ async function submitEditToSupabase(formData) {
                 stepping_stones: parseInt(formData.steppingStones) || null,
                 spring_rocker: parseInt(formData.springRocker) || null,
                 seesaw: parseInt(formData.seesaw) || null,
+                flying_fox: formData.flyingFox || null,
                 bridge: parseInt(formData.bridge) || null,
                 tunnel: parseInt(formData.tunnel) || null,
                 trampoline: parseInt(formData.trampoline) || null,
@@ -3223,6 +3235,7 @@ function comparePlaygroundData(original, edited) {
         stepping_stones: 'Stepping Stones',
         spring_rocker: 'Spring Rockers',
         seesaw: 'Seesaws',
+        flying_fox: 'Flying Fox',
         bridge: 'Bridges',
         tunnel: 'Tunnels',
         trampoline: 'Trampolines',
