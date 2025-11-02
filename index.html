@@ -455,7 +455,11 @@
             <label class="filter-label">Swings 🤸‍♀️👶</label>
             <div class="number-input-group">
               <div>
-                <input type="number" id="edit-baby_swing" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-baby_swing">−</button>
+                  <input type="number" id="edit-baby_swing" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-baby_swing">+</button>
+                </div>
                 <label>Baby</label>
               </div>
               <div>
@@ -478,27 +482,95 @@
           </div>
 
           <!-- Slides -->
+          <!-- Swings -->
+          <div class="form-group">
+            <label class="filter-label">Swings 🤸‍♀️👶</label>
+            <div class="number-input-group">
+              <div>
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-baby_swing">−</button>
+                  <input type="number" id="edit-baby_swing" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-baby_swing">+</button>
+                </div>
+                <label>Baby</label>
+              </div>
+              <div>
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-belt_swing">−</button>
+                  <input type="number" id="edit-belt_swing" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-belt_swing">+</button>
+                </div>
+                <label>Belt</label>
+              </div>
+              <div>
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-basket_swing">−</button>
+                  <input type="number" id="edit-basket_swing" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-basket_swing">+</button>
+                </div>
+                <label>Basket</label>
+              </div>
+              <div>
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-dual_swing">−</button>
+                  <input type="number" id="edit-dual_swing" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-dual_swing">+</button>
+                </div>
+                <label>Dual</label>
+              </div>
+              <div>
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-hammock">−</button>
+                  <input type="number" id="edit-hammock" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-hammock">+</button>
+                </div>
+                <label>Hammock</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slides -->
           <div class="form-group">
             <label class="filter-label">Slides 🛝</label>
             <div class="number-input-group">
               <div>
-                <input type="number" id="edit-straight_slide" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-straight_slide">−</button>
+                  <input type="number" id="edit-straight_slide" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-straight_slide">+</button>
+                </div>
                 <label>Straight Slides</label>
               </div>
               <div>
-                <input type="number" id="edit-spiral_slide" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-spiral_slide">−</button>
+                  <input type="number" id="edit-spiral_slide" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-spiral_slide">+</button>
+                </div>
                 <label>Spiral or Curved</label>
               </div>
               <div>
-                <input type="number" id="edit-tube_slide" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-tube_slide">−</button>
+                  <input type="number" id="edit-tube_slide" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-tube_slide">+</button>
+                </div>
                 <label>Tube</label>
               </div>
               <div>
-                <input type="number" id="edit-double_slide" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-double_slide">−</button>
+                  <input type="number" id="edit-double_slide" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-double_slide">+</button>
+                </div>
                 <label>Double</label>
               </div>
               <div>
-                <input type="number" id="edit-triple_slide" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-triple_slide">−</button>
+                  <input type="number" id="edit-triple_slide" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-triple_slide">+</button>
+                </div>
                 <label>Triple</label>
               </div>
             </div>
@@ -509,31 +581,59 @@
             <label class="filter-label">Climbing 🧗</label>
             <div class="number-input-group four-columns">
               <div>
-                <input type="number" id="edit-stairs" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-stairs">−</button>
+                  <input type="number" id="edit-stairs" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-stairs">+</button>
+                </div>
                 <label>Stairs</label>
               </div>
               <div>
-                <input type="number" id="edit-metal_ladder" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-metal_ladder">−</button>
+                  <input type="number" id="edit-metal_ladder" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-metal_ladder">+</button>
+                </div>
                 <label>Metal, Wood or Plastic Ladder</label>
               </div>
               <div>
-                <input type="number" id="edit-rope_ladder" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-rope_ladder">−</button>
+                  <input type="number" id="edit-rope_ladder" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-rope_ladder">+</button>
+                </div>
                 <label>Rope or Chain Ladder</label>
               </div>
               <div>
-                <input type="number" id="edit-rock_climbing" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-rock_climbing">−</button>
+                  <input type="number" id="edit-rock_climbing" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-rock_climbing">+</button>
+                </div>
                 <label>Rock Climbing</label>
               </div>
               <div>
-                <input type="number" id="edit-monkey_bars" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-monkey_bars">−</button>
+                  <input type="number" id="edit-monkey_bars" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-monkey_bars">+</button>
+                </div>
                 <label>Monkey Bars</label>
               </div>
               <div>
-                <input type="number" id="edit-other_climbing" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-other_climbing">−</button>
+                  <input type="number" id="edit-other_climbing" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-other_climbing">+</button>
+                </div>
                 <label>Other Climbing</label>
               </div>
               <div>
-                <input type="number" id="edit-rope_gym" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-rope_gym">−</button>
+                  <input type="number" id="edit-rope_gym" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-rope_gym">+</button>
+                </div>
                 <label>Rope Gym</label>
               </div>
             </div>
@@ -544,35 +644,67 @@
             <label class="filter-label">Balance ⚖️</label>
             <div class="number-input-group four-columns">
               <div>
-                <input type="number" id="edit-spring_rocker" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-spring_rocker">−</button>
+                  <input type="number" id="edit-spring_rocker" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-spring_rocker">+</button>
+                </div>
                 <label>Spring Rocker or Balance Board</label>
               </div>
               <div>
-                <input type="number" id="edit-spinning_pole" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-spinning_pole">−</button>
+                  <input type="number" id="edit-spinning_pole" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-spinning_pole">+</button>
+                </div>
                 <label>Spinning Pole</label>
               </div>
               <div>
-                <input type="number" id="edit-spinning_bucket" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-spinning_bucket">−</button>
+                  <input type="number" id="edit-spinning_bucket" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-spinning_bucket">+</button>
+                </div>
                 <label>Spinning Bucket</label>
               </div>
               <div>
-                <input type="number" id="edit-merry_go_round" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-merry_go_round">−</button>
+                  <input type="number" id="edit-merry_go_round" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-merry_go_round">+</button>
+                </div>
                 <label>Merry-Go-Rounds</label>
               </div>
               <div>
-                <input type="number" id="edit-balance_beam" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-balance_beam">−</button>
+                  <input type="number" id="edit-balance_beam" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-balance_beam">+</button>
+                </div>
                 <label>Balance Beams</label>
               </div>
               <div>
-                <input type="number" id="edit-stepping_stones" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-stepping_stones">−</button>
+                  <input type="number" id="edit-stepping_stones" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-stepping_stones">+</button>
+                </div>
                 <label>Stepping Stones</label>
               </div>
               <div>
-                <input type="number" id="edit-seesaw" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-seesaw">−</button>
+                  <input type="number" id="edit-seesaw" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-seesaw">+</button>
+                </div>
                 <label>Seesaw</label>
               </div>
               <div>
-                <input type="number" id="edit-flying_fox" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-flying_fox">−</button>
+                  <input type="number" id="edit-flying_fox" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-flying_fox">+</button>
+                </div>
                 <label>Flying Fox</label>
               </div>
             </div>
@@ -583,23 +715,43 @@
             <label class="filter-label">Other 🎠</label>
             <div class="number-input-group">
               <div>
-                <input type="number" id="edit-bridge" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-bridge">−</button>
+                  <input type="number" id="edit-bridge" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-bridge">+</button>
+                </div>
                 <label>Bridge</label>
               </div>
               <div>
-                <input type="number" id="edit-tunnel" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-tunnel">−</button>
+                  <input type="number" id="edit-tunnel" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-tunnel">+</button>
+                </div>
                 <label>Tunnel</label>
               </div>
               <div>
-                <input type="number" id="edit-trampoline" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-trampoline">−</button>
+                  <input type="number" id="edit-trampoline" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-trampoline">+</button>
+                </div>
                 <label>Trampoline</label>
               </div>
               <div>
-                <input type="number" id="edit-firemans_pole" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-firemans_pole">−</button>
+                  <input type="number" id="edit-firemans_pole" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-firemans_pole">+</button>
+                </div>
                 <label>Firemans Pole</label>
               </div>
               <div>
-                <input type="number" id="edit-hamster_wheel" class="form-input" min="0" max="10">
+                <div class="number-input-wrapper">
+                  <button type="button" class="number-decrement" data-target="edit-hamster_wheel">−</button>
+                  <input type="number" id="edit-hamster_wheel" class="form-input" min="0" max="10" value="0">
+                  <button type="button" class="number-increment" data-target="edit-hamster_wheel">+</button>
+                </div>
                 <label>Hamster or Roller Wheel</label>
               </div>
             </div>
@@ -670,7 +822,7 @@
           <!-- Additional Info -->
           <div class="form-group">
             <label class="filter-label">Photo</label>
-            <input type="file" id="edit-photo" class="form-input" accept="image/*">
+            <input type="file" id="edit-photo" class="form-input" accept="image/*" capture>
             <div id="photo-preview" style="margin-top: 10px;">
               <img id="preview-img" src="" alt="Playground Photo" style="max-width: 100%; display: none;">
             </div>
@@ -711,6 +863,4 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="script.js"></script>
 </body>
-
 </html>
-

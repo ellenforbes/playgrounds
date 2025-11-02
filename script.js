@@ -2382,7 +2382,8 @@ function setupPhotoInput() {
     warningDiv.style.cssText = 'color: #f59e0b; font-size: 14px; margin-top: 8px; display: none;';
     
     // Check if mobile device (strict mobile-only detection)
-    const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isMobile = true
+    //const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     console.log('Mobile detection:', isMobile, 'UserAgent:', navigator.userAgent);
     
@@ -2527,7 +2528,28 @@ function setupPhotoInput() {
     }
 }
 
-
+// Handle custom increment/decrement buttons
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('number-increment') || e.target.classList.contains('number-decrement')) {
+    const targetId = e.target.dataset.target;
+    const input = document.getElementById(targetId);
+    
+    if (input) {
+      const min = parseInt(input.min) || 0;
+      const max = parseInt(input.max) || Infinity;
+      let value = parseInt(input.value) || 0;
+      
+      if (e.target.classList.contains('number-increment')) {
+        value = Math.min(value + 1, max);
+      } else {
+        value = Math.max(value - 1, min);
+      }
+      
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+});
 
 // ===== SUBMIT EDIT TO SUPABASE STAGING =====
 // Collects form data to submit
