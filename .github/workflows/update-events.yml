@@ -23,7 +23,10 @@ jobs:
           echo "HTTP Status: $http_code"
           echo "Response: $body"
           
-          if [ "$http_code" -ne 200 ]; then
+          # Accept both 200 and 202 as success
+          if [ "$http_code" -ne 200 ] && [ "$http_code" -ne 202 ]; then
             echo "Error: Function failed with status $http_code"
             exit 1
           fi
+          
+          echo "✅ Function triggered successfully"
