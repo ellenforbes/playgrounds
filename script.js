@@ -1,7 +1,9 @@
 // ===== GLOBAL VARIABLES =====
 
 let playgroundData = null;
+let eventsData = null;
 let markerClusterGroup;
+let eventsClusterGroup;
 let currentEditingPlayground = null;
 let map;
 let playgroundLookup = {};
@@ -385,12 +387,64 @@ function initialiseMap() {
 }
 
 function initialiseClusterGroup() {
+    // Playgrounds cluster
     markerClusterGroup = L.markerClusterGroup({
         maxClusterRadius: 50,
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
         zoomToBoundsOnClick: true,
         iconCreateFunction: createClusterIcon
+    });
+    
+    // Events cluster (NEW)
+    eventsClusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        iconCreateFunction: createEventClusterIcon
+    });
+}
+
+function createEventClusterIcon(cluster) {
+    const count = cluster.getChildCount();
+    
+    let size, fontSize, starSize;
+    if (count < 10) { size = 45; fontSize = 13; starSize = 36; }
+    else if (count < 50) { size = 55; fontSize = 15; starSize = 46; }
+    else if (count < 100) { size = 65; fontSize = 17; starSize = 56; }
+    else { size = 75; fontSize = 19; starSize = 66; }
+    
+    return L.divIcon({
+        html: `<div style="
+            position: relative;
+            width: ${size}px;
+            height: ${size}px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        ">
+            <svg viewBox="0 0 24 24" width="${starSize}" height="${starSize}" style="
+                position: absolute;
+                filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
+            ">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" 
+                      fill="#3b82f6" 
+                      stroke="#1e40af" 
+                      stroke-width="1.5"/>
+            </svg>
+            <div style="
+                position: relative;
+                z-index: 1;
+                font-weight: bold;
+                color: white;
+                font-size: ${fontSize}px;
+                text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            ">${count}</div>
+        </div>`,
+        className: 'custom-cluster-icon',
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2]
     });
 }
 
@@ -564,6 +618,24 @@ function addMarkersToMap() {
     }
 }
 
+// Track events visibility state
+let eventsVisible = false;
+
+function toggleEvents() {
+    const toggleBtn = document.getElementById('toggleEventsBtn');
+    
+    if (eventsVisible) {
+        // Hide events
+        map.removeLayer(eventsClusterGroup);
+        toggleBtn.classList.add('events-hidden');
+        eventsVisible = false;
+    } else {
+        // Show events
+        map.addLayer(eventsClusterGroup);
+        toggleBtn.classList.remove('events-hidden');
+        eventsVisible = true;
+    }
+}
 // ===== POPUP FUNCTIONALITY =====
 
 function createPopupContent(props, coordinates) {
@@ -1503,6 +1575,116 @@ function shouldShowPlayground(playground, filters) {
     return true;
 }
 
+// ===== EVENT MARKERS =====
+
+function createEventMarker(event) {
+    const marker = L.marker([event.latitude, event.longitude], {
+        icon: L.divIcon({
+            html: `<div style="
+                width: 24px;
+                height: 24px;
+                position: relative;
+            ">
+                <svg viewBox="0 0 24 24" width="24" height="24" style="
+                    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+                ">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" 
+                          fill="#3b82f6" 
+                          stroke="#ffffff" 
+                          stroke-width="1.5"/>
+                </svg>
+            </div>`,
+            className: 'event-star-marker',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        })
+    });
+
+    marker.bindPopup(createEventPopupContent(event));
+    
+    // Bind tooltip only on desktop
+    if (window.innerWidth > 768) {
+        marker.bindTooltip(event.subject || 'Unnamed Event', {
+            permanent: false,
+            direction: 'top',
+            offset: [0, -10],
+            className: 'playground-tooltip'
+        });
+    }
+
+    marker.eventData = event;
+    return marker;
+}
+
+function createEventPopupContent(event) {
+    // Safely parse JSON fields with error handling
+    let ageRanges = [];
+    let eventTypes = [];
+    
+    try {
+        ageRanges = event.agerange ? JSON.parse(event.agerange) : [];
+    } catch (e) {
+        console.warn('Failed to parse agerange:', event.agerange, e);
+        ageRanges = event.agerange ? [event.agerange] : [];
+    }
+    
+    try {
+        eventTypes = event.event_type ? JSON.parse(event.event_type) : [];
+    } catch (e) {
+        console.warn('Failed to parse event_type:', event.event_type, e);
+        eventTypes = event.event_type ? [event.event_type] : [];
+    }
+    
+    const linkIcon = event.web_link ? '🔗' : '';
+    
+    const mapsIcon = event.latitude && event.longitude ? 
+        `<a href="https://www.google.com/maps?q=${event.latitude},${event.longitude}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; margin-left: 4px;">📍</a>` : 
+        '';
+    
+    const title = event.web_link ? 
+        `<a href="${event.web_link}" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">${event.subject} ${linkIcon}</a>` : 
+        event.subject;
+    
+    return `
+        <div style="font-family: system-ui, -apple-system, sans-serif; min-width: 300px; padding: 12px;">
+            <div style="margin-bottom: 8px;">
+                <h3 style="font-weight: bold; font-size: var(--font-size-lg); margin: 0;">${title}${mapsIcon}</h3>
+                ${event.formatteddatetime ? `<div style="font-style: italic; margin-top: 2px;">📅 ${event.formatteddatetime}</div>` : ''}
+            </div>
+            
+            ${ageRanges.length > 0 ? `<div style="margin-bottom: 6px;">👶 <strong>Ages:</strong> ${ageRanges.join(', ')}</div>` : ''}
+            
+            ${eventTypes.length > 0 ? `<div style="margin-bottom: 6px;">🎯 <strong>Type:</strong> ${eventTypes.join(', ')}</div>` : ''}
+            
+            ${event.cost ? `<div style="margin-bottom: 6px;">💰 <strong>Cost:</strong> ${event.cost}</div>` : ''}
+            
+            ${event.bookingsrequired ? `<div style="margin-bottom: 6px;">📝 <strong>Bookings:</strong> ${event.bookingsrequired}</div>` : ''}
+            
+            ${event.location ? `<div style="margin-bottom: 6px;">📍 ${event.location}</div>` : ''}
+        </div>
+    `;
+}
+
+function addEventsToMap() {
+    if (!eventsData || eventsData.length === 0) {
+        console.error('No events data available');
+        return;
+    }
+
+    eventsClusterGroup.clearLayers();
+
+    eventsData.forEach((event) => {
+        if (event.latitude != null && event.longitude != null) {
+            const marker = createEventMarker(event);
+            eventsClusterGroup.addLayer(marker);
+        }
+    });
+    
+    if (!map.hasLayer(eventsClusterGroup)) {
+        map.addLayer(eventsClusterGroup);
+    }
+}
+
 // ===== DATA LOADING AND PROCESSING =====
 
 async function loadPlaygroundData() {
@@ -1526,6 +1708,27 @@ async function loadPlaygroundData() {
         populateDropdowns(playgroundData); // For map filters
         populateEditFormDropdowns(); // For edit form
         filterMarkers();
+    }
+}
+
+async function loadEventsData() {
+    try {
+        const { data, error } = await supabase
+            .rpc('get_brisbane_events_with_coords');
+
+        if (error) throw error;
+
+        eventsData = data;
+       
+        console.log("Loaded events data:", eventsData.length);
+
+    } catch (err) {
+        console.error("Failed to load events data:", err);
+        throw err;
+    }
+
+    if (eventsData && eventsData.length > 0) {
+        addEventsToMap();
     }
 }
 
@@ -3311,6 +3514,10 @@ function addSearchControl() {
     searchContainer.id = 'search-container';
     
     searchContainer.innerHTML = `
+        <button id="toggleEventsBtn" class="toggle-events-btn">
+            <span class="events-icon">⭐</span>
+            <span class="events-text">Events</span>
+        </button>
         <div class="dropdown-wrapper">
             <input type="text" id="searchInput" class="form-input small" placeholder="Search location or playground...">
             <div id="suggestions" class="dropdown-menu hidden"></div>
@@ -3345,6 +3552,32 @@ function addSearchControl() {
         console.log('Search event listeners added successfully');
     } else {
         console.error('Could not find search input or button after creation');
+    }
+
+        // Existing search event listeners
+    if (searchInput && searchBtn) {
+        searchBtn.addEventListener('click', () => {
+            performSearch();
+        });
+        if (searchInput) {
+            searchInput.addEventListener('input', handleSuggestions);
+        }
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+        console.log('Search event listeners added successfully');
+    }
+    
+    // Toggle events button
+    const toggleEventsBtn = document.getElementById('toggleEventsBtn');
+    if (toggleEventsBtn) {
+        // Set initial state to hidden
+        toggleEventsBtn.classList.add('events-hidden');
+        map.removeLayer(eventsClusterGroup); // Hide events initially
+        
+        toggleEventsBtn.addEventListener('click', toggleEvents);
     }
 }
 
@@ -3604,6 +3837,7 @@ function initialiseApp() {
         addSearchControl();
     });
     
+    loadEventsData();
     setupEventListeners();
     initialiseMobileDrawer();
 

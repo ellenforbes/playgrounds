@@ -1546,3 +1546,80 @@ label,
     opacity: 0.8;
 }
 
+/* zoom buttons only on greater than 767 width */
+@media (max-width: 767px) {
+  .leaflet-control-zoom {
+    display: none !important;
+  }
+}
+
+
+/* ===== TOGGLE EVENTS BUTTON ===== */
+.toggle-events-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--gradient-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+    box-shadow: var(--shadow-sm);
+    height: 42px; /* ← ADD THIS LINE to match search button */
+}
+
+.toggle-events-btn:hover {
+    background: var(--gradient-contrast-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(56, 134, 151, 0.3);
+}
+
+.toggle-events-btn:active {
+    transform: translateY(0);
+}
+
+.toggle-events-btn.events-hidden {
+    background: var(--gradient-primary); /* Keep purple gradient */
+    opacity: 0.5; /* Just make it more transparent */
+}
+
+.toggle-events-btn.events-hidden:hover {
+    background: var(--gradient-contrast-dark); /* Keep purple on hover too */
+    opacity: 0.7; /* Slightly less transparent on hover */
+}
+
+.events-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.events-text {
+    line-height: 1;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .toggle-events-btn {
+        padding: 6px 10px;
+        font-size: var(--font-size-xs);
+    }
+    
+    .events-icon {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .events-text {
+        display: none; /* Hide text on very small screens, show only star */
+    }
+    
+    .toggle-events-btn {
+        padding: 8px;
+    }
+}
