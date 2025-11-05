@@ -2,7 +2,7 @@ name: Update Brisbane Events
 
 on:
   schedule:
-    - cron: '0 23 * * *'  # 11:00 PM UTC = 9:00 AM AEST
+    - cron: '0 16 * * *'  # 3:00 AM Brisbane during AEDT (UTC+11)
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
