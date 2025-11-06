@@ -166,8 +166,7 @@ class EventbriteAPI:
 
 
 def main():
-    # Use environment variable for API token (fallback to hardcoded for local testing)
-    api_token = os.getenv("EVENTBRITE_API_TOKEN", "DGXGPZATKYMQPQCMIY62")
+    api_token = os.getenv("EVENTBRITE_API_TOKEN")
     organizer_id = "17689152323"  # Cessnock City Library organizer ID
     
     print(f"Fetching events for organizer ID: {organizer_id}")
