@@ -415,7 +415,7 @@ function initialiseClusterGroup() {
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
         zoomToBoundsOnClick: true,
-        iconCreateFunction: createEventClusterIcon
+        iconCreateFunction: createLibraryClusterIcon
     });
 }
 
