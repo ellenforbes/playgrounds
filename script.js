@@ -2,8 +2,10 @@
 
 let playgroundData = null;
 let eventsData = null;
+let librariesData = null;
 let markerClusterGroup;
 let eventsClusterGroup;
+let librariesClusterGroup;
 let currentEditingPlayground = null;
 let map;
 let playgroundLookup = {};
@@ -386,6 +388,8 @@ function initialiseMap() {
   });
 }
 
+// ===== CLUSTER FUNCTIONALITY =====
+
 function initialiseClusterGroup() {
     // Playgrounds cluster
     markerClusterGroup = L.markerClusterGroup({
@@ -396,8 +400,17 @@ function initialiseClusterGroup() {
         iconCreateFunction: createClusterIcon
     });
     
-    // Events cluster (NEW)
+    // Events cluster 
     eventsClusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        iconCreateFunction: createEventClusterIcon
+    });
+
+    // Libraries cluster 
+    librariesClusterGroup = L.markerClusterGroup({
         maxClusterRadius: 50,
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
@@ -447,8 +460,6 @@ function createEventClusterIcon(cluster) {
         iconAnchor: [size/2, size/2]
     });
 }
-
-// ===== CLUSTER FUNCTIONALITY =====
 
 function createClusterIcon(cluster) {
     const count = cluster.getChildCount();
@@ -618,8 +629,9 @@ function addMarkersToMap() {
     }
 }
 
-// Track events visibility state
+// Track events and libraries visibility state
 let eventsVisible = false;
+let librariesVisible = true; // Start as true for visible by default
 
 function toggleEvents() {
     const toggleBtn = document.getElementById('toggleEventsBtn');
@@ -636,6 +648,23 @@ function toggleEvents() {
         eventsVisible = true;
     }
 }
+
+function toggleLibraries() {
+    const toggleBtn = document.getElementById('toggleLibrariesBtn');
+    
+    if (librariesVisible) {
+        // Hide libraries
+        map.removeLayer(librariesClusterGroup);
+        toggleBtn.classList.add('libraries-hidden');
+        librariesVisible = false;
+    } else {
+        // Show libraries
+        map.addLayer(librariesClusterGroup);
+        toggleBtn.classList.remove('libraries-hidden');
+        librariesVisible = true;
+    }
+}
+
 // ===== POPUP FUNCTIONALITY =====
 
 function createPopupContent(props, coordinates) {
@@ -1575,6 +1604,118 @@ function shouldShowPlayground(playground, filters) {
     return true;
 }
 
+// ===== LIBRARY MARKERS =====
+
+function createLibraryMarker(library) {
+    const marker = L.marker([library.latitude, library.longitude], {
+        icon: L.divIcon({
+            html: `<div style="
+                width: 20px;
+                height: 20px;
+                background: #ef4444;
+                border: 2px solid #ffffff;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            "></div>`,
+            className: 'library-marker',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        })
+    });
+    
+    // Bind tooltip
+    marker.bindTooltip(library.name || 'Unnamed Library', {
+        permanent: false,
+        direction: 'top',
+        offset: [0, -10],
+        className: 'playground-tooltip'
+    });
+
+
+    marker.libraryData = library;
+    return marker;
+}
+
+function addLibrariesToMap() {
+    if (!librariesData || librariesData.length === 0) {
+        console.error('No libraries data available');
+        return;
+    }
+
+    // Check if cluster group exists before trying to clear it
+    if (!librariesClusterGroup) {
+        console.error('Libraries cluster group not initialized');
+        return;
+    }
+
+    librariesClusterGroup.clearLayers();
+
+    librariesData.forEach((library) => {
+        if (library.latitude != null && library.longitude != null) {
+            const marker = createLibraryMarker(library);
+            librariesClusterGroup.addLayer(marker);
+        }
+    });
+    
+    console.log(`Added ${librariesClusterGroup.getLayers().length} libraries to cluster group`);
+    
+    // Don't add to map immediately - wait for user to click button
+    // if (!map.hasLayer(librariesClusterGroup)) {
+    //     map.addLayer(librariesClusterGroup);
+    // }
+}
+
+async function loadLibrariesData() {
+    try {
+        const { data, error } = await supabase
+            .from('libraries')
+            .select('*');
+
+        if (error) throw error;
+
+        librariesData = data;
+       
+        console.log("Loaded libraries data:", librariesData.length);
+
+    } catch (err) {
+        console.error("Failed to load libraries data:", err);
+        throw err;
+    }
+
+    if (librariesData && librariesData.length > 0) {
+        addLibrariesToMap();
+    }
+}
+
+// ===== LIBRARY CLUSTER ICON =====
+function createLibraryClusterIcon(cluster) {
+    const count = cluster.getChildCount();
+    
+    let size, fontSize;
+    if (count < 10) { size = 35; fontSize = 12; }
+    else if (count < 50) { size = 45; fontSize = 14; }
+    else if (count < 100) { size = 55; fontSize = 16; }
+    else { size = 65; fontSize = 18; }
+    
+    return L.divIcon({
+        html: `<div style="
+            background: #ef4444;
+            border: 3px solid #b91c1c;
+            width: ${size}px;
+            height: ${size}px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: ${fontSize}px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        ">${count}</div>`,
+        className: 'library-cluster-icon',
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2]
+    });
+}
+
 // ===== EVENT MARKERS =====
 
 function createEventMarker(event) {
@@ -1617,22 +1758,65 @@ function createEventMarker(event) {
 }
 
 function createEventPopupContent(event) {
-    // Safely parse JSON fields with error handling
+    // Safely parse JSON/array fields with error handling
     let ageRanges = [];
     let eventTypes = [];
     
     try {
-        ageRanges = event.agerange ? JSON.parse(event.agerange) : [];
+        if (event.agerange) {
+            // Check if it's already an array
+            if (Array.isArray(event.agerange)) {
+                ageRanges = event.agerange;
+            } 
+            // Check if it's a PostgreSQL array string format like "{'1-2 year olds'}"
+            else if (typeof event.agerange === 'string' && event.agerange.startsWith('{')) {
+                // Remove curly braces and split by comma
+                ageRanges = event.agerange
+                    .replace(/[{}]/g, '')
+                    .split(',')
+                    .map(item => item.trim().replace(/^["']|["']$/g, ''))
+                    .filter(item => item.length > 0);
+            }
+            // Try parsing as JSON
+            else if (typeof event.agerange === 'string') {
+                try {
+                    ageRanges = JSON.parse(event.agerange);
+                } catch {
+                    ageRanges = [event.agerange];
+                }
+            }
+        }
     } catch (e) {
         console.warn('Failed to parse agerange:', event.agerange, e);
-        ageRanges = event.agerange ? [event.agerange] : [];
+        ageRanges = event.agerange ? [String(event.agerange)] : [];
     }
     
     try {
-        eventTypes = event.event_type ? JSON.parse(event.event_type) : [];
+        if (event.event_type) {
+            // Check if it's already an array
+            if (Array.isArray(event.event_type)) {
+                eventTypes = event.event_type;
+            }
+            // Check if it's a PostgreSQL array string format
+            else if (typeof event.event_type === 'string' && event.event_type.startsWith('{')) {
+                eventTypes = event.event_type
+                    .replace(/[{}]/g, '')
+                    .split(',')
+                    .map(item => item.trim().replace(/^["']|["']$/g, ''))
+                    .filter(item => item.length > 0);
+            }
+            // Try parsing as JSON
+            else if (typeof event.event_type === 'string') {
+                try {
+                    eventTypes = JSON.parse(event.event_type);
+                } catch {
+                    eventTypes = [event.event_type];
+                }
+            }
+        }
     } catch (e) {
         console.warn('Failed to parse event_type:', event.event_type, e);
-        eventTypes = event.event_type ? [event.event_type] : [];
+        eventTypes = event.event_type ? [String(event.event_type)] : [];
     }
     
     const linkIcon = event.web_link ? '🔗' : '';
@@ -1732,6 +1916,8 @@ async function loadEventsData() {
     }
 }
 
+
+// ===== Drop =====
 function populateDropdowns(data) {
     if (!data || data.length === 0) {
         console.warn('No data provided to populateDropdowns');
@@ -3501,6 +3687,50 @@ function formatValue(value) {
     return String(value);
 }
 
+// ===== TOGGLE BUTTON LOCATIONS =====
+function createToggleButtons() {
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 1001; display: flex; flex-direction: column; gap: 10px;';
+    
+    buttonContainer.innerHTML = `
+        <button id="toggleEventsBtn" class="toggle-events-btn events-hidden">
+            <span class="events-icon">⭐</span>
+            <span class="events-text">Events</span>
+        </button>
+        
+        <button id="toggleLibrariesBtn" class="toggle-events-btn libraries-hidden">
+            <span class="events-icon">📚</span>
+            <span class="events-text">Libraries</span>
+        </button>
+    `;
+    
+    document.body.appendChild(buttonContainer);
+}
+
+function initializeToggleButtons() {
+    const toggleEventsBtn = document.getElementById('toggleEventsBtn');
+    const toggleLibrariesBtn = document.getElementById('toggleLibrariesBtn');
+    
+    if (toggleEventsBtn) {
+        // Set initial state to hidden
+        toggleEventsBtn.classList.add('events-hidden');
+        map.removeLayer(eventsClusterGroup); // Hide events initially
+        
+        toggleEventsBtn.addEventListener('click', toggleEvents);
+        console.log('Events toggle button initialized');
+    }
+    
+    if (toggleLibrariesBtn) {
+        // Set initial state to VISIBLE (remove the hidden class)
+        toggleLibrariesBtn.classList.remove('libraries-hidden');
+        // ADD libraries layer on load
+        map.addLayer(librariesClusterGroup);
+        
+        toggleLibrariesBtn.addEventListener('click', toggleLibraries);
+        console.log('Libraries toggle button initialized');
+    }
+}
+
 // ===== SEARCH FUNCTIONALITY =====
 function addSearchControl() {
     const mapContainer = document.getElementById('map');
@@ -3514,10 +3744,6 @@ function addSearchControl() {
     searchContainer.id = 'search-container';
     
     searchContainer.innerHTML = `
-        <button id="toggleEventsBtn" class="toggle-events-btn">
-            <span class="events-icon">⭐</span>
-            <span class="events-text">Events</span>
-        </button>
         <div class="dropdown-wrapper">
             <input type="text" id="searchInput" class="form-input small" placeholder="Search location or playground...">
             <div id="suggestions" class="dropdown-menu hidden"></div>
@@ -3552,32 +3778,6 @@ function addSearchControl() {
         console.log('Search event listeners added successfully');
     } else {
         console.error('Could not find search input or button after creation');
-    }
-
-        // Existing search event listeners
-    if (searchInput && searchBtn) {
-        searchBtn.addEventListener('click', () => {
-            performSearch();
-        });
-        if (searchInput) {
-            searchInput.addEventListener('input', handleSuggestions);
-        }
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                performSearch();
-            }
-        });
-        console.log('Search event listeners added successfully');
-    }
-    
-    // Toggle events button
-    const toggleEventsBtn = document.getElementById('toggleEventsBtn');
-    if (toggleEventsBtn) {
-        // Set initial state to hidden
-        toggleEventsBtn.classList.add('events-hidden');
-        map.removeLayer(eventsClusterGroup); // Hide events initially
-        
-        toggleEventsBtn.addEventListener('click', toggleEvents);
     }
 }
 
@@ -3836,10 +4036,13 @@ function initialiseApp() {
         initialiseLGASearch();
         addSearchControl();
     });
-    
+
+    createToggleButtons();
     loadEventsData();
+    loadLibrariesData();
     setupEventListeners();
     initialiseMobileDrawer();
+    initializeToggleButtons();
 
     // Update count when map moves/zooms
     map.on('moveend zoomend', updateVisiblePlaygroundCount);

@@ -1554,7 +1554,7 @@ label,
 }
 
 
-/* ===== TOGGLE EVENTS BUTTON ===== */
+/* ===== TOGGLE EVENTS & LIBRARIES BUTTONS ===== */
 .toggle-events-btn {
     display: flex;
     align-items: center;
@@ -1570,7 +1570,7 @@ label,
     transition: all var(--transition-fast);
     white-space: nowrap;
     box-shadow: var(--shadow-sm);
-    height: 42px; /* ← ADD THIS LINE to match search button */
+    height: 42px;
 }
 
 .toggle-events-btn:hover {
@@ -1583,12 +1583,14 @@ label,
     transform: translateY(0);
 }
 
-.toggle-events-btn.events-hidden {
+.toggle-events-btn.events-hidden,
+.toggle-events-btn.libraries-hidden {
     background: var(--gradient-primary); /* Keep purple gradient */
     opacity: 0.5; /* Just make it more transparent */
 }
 
-.toggle-events-btn.events-hidden:hover {
+.toggle-events-btn.events-hidden:hover,
+.toggle-events-btn.libraries-hidden:hover {
     background: var(--gradient-contrast-dark); /* Keep purple on hover too */
     opacity: 0.7; /* Slightly less transparent on hover */
 }
@@ -1616,7 +1618,7 @@ label,
 
 @media (max-width: 480px) {
     .events-text {
-        display: none; /* Hide text on very small screens, show only star */
+        display: none; /* Hide text on very small screens, show only icon */
     }
     
     .toggle-events-btn {
