@@ -3,6 +3,26 @@ import json
 import os
 from datetime import datetime
 
+# Venue mapping with coordinates
+VENUE_COORDINATES = {
+    '253 Lang St': {
+        'latitude': -32.819662,
+        'longitude': 151.479111
+    },
+    'Cessnock City Library': {
+        'latitude': -32.833889,
+        'longitude': 151.356387
+    },
+    'Kurri Kurri Library': {
+        'latitude': -32.819662,
+        'longitude': 151.479111
+    },
+    'Cessnock Library': {
+        'latitude': -32.833889,
+        'longitude': 151.356387
+    }
+}
+
 # Initialize Eventbrite API client
 class EventbriteAPI:
     def __init__(self, api_token):
@@ -81,8 +101,11 @@ class EventbriteAPI:
             
             # Flatten venue information
             venue = event.get('venue')
+            venue_name = None
+            
             if venue and isinstance(venue, dict):
-                parsed_event['venue_name'] = venue.get('name')
+                venue_name = venue.get('name')
+                parsed_event['venue_name'] = venue_name
                 parsed_event['venue_address'] = venue.get('address', {}).get('localized_address_display')
                 parsed_event['venue_city'] = venue.get('address', {}).get('city')
                 parsed_event['venue_region'] = venue.get('address', {}).get('region')
@@ -93,6 +116,15 @@ class EventbriteAPI:
                 parsed_event['venue_city'] = None
                 parsed_event['venue_region'] = None
                 parsed_event['venue_postal_code'] = None
+            
+            # Add latitude and longitude from mapping
+            if venue_name and venue_name in VENUE_COORDINATES:
+                coords = VENUE_COORDINATES[venue_name]
+                parsed_event['latitude'] = coords['latitude']
+                parsed_event['longitude'] = coords['longitude']
+            else:
+                parsed_event['latitude'] = None
+                parsed_event['longitude'] = None
             
             # Flatten ticket availability
             ticket_availability = event.get('ticket_availability')
@@ -111,77 +143,17 @@ class EventbriteAPI:
         
         return parsed_events
 
-    # Pretty print the flattened events
-    def print_events(self, events):
-        if not events:
-            print("No events found.")
-            return
-        
-        print(f"\nFound {len(events)} event(s):\n")
-        print("=" * 80)
-        
-        for i, event in enumerate(events, 1):
-            print(f"\nEvent #{i}")
-            print(f"Event ID: {event.get('event_id')}")
-            print(f"Name: {event.get('name')}")
-            print(f"Status: {event.get('status')}")
-            print(f"URL: {event.get('url')}")
-            print(f"Start: {event.get('start_date')} ({event.get('start_timezone')})")
-            print(f"End: {event.get('end_date')}")
-            
-            # Venue info (now flattened)
-            if event.get('venue_name'):
-                print(f"Venue: {event.get('venue_name')}")
-                if event.get('venue_address'):
-                    print(f"Address: {event.get('venue_address')}")
-            
-            # Ticket info (now flattened)
-            if event.get('is_free'):
-                print("Price: FREE")
-            else:
-                min_price = event.get('minimum_ticket_price')
-                max_price = event.get('maximum_ticket_price')
-                if min_price and max_price:
-                    if min_price == max_price:
-                        print(f"Price: {min_price}")
-                    else:
-                        print(f"Price: {min_price} - {max_price}")
-                if event.get('is_sold_out'):
-                    print("Status: SOLD OUT")
-            
-            print(f"Capacity: {event.get('capacity')}")
-            print(f"Online Event: {'Yes' if event.get('online_event') else 'No'}")
-            
-            if event.get('description'):
-                desc = event['description'][:200] + '...' if len(event['description']) > 200 else event['description']
-                print(f"Description: {desc}")
-            
-            print("-" * 80)
 
-    # Save flattened events to JSON file
-    def save_to_json(self, events, filename='events_flat.json'):
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(events, f, indent=2, ensure_ascii=False)
-        print(f"\nFlattened events saved to {filename}")
 
 
 def main():
     api_token = os.getenv("EVENTBRITE_API_TOKEN")
     organizer_id = "17689152323"  # Cessnock City Library organizer ID
     
-    print(f"Fetching events for organizer ID: {organizer_id}")
-    
     api = EventbriteAPI(api_token)
     
     # Get all live events - returns FLATTENED data ready for Supabase
     events = api.get_organizer_events(organizer_id, status='live')
-    
-    # Display results
-    api.print_events(events)
-    
-    # Save to JSON (for debugging)
-    #if events:
-    #    api.save_to_json(events, 'cessnock_library_events_flat.json')
     
     return events
 
