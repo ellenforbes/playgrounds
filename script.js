@@ -1579,6 +1579,8 @@ function createLibraryMarker(library) {
             iconAnchor: [10, 10]
         })
     });
+
+    marker.bindPopup(createLibraryPopupContent(library));
     
     // Bind tooltip
     marker.bindTooltip(library.name || 'Unnamed Library', {
@@ -1591,6 +1593,31 @@ function createLibraryMarker(library) {
 
     marker.libraryData = library;
     return marker;
+}
+
+function createLibraryPopupContent(library) {
+
+    const linkIcon = library.website ? '🔗' : '';
+    
+    const mapsIcon = library.latitude && library.longitude ? 
+        `<a href="https://www.google.com/maps?q=${library.latitude},${library.longitude}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; margin-left: 4px;">📍</a>` : 
+        '';
+    
+    const title = library.website ? 
+        `<a href="${library.website}" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">${library.name} ${linkIcon}</a>` : 
+        library.name;
+    
+    return `
+        <div style="font-family: system-ui, -apple-system, sans-serif; min-width: 300px; padding: 12px;">
+            <div style="margin-bottom: 8px;">
+                <h3 style="font-weight: bold; font-size: var(--font-size-lg); margin: 0;">${title}${mapsIcon}</h3>
+                ${library.address ? `<div style="font-style: italic; margin-top: 2px;">${library.address}</div>` : ''}
+            </div>
+            
+            ${library.open ? `<div style="margin-bottom: 6px;">🕧 <strong>Open:</strong> ${library.open}</div>` : ''}
+
+        </div>
+    `;
 }
 
 function addLibrariesToMap() {
@@ -1615,11 +1642,6 @@ function addLibrariesToMap() {
     });
     
     console.log(`Added ${librariesClusterGroup.getLayers().length} libraries to cluster group`);
-    
-    // Don't add to map immediately - wait for user to click button
-    // if (!map.hasLayer(librariesClusterGroup)) {
-    //     map.addLayer(librariesClusterGroup);
-    // }
 }
 
 async function loadLibrariesData() {
@@ -3684,69 +3706,6 @@ function formatValue(value) {
     return String(value);
 }
 
-// ===== TOGGLE BUTTON LOCATIONS =====
-function createToggleButtons() {
-    const buttonContainer = document.createElement('div');
-    buttonContainer.id = 'toggleButtonContainer';
-    
-    // Function to update position based on screen size
-    function updatePosition() {
-        const isMobile = window.innerWidth <= 768;
-        buttonContainer.style.cssText = `
-            position: fixed; 
-            top: ${isMobile ? '140px' : '80px'}; 
-            right: 20px; 
-            z-index: 1001; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 10px;
-        `;
-    }
-    
-    // Set initial position
-    updatePosition();
-    
-    // Update position on window resize
-    window.addEventListener('resize', updatePosition);
-    
-    buttonContainer.innerHTML = `
-        <button id="toggleEventsBtn" class="toggle-events-btn events-hidden">
-            <span class="events-icon">⭐</span>
-            <span class="events-text">Events</span>
-        </button>
-        
-        <button id="toggleLibrariesBtn" class="toggle-events-btn libraries-hidden">
-            <span class="events-icon">📚</span>
-            <span class="events-text">Libraries</span>
-        </button>
-    `;
-    
-    document.body.appendChild(buttonContainer);
-}
-
-function initializeToggleButtons() {
-    const toggleEventsBtn = document.getElementById('toggleEventsBtn');
-    const toggleLibrariesBtn = document.getElementById('toggleLibrariesBtn');
-    
-    if (toggleEventsBtn) {
-        // Set initial state to hidden
-        toggleEventsBtn.classList.add('events-hidden');
-        map.removeLayer(eventsClusterGroup); // Hide events initially
-        
-        toggleEventsBtn.addEventListener('click', toggleEvents);
-        console.log('Events toggle button initialized');
-    }
-    
-    if (toggleLibrariesBtn) {
-        // Set initial state to VISIBLE (remove the hidden class)
-        toggleLibrariesBtn.classList.remove('libraries-hidden');
-        // ADD libraries layer on load
-        map.addLayer(librariesClusterGroup);
-        
-        toggleLibrariesBtn.addEventListener('click', toggleLibraries);
-        console.log('Libraries toggle button initialized');
-    }
-}
 
 // ===== SEARCH FUNCTIONALITY =====
 function addSearchControl() {
@@ -3954,6 +3913,70 @@ function addSearchResultMarker(lat, lng, displayName, isPlayground) {
             searchMarker = null;
         }
     }, 8000);
+}
+
+// ===== TOGGLE BUTTON LOCATIONS =====
+function createToggleButtons() {
+    const buttonContainer = document.createElement('div');
+    buttonContainer.id = 'toggleButtonContainer';
+    
+    // Function to update position based on screen size
+    function updatePosition() {
+        const isMobile = window.innerWidth <= 768;
+        buttonContainer.style.cssText = `
+            position: fixed; 
+            top: ${isMobile ? '140px' : '80px'}; 
+            right: 20px; 
+            z-index: 999; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px;
+        `;
+    }
+    
+    // Set initial position
+    updatePosition();
+    
+    // Update position on window resize
+    window.addEventListener('resize', updatePosition);
+    
+    buttonContainer.innerHTML = `
+        <button id="toggleEventsBtn" class="toggle-events-btn events-hidden">
+            <span class="events-icon">⭐</span>
+            <span class="events-text">Events</span>
+        </button>
+        
+        <button id="toggleLibrariesBtn" class="toggle-events-btn libraries-hidden">
+            <span class="events-icon">📚</span>
+            <span class="events-text">Libraries</span>
+        </button>
+    `;
+    
+    document.body.appendChild(buttonContainer);
+}
+
+function initializeToggleButtons() {
+    const toggleEventsBtn = document.getElementById('toggleEventsBtn');
+    const toggleLibrariesBtn = document.getElementById('toggleLibrariesBtn');
+    
+    if (toggleEventsBtn) {
+        // Set initial state to hidden
+        toggleEventsBtn.classList.add('events-hidden');
+        map.removeLayer(eventsClusterGroup); // Hide events initially
+        
+        toggleEventsBtn.addEventListener('click', toggleEvents);
+        console.log('Events toggle button initialized');
+    }
+    
+    if (toggleLibrariesBtn) {
+        // Set initial state to VISIBLE (remove the hidden class)
+        toggleLibrariesBtn.classList.remove('libraries-hidden');
+        // ADD libraries layer on load
+        map.addLayer(librariesClusterGroup);
+        
+        toggleLibrariesBtn.addEventListener('click', toggleLibraries);
+        console.log('Libraries toggle button initialized');
+    }
 }
 
 // ===== MOBILE DRAWER FUNCTIONALITY =====
