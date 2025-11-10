@@ -40,25 +40,8 @@ def push_events_to_supabase(events: List[Dict[str, Any]], table_name: str = "eve
         print(f"✗ Error pushing to Supabase: {e}")
         return False
 
-# Clear all records from the table 
-def clear_table(table_name: str = "events_cessnock") -> bool:
-    try:
-        supabase = get_supabase_client()
-        
-        print(f"WARNING: Clearing all records from table '{table_name}'...")
-        
-        # Delete all records
-        response = supabase.table(table_name).delete().neq('event_id', '').execute()
-        
-        print(f"✓ Table '{table_name}' cleared successfully")
-        return True
-        
-    except Exception as e:
-        print(f"✗ Error clearing table: {e}")
-        return False
-
 # Delete past events from table
-def delete_past_events_local(table_name: str = "events_cessnock") -> bool:
+def delete_past_events(table_name: str = "events_cessnock") -> bool:
     try:
         supabase = get_supabase_client()
         
