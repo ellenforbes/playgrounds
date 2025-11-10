@@ -16,7 +16,7 @@ def main():
     
     # Step 1: Fetch events from Eventbrite
     print(f"\n[1/2] Fetching events from Eventbrite...")
-    print(f"      Organizer ID: {organizer_id}")
+    print(f"      Organizer IDs: {organizer_id_cessnock}, {organizer_id_singleton}")
     
     api = EventbriteAPI(api_token)
      # Get all live events for both organizers
