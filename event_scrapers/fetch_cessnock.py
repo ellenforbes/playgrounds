@@ -152,11 +152,17 @@ def main():
     
     api = EventbriteAPI(api_token)
     
-    # Get all live events - returns FLATTENED data ready for Supabase
+    # Get all live events
     events = api.get_organizer_events(organizer_id, status='live')
     
-    return events
-
+    # Filter out any events that have already ended
+    now = datetime.now()
+    future_events = [
+        event for event in events
+        if event.get('end_date') and datetime.fromisoformat(event['end_date']) > now
+    ]
+    
+    return future_events
 
 if __name__ == "__main__":
     events = main()
