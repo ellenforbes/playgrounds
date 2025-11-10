@@ -20,6 +20,10 @@ VENUE_COORDINATES = {
     'Cessnock Library': {
         'latitude': -32.833889,
         'longitude': 151.356387
+    },
+    'Singleton Public Library': {
+        'latitude': -32.5586082,
+        'longitude': 151.1749447
     }
 }
 
