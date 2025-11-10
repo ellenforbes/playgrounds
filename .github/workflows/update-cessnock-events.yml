@@ -2,8 +2,7 @@ name: Sync Cessnock Events to Supabase
 
 on:
   schedule:
-    # Runs every 6 hours (at 00:00, 06:00, 12:00, 18:00 UTC)
-    - cron: '0 */6 * * *'
+    - cron: '0 17 * * *'   # Runs at 3:00 AM Brisbane time
   
   workflow_dispatch:  # Allows manual trigger from GitHub UI
 
