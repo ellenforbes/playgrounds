@@ -58,15 +58,16 @@ def clear_table(table_name: str = "events_cessnock") -> bool:
         return False
 
 # Delete past events from table
-def delete_past_events(table_name: str = "events_cessnock") -> bool:
+def delete_past_events_local(table_name: str = "events_cessnock") -> bool:
     try:
         supabase = get_supabase_client()
         
-        now_iso = datetime.now().isoformat()
+        # Local datetime in ISO format, without timezone info
+        now_local = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
-        print(f"Deleting events from '{table_name}' where start_date < {now_iso} ...")
+        print(f"Deleting events from '{table_name}' where start_date < {now_local} ...")
 
-        supabase.table(table_name).delete().lt("start_date", now_iso).execute()
+        supabase.table(table_name).delete().lt("start_date", now_local).execute()
 
         print("✓ Past events removed successfully.")
         return True
