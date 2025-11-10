@@ -399,15 +399,6 @@ function initialiseClusterGroup() {
         zoomToBoundsOnClick: true,
         iconCreateFunction: createClusterIcon
     });
-    
-    // Events cluster 
-    eventsClusterGroup = L.markerClusterGroup({
-        maxClusterRadius: 50,
-        spiderfyOnMaxZoom: true,
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        iconCreateFunction: createEventClusterIcon
-    });
 
     // Libraries cluster 
     librariesClusterGroup = L.markerClusterGroup({
@@ -417,47 +408,14 @@ function initialiseClusterGroup() {
         zoomToBoundsOnClick: true,
         iconCreateFunction: createLibraryClusterIcon
     });
-}
 
-function createEventClusterIcon(cluster) {
-    const count = cluster.getChildCount();
-    
-    let size, fontSize, starSize;
-    if (count < 10) { size = 45; fontSize = 13; starSize = 36; }
-    else if (count < 50) { size = 55; fontSize = 15; starSize = 46; }
-    else if (count < 100) { size = 65; fontSize = 17; starSize = 56; }
-    else { size = 75; fontSize = 19; starSize = 66; }
-    
-    return L.divIcon({
-        html: `<div style="
-            position: relative;
-            width: ${size}px;
-            height: ${size}px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        ">
-            <svg viewBox="0 0 24 24" width="${starSize}" height="${starSize}" style="
-                position: absolute;
-                filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
-            ">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" 
-                      fill="#3b82f6" 
-                      stroke="#1e40af" 
-                      stroke-width="1.5"/>
-            </svg>
-            <div style="
-                position: relative;
-                z-index: 1;
-                font-weight: bold;
-                color: white;
-                font-size: ${fontSize}px;
-                text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-            ">${count}</div>
-        </div>`,
-        className: 'custom-cluster-icon',
-        iconSize: [size, size],
-        iconAnchor: [size/2, size/2]
+    // Events cluster 
+    eventsClusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        iconCreateFunction: createEventClusterIcon
     });
 }
 
@@ -1610,8 +1568,8 @@ function createLibraryMarker(library) {
     const marker = L.marker([library.latitude, library.longitude], {
         icon: L.divIcon({
             html: `<div style="
-                width: 20px;
-                height: 20px;
+                width: 15px;
+                height: 15px;
                 background: #ef4444;
                 border: 2px solid #ffffff;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.3);
@@ -1691,9 +1649,9 @@ function createLibraryClusterIcon(cluster) {
     const count = cluster.getChildCount();
     
     let size, fontSize;
-    if (count < 10) { size = 35; fontSize = 12; }
-    else if (count < 50) { size = 45; fontSize = 14; }
-    else if (count < 100) { size = 55; fontSize = 16; }
+    if (count < 10) { size = 25; fontSize = 12; }
+    else if (count < 50) { size = 35; fontSize = 14; }
+    else if (count < 100) { size = 45; fontSize = 16; }
     else { size = 65; fontSize = 18; }
     
     return L.divIcon({
@@ -1863,10 +1821,49 @@ function addEventsToMap() {
             eventsClusterGroup.addLayer(marker);
         }
     });
+}
+
+// ===== EVENT CLUSTER ICON =====
+function createEventClusterIcon(cluster) {
+    const count = cluster.getChildCount();
     
-    if (!map.hasLayer(eventsClusterGroup)) {
-        map.addLayer(eventsClusterGroup);
-    }
+    let size, fontSize, starSize;
+    if (count < 10) { size = 45; fontSize = 13; starSize = 36; }
+    else if (count < 50) { size = 55; fontSize = 15; starSize = 46; }
+    else if (count < 100) { size = 65; fontSize = 17; starSize = 56; }
+    else { size = 75; fontSize = 19; starSize = 66; }
+    
+    return L.divIcon({
+        html: `<div style="
+            position: relative;
+            width: ${size}px;
+            height: ${size}px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        ">
+            <svg viewBox="0 0 24 24" width="${starSize}" height="${starSize}" style="
+                position: absolute;
+                filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
+            ">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" 
+                      fill="#3b82f6" 
+                      stroke="#1e40af" 
+                      stroke-width="1.5"/>
+            </svg>
+            <div style="
+                position: relative;
+                z-index: 1;
+                font-weight: bold;
+                color: white;
+                font-size: ${fontSize}px;
+                text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            ">${count}</div>
+        </div>`,
+        className: 'custom-cluster-icon',
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2]
+    });
 }
 
 // ===== DATA LOADING AND PROCESSING =====
@@ -3690,7 +3687,27 @@ function formatValue(value) {
 // ===== TOGGLE BUTTON LOCATIONS =====
 function createToggleButtons() {
     const buttonContainer = document.createElement('div');
-    buttonContainer.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 1001; display: flex; flex-direction: column; gap: 10px;';
+    buttonContainer.id = 'toggleButtonContainer';
+    
+    // Function to update position based on screen size
+    function updatePosition() {
+        const isMobile = window.innerWidth <= 768;
+        buttonContainer.style.cssText = `
+            position: fixed; 
+            top: ${isMobile ? '140px' : '80px'}; 
+            right: 20px; 
+            z-index: 1001; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px;
+        `;
+    }
+    
+    // Set initial position
+    updatePosition();
+    
+    // Update position on window resize
+    window.addEventListener('resize', updatePosition);
     
     buttonContainer.innerHTML = `
         <button id="toggleEventsBtn" class="toggle-events-btn events-hidden">
@@ -4038,11 +4055,11 @@ function initialiseApp() {
     });
 
     createToggleButtons();
+    initializeToggleButtons();
     loadEventsData();
     loadLibrariesData();
     setupEventListeners();
     initialiseMobileDrawer();
-    initializeToggleButtons();
 
     // Update count when map moves/zooms
     map.on('moveend zoomend', updateVisiblePlaygroundCount);
