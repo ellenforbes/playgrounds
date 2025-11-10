@@ -27,6 +27,51 @@ VENUE_COORDINATES = {
     }
 }
 
+# Family-friendly event keywords (case insensitive)
+FAMILY_KEYWORDS = [
+    'family',
+    'toddler',
+    'babies',
+    'baby',
+    'bubs',
+    'bubba',
+    'mummabubba',
+    'kids',
+    'teen',
+    'art starter',
+    'art play',
+    'art explorers',
+    'storytime',
+    'rhymetime',
+    'dungeons',
+    'lego',
+    'code',
+    'stem',
+    'steam',
+    'children',
+    'school holiday',
+    'playgroup'
+]
+
+# All organizer IDs to fetch events from
+ORGANIZER_IDS = [
+    "17689152323",   # Cessnock City Library
+    "72168255123",   # Singleton City Library
+    "7802857319",    # Lake Mac Arts and Culture
+    "32507525885",   # MidCoast Libraries and Culture
+    "6309828769",    # Queensland Gallery of Modern Art (QAGOMA)
+    "82549136163",   # LoganARTS
+    "1347354923",    # State Library of Queensland
+    "65102065633",   # Gold Coast Libraries
+    "6212723759",    # Museum of Brisbane
+    "67471959573",   # Stacey Rodda Annerly
+    "104725898391",  # Living Museum of Logan
+    "109001559971",  # Lets Dilly Dally Nambour
+    "107190148231",  # Port Stephens Libraries
+    "55557266483",   # Children and Family Planner Lake Mac
+    "74588539343"    # Newcastle Birth Movement
+]
+
 # Initialize Eventbrite API client
 class EventbriteAPI:
     def __init__(self, api_token):
@@ -38,7 +83,7 @@ class EventbriteAPI:
         }
 
     # Get all events for a specific organizer
-    def get_organizer_events(self, organizer_id, status='all', order_by='start_asc'):
+    def get_organizer_events(self, organizer_id, status='all', order_by='start_asc', filter_keywords=None):
         url = f"{self.base_url}/organizers/{organizer_id}/events/"
         params = { 'status': status, 'order_by': order_by, 'expand': 'venue,ticket_availability'}
         all_events = []
@@ -65,6 +110,10 @@ class EventbriteAPI:
                 
                 page += 1
             
+            # Filter BEFORE parsing if keywords provided
+            if filter_keywords:
+                all_events = self._filter_by_keywords(all_events, filter_keywords)
+            
             return self._parse_events_flat(all_events)
             
         except requests.exceptions.HTTPError as e:
@@ -78,6 +127,20 @@ class EventbriteAPI:
         except requests.RequestException as e:
             print(f"Error fetching events: {e}")
             return []
+    
+    # Filter raw events by keywords BEFORE parsing
+    def _filter_by_keywords(self, raw_events, keywords):
+        filtered = []
+        for event in raw_events:
+            name = event.get('name', {}).get('text', '')
+            description = event.get('description', {}).get('text', '')
+            search_text = (name + " " + description).lower()
+            
+            # Check if any keyword matches
+            if any(keyword.lower() in search_text for keyword in keywords):
+                filtered.append(event)
+        
+        return filtered
 
     # Parse raw API events into FLATTENED format for Supabase
     def _parse_events_flat(self, raw_events):
@@ -134,8 +197,14 @@ class EventbriteAPI:
             ticket_availability = event.get('ticket_availability')
             if ticket_availability:
                 parsed_event['has_available_tickets'] = ticket_availability.get('has_available_tickets', False)
-                parsed_event['minimum_ticket_price'] = ticket_availability.get('minimum_ticket_price', {}).get('display')
-                parsed_event['maximum_ticket_price'] = ticket_availability.get('maximum_ticket_price', {}).get('display')
+                
+                # Safely get ticket prices (they might be None)
+                min_price = ticket_availability.get('minimum_ticket_price')
+                parsed_event['minimum_ticket_price'] = min_price.get('display') if min_price else None
+                
+                max_price = ticket_availability.get('maximum_ticket_price')
+                parsed_event['maximum_ticket_price'] = max_price.get('display') if max_price else None
+                
                 parsed_event['is_sold_out'] = ticket_availability.get('is_sold_out', False)
             else:
                 parsed_event['has_available_tickets'] = None
@@ -148,42 +217,33 @@ class EventbriteAPI:
         return parsed_events
 
 
-
-
 def main():
     api_token = os.getenv("EVENTBRITE_API_TOKEN")
-    organizer_id_cessnock = "17689152323"  # Cessnock City Library organizer ID
-    organizer_id_singleton = "72168255123" # Singleton City Library organizer ID
-    organizer_id_lakemacarts = "7802857319" # Lake Mac Arts and Culture organizer ID
-    organizer_id_midcoast = "32507525885" # MidCoast Libraries and Culture organizer ID
-    organizer_id_goma = "6309828769" # Queensland Gallery of Modern Art (QAGOMA)
-    organizer_id_loganarts = "82549136163" # LoganARTS
-    organizer_id_slq = "1347354923" #State Library of Queensland
-    organizer_id_goldcoast = "65102065633" # Gold Coast Libraries
-    organizer_id_mob = "6212723759" #Museum of Brisbane
-    organizer_id_staceyrodda = "67471959573" #Stacey Rodda Annerly
-    organizer_id_museumlogan = "104725898391" #Living Museum of Logan
-    organizer_id_dillydally = "109001559971" #Lets Dilly Dally Nambour
-    organizer_id_portstephens = "107190148231" #Port Stephens Libraries
-    organizer_id_lakemacfamilyplan = "55557266483" #Children and Family Planner Lake Mac
-    organizer_id_newybirth = "74588539343" #Newcastle Birth Movement, Nat + Full NBM Team
     api = EventbriteAPI(api_token)
     
-    # Get all live events for both organizers
-    events_cessnock = api.get_organizer_events(organizer_id_cessnock, status='live')
-    events_singleton = api.get_organizer_events(organizer_id_singleton, status='live')
+    all_events = []
     
-    # Combine lists
-    events = events_cessnock + events_singleton
+    # Get live events from all organizers with keyword filtering
+    print(f"Fetching events from {len(ORGANIZER_IDS)} organizers...")
+    for organizer_id in ORGANIZER_IDS:
+        print(f"Fetching events for organizer {organizer_id}...")
+        events = api.get_organizer_events(organizer_id, status='live', filter_keywords=FAMILY_KEYWORDS)
+        all_events.extend(events)
+        print(f"  Found {len(events)} family-friendly events")
+    
+    print(f"\nTotal family events fetched: {len(all_events)}")
     
     # Filter out any events that have already ended
     now = datetime.now()
     future_events = [
-        event for event in events
+        event for event in all_events
         if event.get('end_date') and datetime.fromisoformat(event['end_date']) > now
     ]
     
+    print(f"Future family events: {len(future_events)}")
+    
     return future_events
+
 
 if __name__ == "__main__":
     events = main()
