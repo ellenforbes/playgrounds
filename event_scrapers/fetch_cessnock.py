@@ -148,12 +148,17 @@ class EventbriteAPI:
 
 def main():
     api_token = os.getenv("EVENTBRITE_API_TOKEN")
-    organizer_id = "17689152323"  # Cessnock City Library organizer ID
+    organizer_id_cessnock = "17689152323"  # Cessnock City Library organizer ID
+    organizer_id_singleton = "72168255123" # Singleton City Library organizer ID
     
     api = EventbriteAPI(api_token)
     
-    # Get all live events
-    events = api.get_organizer_events(organizer_id, status='live')
+    # Get all live events for both organizers
+    events_cessnock = api.get_organizer_events(organizer_id_cessnock, status='live')
+    events_singleton = api.get_organizer_events(organizer_id_singleton, status='live')
+    
+    # Combine lists
+    all_events = events_cessnock + events_singleton
     
     # Filter out any events that have already ended
     now = datetime.now()
