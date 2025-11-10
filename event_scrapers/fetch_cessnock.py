@@ -154,6 +154,8 @@ def main():
     api_token = os.getenv("EVENTBRITE_API_TOKEN")
     organizer_id_cessnock = "17689152323"  # Cessnock City Library organizer ID
     organizer_id_singleton = "72168255123" # Singleton City Library organizer ID
+    organizer_id_lakemacarts = "7802857319" # Lake Mac Arts and Culture organizer ID
+    organizer_id_midcoast = 32507525885" # MidCoast Libraries and Culture organizer ID
     
     api = EventbriteAPI(api_token)
     
