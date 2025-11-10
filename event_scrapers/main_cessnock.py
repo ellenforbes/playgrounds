@@ -1,6 +1,7 @@
 import os
 from fetch_cessnock import EventbriteAPI
 from push_to_sb_cessnock import push_events_to_supabase
+from push_to_sb_cessnock import delete_past_events
 
 def main():
     # Configuration
