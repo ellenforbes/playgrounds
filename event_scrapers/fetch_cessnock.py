@@ -5,6 +5,78 @@ from datetime import datetime
 
 # Venue mapping with coordinates
 VENUE_COORDINATES = {
+    'Museum of Art and Culture Lake Macquarie': {
+        'latitude': -32.97452,
+        'longitude': 151.613024
+    },
+    'Windale Hub, bilyabayi': {
+        'latitude': -32.9933567,
+        'longitude': 151.6789841
+    },
+    'The Place Charlestown Community Centre': {
+        'latitude': -32.9657058,
+        'longitude': 151.6914588
+    },
+    'Sugar Valley Library Museum, kirantakamyari': {
+        'latitude': -32.9161777,
+        'longitude': 151.5959919
+    },
+    'Living Museum of Logan': {
+        'latitude': -27.6580015,
+        'longitude': 153.1177533
+    },
+    'Landcare and Sustainable Living Centre, umali barai-ku': {
+        'latitude': -32.9682806,
+        'longitude': 151.6033979
+    },
+    'Broadbeach Library': {
+        'latitude': -28.0358658,
+        'longitude': 153.4213373
+    },
+    'Museum of Brisbane': {
+        'latitude': -27.4686749,
+        'longitude': 153.0212528
+    },
+    'Museum of Art and Culture yapang, Lake Macquarie': {
+        'latitude': -32.97452,
+        'longitude': 151.613024
+    },
+    'Speers Point Library': {
+        'latitude': -32.9598535,
+        'longitude': 151.6199961
+    },
+    'Warner Park Playground': {
+        'latitude': -32.9731964,
+        'longitude': 151.6411558
+    },
+    'Tomaree Library & Community Centre': {
+        'latitude': -32.7367741,
+        'longitude': 152.1029423
+    },
+    'Raymond Terrace Library': {
+        'latitude': -32.7617688,
+        'longitude': 151.744583
+    },
+    'Toronto Library, tirrabiyangba': {
+        'latitude': -33.0145906,
+        'longitude': 151.5962564
+    },
+    'Newcastle Birth Movement': {
+        'latitude': -32.9667339,
+        'longitude': 151.6545833
+    },
+    "Let's Dilly Dally": {
+        'latitude': -26.6247905,
+        'longitude': 152.9591452
+    },
+    'Multi-Arts Pavilion (MAP mima) Lake Macquarie': {
+        'latitude': -32.9610886,
+        'longitude': 151.6148656
+    },
+    'Charlestown Library, walyamayi': {
+        'latitude': -32.9626933,
+        'longitude': 151.6969899
+    },
     '253 Lang St': {
         'latitude': -32.819662,
         'longitude': 151.479111
