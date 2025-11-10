@@ -18,6 +18,7 @@ def main():
     
     api = EventbriteAPI(api_token)
     events = api.get_organizer_events(organizer_id, status='live')
+    delete_past_events()  # Clean up database
     
     if not events:
         print("✗ No events found or error occurred")
