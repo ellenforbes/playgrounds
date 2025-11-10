@@ -156,7 +156,17 @@ def main():
     organizer_id_singleton = "72168255123" # Singleton City Library organizer ID
     organizer_id_lakemacarts = "7802857319" # Lake Mac Arts and Culture organizer ID
     organizer_id_midcoast = "32507525885" # MidCoast Libraries and Culture organizer ID
-    
+    organizer_id_goma = "6309828769" # Queensland Gallery of Modern Art (QAGOMA)
+    organizer_id_loganarts = "82549136163" # LoganARTS
+    organizer_id_slq = "1347354923" #State Library of Queensland
+    organizer_id_goldcoast = "65102065633" # Gold Coast Libraries
+    organizer_id_mob = "6212723759" #Museum of Brisbane
+    organizer_id_staceyrodda = "67471959573" #Stacey Rodda Annerly
+    organizer_id_museumlogan = "104725898391" #Living Museum of Logan
+    organizer_id_dillydally = "109001559971" #Lets Dilly Dally Nambour
+    organizer_id_portstephens = "107190148231" #Port Stephens Libraries
+    organizer_id_lakemacfamilyplan = "55557266483" #Children and Family Planner Lake Mac
+    organizer_id_newybirth = "74588539343" #Newcastle Birth Movement, Nat + Full NBM Team
     api = EventbriteAPI(api_token)
     
     # Get all live events for both organizers
