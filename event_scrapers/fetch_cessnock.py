@@ -162,7 +162,7 @@ def main():
     events_singleton = api.get_organizer_events(organizer_id_singleton, status='live')
     
     # Combine lists
-    all_events = events_cessnock + events_singleton
+    events = events_cessnock + events_singleton
     
     # Filter out any events that have already ended
     now = datetime.now()
