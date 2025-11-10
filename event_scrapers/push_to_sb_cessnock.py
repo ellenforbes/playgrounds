@@ -1,6 +1,7 @@
 import os
 from supabase import create_client, Client
 from typing import List, Dict, Any
+from datetime import datetime
 
 # Initialize and return Supabase client
 def get_supabase_client() -> Client:
@@ -54,4 +55,22 @@ def clear_table(table_name: str = "events_cessnock") -> bool:
         
     except Exception as e:
         print(f"✗ Error clearing table: {e}")
+        return False
+
+# Delete past events from table
+def delete_past_events(table_name: str = "events_cessnock") -> bool:
+    try:
+        supabase = get_supabase_client()
+        
+        now_iso = datetime.now().isoformat()
+
+        print(f"Deleting events from '{table_name}' where start_date < {now_iso} ...")
+
+        supabase.table(table_name).delete().lt("start_date", now_iso).execute()
+
+        print("✓ Past events removed successfully.")
+        return True
+
+    except Exception as e:
+        print(f"✗ Error removing past events: {e}")
         return False
