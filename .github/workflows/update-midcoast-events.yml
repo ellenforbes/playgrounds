@@ -20,7 +20,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install requests beautifulsoup4 supabase
+        pip install -r requirements.txt
     
     - name: Run scraper and upload to Supabase
       env:
