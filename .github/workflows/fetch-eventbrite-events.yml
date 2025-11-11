@@ -1,8 +1,8 @@
-name: Sync Cessnock Events to Supabase
+name: Fetch Eventbrite API Events
 
 on:
   schedule:
-    - cron: '0 17 * * *'   # Runs at 3:00 AM Brisbane time
+    - cron: '45 17 * * *'   # Runs at 3:45 AM Brisbane time
   
   workflow_dispatch:  # Allows manual trigger from GitHub UI
 
@@ -31,7 +31,7 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           cd event_scrapers
-          python main_cessnock.py
+          python main_eventbrite.py
       
       - name: Show completion message
         if: success()
