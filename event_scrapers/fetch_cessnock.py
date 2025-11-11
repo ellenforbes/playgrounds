@@ -122,7 +122,10 @@ FAMILY_KEYWORDS = [
     'steam',
     'children',
     'school holiday',
-    'playgroup'
+    'playgroup',
+    'rock',
+    'rhyme',
+    'story stomp'
 ]
 
 # All organizer IDs to fetch events from
