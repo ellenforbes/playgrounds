@@ -152,19 +152,24 @@ class NewcastleEventsScraper:
         today = datetime.now().replace(hour=0, minute=0)
         expanded = []
         
+        # Normalise location *once* (but never remove original meaning)
+        location = (event.get('location') or '').strip()
+    
         for d in event.get('dates', []):
             if filter_past and d.get('datetime'):
                 if datetime.fromisoformat(d['datetime']) < today:
                     continue
             
             e = event.copy()
+            e['location'] = location  # ✅ Ensure location stays correct text
+            
             e['date'] = d['formatted']
             e['time'] = d.get('time', '')
             e['start_datetime'] = self.parse_time_to_datetime(d.get('datetime'), e['time'])
             e.pop('dates', None)
             
-            # ✅ Apply coordinates
-            coords = VENUE_COORDINATES.get(e['location'])
+            # ✅ Apply coordinates without altering location
+            coords = VENUE_COORDINATES.get(location)
             if coords:
                 e['latitude'] = coords['latitude']
                 e['longitude'] = coords['longitude']
