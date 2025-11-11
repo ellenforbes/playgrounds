@@ -1,0 +1,30 @@
+name: Scrape Newcastle Events
+
+on:
+  schedule:
+    - cron: '0 17 * * *'   # Runs at 3:00 AM Brisbane time
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  scrape-and-upload:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        pip install requests beautifulsoup4 supabase
+    
+    - name: Run scraper and upload to Supabase
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      run: |
+        python scrape_newcastle_events.py
