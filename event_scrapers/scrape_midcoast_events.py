@@ -1,16 +1,15 @@
-import os
-import re
-import time
-from datetime import datetime
-from urllib.parse import urljoin
-
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
+from selenium.common.exceptions import TimeoutException
+from urllib.parse import urljoin
+from datetime import datetime
+import time
+import re
+import os
 from supabase import create_client, Client
 
 # Venue coordinates
@@ -40,12 +39,10 @@ class SeleniumLibraryScraper:
 
         options = Options()
         if headless:
-            options.add_argument("--headless=new")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
+            options.add_argument('--headless=new')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--no-sandbox')
         options.add_argument("--window-size=1920,1080")
-        options.add_argument("--disable-dev-shm-usage")
-
         self.driver = webdriver.Chrome(options=options)
 
     def contains_filter_word(self, title):
@@ -54,106 +51,106 @@ class SeleniumLibraryScraper:
         title_lower = title.lower()
         return any(word in title_lower for word in self.filter_words)
 
-    def get_event_links(self):
+    def get_all_event_links(self):
+        print(f"Fetching page: {self.base_url}")
         self.driver.get(self.base_url)
-        wait = WebDriverWait(self.driver, 10)
 
         try:
-            # Wait for grid to load
-            grid = wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'grid')))
-        except:
-            print("Could not find event grid.")
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.grid article"))
+            )
+        except TimeoutException:
+            print("⚠ Timeout waiting for events to load")
             return []
 
-        links = grid.find_elements(By.TAG_NAME, 'a')
-        events = []
-        for link in links:
-            try:
-                title_elem = link.find_element(By.CLASS_NAME, 'list-item-title')
-                title = title_elem.text.strip()
-                if self.contains_filter_word(title):
-                    event_url = link.get_attribute('href')
-                    events.append({'title': title, 'url': event_url})
-            except:
-                continue
-        return events
+        articles = self.driver.find_elements(By.CSS_SELECTOR, "div.grid article")
+        print(f"Found {len(articles)} events on page")
+        event_links = []
 
-    def parse_date_li(self, li):
+        for article in articles:
+            try:
+                link_elem = article.find_element(By.TAG_NAME, 'a')
+                title_elem = link_elem.find_element(By.CSS_SELECTOR, 'h2.list-item-title')
+                title = title_elem.text.strip()
+                event_url = link_elem.get_attribute('href')
+                if not event_url.startswith('http'):
+                    event_url = urljoin(self.base_url, event_url)
+
+                if self.contains_filter_word(title):
+                    event_links.append({'title': title, 'url': event_url})
+                    print(f"  ✓ {title}")
+            except Exception:
+                continue
+        return event_links
+
+    def parse_date_from_li(self, li):
         year = li.get_attribute('data-start-year')
         month = li.get_attribute('data-start-month')
         day = li.get_attribute('data-start-day')
         hour = li.get_attribute('data-start-hour')
         mins = li.get_attribute('data-start-mins')
-
         if not all([year, month, day, hour, mins]):
             return None
-
-        try:
-            dt = datetime(int(year), int(month), int(day), int(hour), int(mins))
-        except:
-            return None
-
+        dt = datetime(int(year), int(month), int(day), int(hour), int(mins))
         time_str = f"{hour.zfill(2)}:{mins.zfill(2)}"
-        text = li.text
-        date_match = re.search(r'([A-Za-z]+,\s+\d{1,2}\s+[A-Za-z]+\s+\d{4})', text)
-        date_str = date_match.group(1) if date_match else f"{day}/{month}/{year}"
+        return {'datetime_obj': dt, 'time_str': time_str, 'date_str': dt.strftime("%A, %d %B %Y")}
 
-        return {'date_str': date_str, 'time_str': time_str, 'datetime_obj': dt}
-
-    def get_event_details(self, event):
-        self.driver.get(event['url'])
-        time.sleep(1)
-
-        today = datetime.now()
+    def get_event_details(self, event_url, event_title):
+        self.driver.get(event_url)
+        time.sleep(1.5)  # let JS render
         all_instances = []
+        location_items = self.driver.find_elements(By.CSS_SELECTOR, "div.multi-location-item")
+        today = datetime.now()
 
-        try:
-            locations = self.driver.find_elements(By.CLASS_NAME, 'multi-location-item')
-        except:
-            return []
-
-        for loc in locations:
+        for loc_item in location_items:
             try:
-                location_elem = loc.find_element(By.TAG_NAME, 'h3')
-                location = re.split(r',\s*\xa0|,', location_elem.text.strip())[0]
-            except:
+                location = loc_item.find_element(By.TAG_NAME, 'h3').text
+                location = re.split(r',\s*\xa0|,', location)[0].strip()
+                date_items = loc_item.find_elements(By.CSS_SELECTOR, 'ul.future-events-list li.multi-date-item')
+                for date_li in date_items:
+                    parsed = self.parse_date_from_li(date_li)
+                    if parsed and parsed['datetime_obj'] >= today:
+                        dt_obj = parsed['datetime_obj']
+                        start_dt = f"{dt_obj.strftime('%Y-%m-%d')}T{parsed['time_str']}"
+                        all_instances.append({
+                            'title': event_title,
+                            'url': event_url,
+                            'location': location,
+                            'date': parsed['date_str'],
+                            'time': parsed['time_str'],
+                            'start_datetime': start_dt
+                        })
+            except Exception:
                 continue
-
-            try:
-                date_ul = loc.find_element(By.CLASS_NAME, 'future-events-list')
-                date_lis = date_ul.find_elements(By.CLASS_NAME, 'multi-date-item')
-            except:
-                continue
-
-            for li in date_lis:
-                parsed = self.parse_date_li(li)
-                if parsed and parsed['datetime_obj'] >= today:
-                    dt_obj = parsed['datetime_obj']
-                    start_dt = f"{dt_obj.strftime('%Y-%m-%d')}T{parsed['time_str']}"
-                    all_instances.append({
-                        'title': event['title'],
-                        'date': parsed['date_str'],
-                        'time': parsed['time_str'],
-                        'start_datetime': start_dt,
-                        'location': location,
-                        'url': event['url'],
-                        'latitude': VENUE_COORDINATES.get(location, {}).get('latitude'),
-                        'longitude': VENUE_COORDINATES.get(location, {}).get('longitude')
-                    })
-
         return all_instances
 
-    def scrape_all(self):
-        event_links = self.get_event_links()
+    def scrape_all(self, delay=1.5):
+        links = self.get_all_event_links()
+        if not links:
+            print("No events found")
+            return []
+
         all_events = []
-
-        for i, e in enumerate(event_links, 1):
-            instances = self.get_event_details(e)
+        for i, ev in enumerate(links, 1):
+            print(f"\n[{i}/{len(links)}] {ev['title']}")
+            instances = self.get_event_details(ev['url'], ev['title'])
             all_events.extend(instances)
-            time.sleep(1)
+            if i < len(links):
+                time.sleep(delay)
 
+        all_events.sort(key=lambda x: x['start_datetime'])
         self.events = all_events
         return all_events
+
+    def add_coordinates(self):
+        for e in self.events:
+            coords = VENUE_COORDINATES.get(e.get('location'))
+            if coords:
+                e['latitude'] = coords['latitude']
+                e['longitude'] = coords['longitude']
+            else:
+                e['latitude'] = None
+                e['longitude'] = None
 
     def upload_to_supabase(self, supabase_url, supabase_key, table='events_midcoast'):
         if not self.events:
@@ -172,7 +169,8 @@ class SeleniumLibraryScraper:
 def main():
     BASE_URL = "https://library.midcoast.nsw.gov.au/Whats-on"
     scraper = SeleniumLibraryScraper(BASE_URL, filter_words=FAMILY_KEYWORDS)
-    events = scraper.scrape_all()
+    scraper.scrape_all()
+    scraper.add_coordinates()
 
     supabase_url = os.environ.get('SUPABASE_URL')
     supabase_key = os.environ.get('SUPABASE_KEY')
