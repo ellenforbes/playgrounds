@@ -2,7 +2,7 @@ name: Scrape Newcastle Events
 
 on:
   schedule:
-    - cron: '0 17 * * *'   # Runs at 3:00 AM Brisbane time
+    - cron: '55 17 * * *'   # Runs at 3:00 AM Brisbane time
   workflow_dispatch: # Allows manual trigger
 
 jobs:
