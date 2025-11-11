@@ -20,7 +20,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        run: pip install -r requirements.txt
+        pip install -r requirements.txt
     
     - name: Run scraper and upload to Supabase
       env:
