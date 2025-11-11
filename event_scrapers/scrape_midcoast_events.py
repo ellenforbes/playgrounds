@@ -147,6 +147,11 @@ class LibraryEventsScraper:
         supabase: Client = create_client(supabase_url, supabase_key)
         columns = ['title', 'date', 'time', 'start_datetime', 'location', 'url', 'latitude', 'longitude']
         clean = [{k: e.get(k) for k in columns} for e in events if 'error' not in e]
+        
+        if not clean:
+            print("⚠ No events to upload. Skipping Supabase insert.")
+            return
+        
         supabase.table(table).delete().neq('title', '').execute()
         supabase.table(table).insert(clean).execute()
         print(f"Uploaded {len(clean)} records to {table}")
