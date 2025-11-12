@@ -32,7 +32,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          python lakemac_scraper.py
+          cd event_scrapers
+          python scrape_lakemac_events.py
       
       - name: Notify on failure
         if: failure()
