@@ -97,14 +97,9 @@ class LakeMacSeleniumScraper:
         if headless:
             chrome_options.add_argument("--headless=new")
         
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--window-size=1920,1080")
-        chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        
-        # Suppress logging
-        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
         
         try:
             driver = webdriver.Chrome(options=chrome_options)
@@ -191,72 +186,46 @@ class LakeMacSeleniumScraper:
         Get basic event info (title and URL only) from listing pages
         """
         try:
+            print(f"  Fetching page: {url}")
             self.driver.get(url)
-            time.sleep(3)
-            self._scroll_page(scroll_pages)
             
+            # Wait for articles to be present
             try:
-                WebDriverWait(self.driver, wait_time).until(
-                    EC.presence_of_element_located((By.TAG_NAME, "body"))
+                WebDriverWait(self.driver, 15).until(
+                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.list-item-container article"))
                 )
             except TimeoutException:
-                print("  Timeout waiting for page")
+                print("  ⚠ Timeout waiting for events to load")
+                return []
             
-            page_source = self.driver.page_source
-            soup = BeautifulSoup(page_source, 'html.parser')
+            time.sleep(2)  # Let JS finish rendering
+            
+            # Find all event articles
+            articles = self.driver.find_elements(By.CSS_SELECTOR, "div.list-item-container article")
+            print(f"  Found {len(articles)} event containers")
             
             events = []
             seen_urls = set()
             
-            # Strategy 1: Look specifically for event list containers
-            event_containers = soup.find_all('div', class_='list-item-container')
-            
-            if event_containers:
-                print(f"  Found {len(event_containers)} event containers")
-                for container in event_containers:
-                    # Find the link and get the h2 title specifically
-                    link = container.find('a', href=True)
-                    if link:
-                        href = link.get('href', '')
-                        # Get name from h2 tag specifically, not all text
-                        h2 = link.find(['h2', 'h3'], class_=lambda x: x and 'title' in str(x).lower())
-                        if not h2:
-                            h2 = link.find(['h2', 'h3'])
+            for article in articles:
+                try:
+                    link_elem = article.find_element(By.TAG_NAME, 'a')
+                    title_elem = link_elem.find_element(By.CSS_SELECTOR, 'h2.list-item-title')
+                    
+                    name = title_elem.text.strip()
+                    href = link_elem.get_attribute('href')
+                    
+                    if href and name and len(name) > 3:
+                        full_url = urljoin(self.base_url, href) if not href.startswith('http') else href
                         
-                        name = h2.get_text(strip=True) if h2 else None
-                        
-                        if href and name and len(name) > 3:
-                            full_url = urljoin(self.base_url, href) if not href.startswith('http') else href
-                            
-                            if full_url not in seen_urls and full_url != url:
-                                events.append({
-                                    'name': name,
-                                    'url': full_url
-                                })
-                                seen_urls.add(full_url)
-            
-            # Strategy 2: Fallback - look for article tags with event-like links
-            if not events:
-                articles = soup.find_all('article')
-                for article in articles:
-                    link = article.find('a', href=True)
-                    if link:
-                        href = link.get('href', '')
-                        # Get name from h2 tag specifically
-                        h2 = link.find(['h2', 'h3'])
-                        name = h2.get_text(strip=True) if h2 else None
-                        
-                        if href and name and len(name) > 3:
-                            full_url = urljoin(self.base_url, href) if not href.startswith('http') else href
-                            
-                            # Only include event-like URLs
-                            if ('/event' in full_url.lower() or '/whats-on' in full_url.lower()):
-                                if full_url not in seen_urls and full_url != url:
-                                    events.append({
-                                        'name': name,
-                                        'url': full_url
-                                    })
-                                    seen_urls.add(full_url)
+                        if full_url not in seen_urls and full_url != url:
+                            events.append({
+                                'name': name,
+                                'url': full_url
+                            })
+                            seen_urls.add(full_url)
+                except Exception as e:
+                    continue
             
             print(f"  Found {len(events)} events")
             return events
