@@ -173,9 +173,7 @@ class UpperHunterLibraryScraper:
                     return {
                         'title': event_data['title'],
                         'description': event_data['description'],
-                        'date': dt_obj.strftime('%A, %d %B %Y'),
-                        'time': dt_obj.strftime('%I:%M %p'),
-                        'start_datetime': dt_obj.strftime('%Y-%m-%dT%H:%M'),
+                        'datetime': dt_obj.strftime('%Y-%m-%d %H:%M'),
                         'location': location,
                         'url': event_data['url']
                     }
@@ -205,7 +203,7 @@ class UpperHunterLibraryScraper:
             if i < len(links):
                 time.sleep(delay)
 
-        all_events.sort(key=lambda x: x['start_datetime'])
+        all_events.sort(key=lambda x: x['datetime'])
         self.events = all_events
         return all_events
 
@@ -227,7 +225,7 @@ class UpperHunterLibraryScraper:
             return
 
         supabase: Client = create_client(supabase_url, supabase_key)
-        columns = ['title', 'description', 'date', 'time', 'start_datetime', 'location', 'url', 'latitude', 'longitude']
+        columns = ['title', 'description', 'datetime', 'location', 'url', 'latitude', 'longitude']
         clean = [{k: e.get(k) for k in columns} for e in self.events if 'error' not in e]
 
         supabase.table(table).delete().neq('title', '').execute()
