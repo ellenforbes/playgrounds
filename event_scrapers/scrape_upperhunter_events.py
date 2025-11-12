@@ -7,7 +7,6 @@ from datetime import datetime
 import json
 import re
 import time
-import os
 
 def setup_driver():
     """
@@ -25,8 +24,8 @@ def setup_driver():
     # Use a realistic user agent
     chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     
-    # Run headless
-    chrome_options.add_argument('--headless')
+    # Optional: run headless
+    # chrome_options.add_argument('--headless')
     
     driver = webdriver.Chrome(options=chrome_options)
     
@@ -253,54 +252,36 @@ def scrape_upperhunter_library_events():
     finally:
         driver.quit()
 
-def upload_to_supabase(events, supabase_url, supabase_key, table='events_upperhunter'):
-    """
-    Upload events to Supabase
-    """
-    if not events:
-        print("No events to upload.")
-        return
-    
-    supabase: Client = create_client(supabase_url, supabase_key)
-    
-    # Define columns to keep
-    columns = ['title', 'description', 'datetime', 'location', 'url', 'latitude', 'longitude']
-    
-    # Clean the data
-    clean = [{k: e.get(k) for k in columns} for e in events if 'error' not in e]
-    
-    # Delete existing records
-    supabase.table(table).delete().neq('title', '').execute()
-    
-    # Insert new records
-    supabase.table(table).insert(clean).execute()
-    
-    print(f"Uploaded {len(clean)} records to {table}")
-
 def main():
-    """Main function to run the scraper and upload to Supabase"""
-    print("Scraping Upper Hunter Library events...")
+    """Main function to run the scraper and display results"""
+    print("Scraping Upper Hunter Library events with Selenium...")
     print("-" * 80)
     
-    # Get Supabase credentials from environment variables
-    supabase_url = os.environ.get('SUPABASE_URL')
-    supabase_key = os.environ.get('SUPABASE_KEY')
-    
-    if not supabase_url or not supabase_key:
-        print("Error: SUPABASE_URL and SUPABASE_KEY environment variables must be set")
-        return
-    
-    # Scrape events
     events = scrape_upperhunter_library_events()
     
     if events:
         print(f"\n{'='*80}")
-        print(f"Found {len(events)} family/children events\n")
+        print(f"Found {len(events)} family/children events:\n")
         
-        # Upload to Supabase
-        upload_to_supabase(events, supabase_url, supabase_key)
+        for i, event in enumerate(events, 1):
+            print(f"{i}. {event['title']}")
+            print(f"   Date: {event['datetime']}")
+            print(f"   Location: {event['location']['name']}")
+            if event['location']['latitude']:
+                print(f"   Coordinates: {event['location']['latitude']}, {event['location']['longitude']}")
+            print(f"   Description: {event['description'][:100]}{'...' if len(event['description']) > 100 else ''}")
+            print(f"   URL: {event['url']}")
+            print()
+        
+        # Save to JSON file
+        with open('upperhunter_library_events.json', 'w', encoding='utf-8') as f:
+            json.dump(events, f, indent=2, ensure_ascii=False)
+        print(f"Events saved to upperhunter_library_events.json")
+        
     else:
         print("No matching events found.")
+    
+    return events
 
 if __name__ == "__main__":
-    main()
+    events = main()
