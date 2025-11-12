@@ -806,6 +806,7 @@ class LakeMacSeleniumScraper:
         into individual dated events for each occurrence during NSW school terms
         Limited to next 30 days only
         KEEPS the original recurring event AND adds date-specific instances
+        Date-specific instances keep the original readable_date text but add specific start_date
         """
         expanded_events = []
         today = datetime.today().date()
@@ -837,9 +838,12 @@ class LakeMacSeleniumScraper:
                 print(f"     Keeping original + adding {len(recurring_dates)} specific instances")
                 
                 # Create a separate event for each occurrence
+                # Keep the original readable_date text, but add the specific start_date
                 for occurrence_date, time_str in recurring_dates:
                     new_event = event.copy()
-                    new_event['readable_date'] = f"{occurrence_date.strftime('%A, %d %B %Y')} | {time_str}"
+                    # Keep original descriptive text in readable_date
+                    # new_event['readable_date'] stays the same (e.g., "Every Thursday 11am (excluding school holidays)")
+                    # Only update start_date with the specific occurrence
                     new_event['start_date'] = occurrence_date.isoformat()
                     expanded_events.append(new_event)
         
