@@ -20,8 +20,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install selenium beautifulsoup4 supabase
+          pip install -r requirements.txt
       
       - name: Install Chrome and ChromeDriver
         run: |
