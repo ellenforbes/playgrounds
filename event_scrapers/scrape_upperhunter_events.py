@@ -1,4 +1,8 @@
-import requests
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 from datetime import datetime
 import os
@@ -6,38 +10,27 @@ import re
 import time
 from supabase import create_client, Client
 
-# Create a session to maintain cookies
-session = requests.Session()
+def setup_driver():
+    """Setup Selenium Chrome driver with options"""
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+    
+    driver = webdriver.Chrome(options=chrome_options)
+    return driver
 
-def get_headers(referer=None):
-    """Get headers for requests"""
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none' if not referer else 'same-origin',
-        'Sec-Fetch-User': '?1',
-        'Cache-Control': 'max-age=0'
-    }
-    if referer:
-        headers['Referer'] = referer
-    return headers
-
-def extract_event_datetime(event_url):
+def extract_event_datetime(driver, event_url):
     """
     Visit an individual event page and extract the datetime
     """
     try:
-        response = session.get(event_url, headers=get_headers('https://www.upperhunter.nsw.gov.au/Events-Activities'), timeout=30)
-        response.raise_for_status()
+        driver.get(event_url)
+        time.sleep(2)  # Wait for page to load
         
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
         
         # Find the event date paragraph
         date_elem = soup.find('p', class_='event-date')
@@ -121,7 +114,7 @@ def parse_location(location_text):
 
 def scrape_upperhunter_library_events():
     """
-    Scrape events from Upper Hunter Library website
+    Scrape events from Upper Hunter Library website using Selenium
     """
     base_url = "https://www.upperhunter.nsw.gov.au/Events-Activities"
     
@@ -134,141 +127,127 @@ def scrape_upperhunter_library_events():
         'story time', 'craft'
     ]
     
+    driver = setup_driver()
     all_event_data = []
-    page_num = 1
     
-    print("Collecting events from all pages...")
-    
-    # First, visit the homepage to establish a session
-    print("Establishing session...")
     try:
-        home_response = session.get('https://www.upperhunter.nsw.gov.au/', headers=get_headers(), timeout=30)
-        home_response.raise_for_status()
-        print(f"Session established. Status: {home_response.status_code}")
-        time.sleep(2)  # Wait before first request
-    except Exception as e:
-        print(f"Warning: Could not establish session: {e}")
-    
-    # Collect all event data by paginating
-    while True:
-        try:
-            if page_num == 1:
-                url = base_url
-            else:
-                url = f"{base_url}?page={page_num}"
-            
-            print(f"Fetching page {page_num}...")
-            
-            # Add retry logic
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    response = session.get(url, headers=get_headers('https://www.upperhunter.nsw.gov.au/'), timeout=30)
-                    response.raise_for_status()
+        page_num = 1
+        
+        print("Collecting events from all pages...")
+        
+        # Collect all event data by paginating
+        while True:
+            try:
+                if page_num == 1:
+                    url = base_url
+                else:
+                    url = f"{base_url}?page={page_num}"
+                
+                print(f"Fetching page {page_num}...")
+                driver.get(url)
+                
+                # Wait for content to load
+                time.sleep(3)
+                
+                # Get page source and parse with BeautifulSoup
+                soup = BeautifulSoup(driver.page_source, 'html.parser')
+                
+                # Find all event items
+                event_items = soup.find_all('div', class_='list-item-container')
+                
+                if not event_items:
+                    print(f"No events found on page {page_num}")
                     break
-                except requests.RequestException as e:
-                    if attempt < max_retries - 1:
-                        wait_time = (attempt + 1) * 3
-                        print(f"  Attempt {attempt + 1} failed, waiting {wait_time}s before retry...")
-                        time.sleep(wait_time)
-                    else:
-                        raise
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Find all event items
-            event_items = soup.find_all('div', class_='list-item-container')
-            
-            if not event_items:
-                print(f"No events found on page {page_num}")
+                
+                for item in event_items:
+                    try:
+                        # Extract title and URL
+                        article = item.find('article')
+                        if not article:
+                            continue
+                        
+                        link = article.find('a', href=True)
+                        if not link:
+                            continue
+                        
+                        title_elem = link.find('h2', class_='list-item-title')
+                        if not title_elem:
+                            continue
+                        
+                        title = title_elem.text.strip()
+                        event_url = link['href']
+                        
+                        # Make URL absolute if needed
+                        if not event_url.startswith('http'):
+                            event_url = f"https://www.upperhunter.nsw.gov.au{event_url}"
+                        
+                        # Check if title contains any keyword
+                        if not any(keyword.lower() in title.lower() for keyword in keywords):
+                            continue
+                        
+                        # Extract description
+                        desc_elem = link.find('span', class_='list-item-block-desc')
+                        description = desc_elem.text.strip() if desc_elem else ''
+                        
+                        # Extract location
+                        location_elem = item.find('p', class_='list-item-address')
+                        location_text = location_elem.text.strip() if location_elem else ''
+                        
+                        all_event_data.append({
+                            'title': title,
+                            'url': event_url,
+                            'description': description,
+                            'location_text': location_text
+                        })
+                        
+                    except Exception as e:
+                        print(f"Error parsing event item: {e}")
+                        continue
+                
+                # Check if there's a next page link
+                next_link = soup.find('a', class_='page-link next')
+                if not next_link or next_link.has_attr('disabled'):
+                    print(f"Reached last page at page {page_num}")
+                    break
+                
+                page_num += 1
+                time.sleep(2)  # Be polite
+                
+            except Exception as e:
+                print(f"Error fetching page {page_num}: {e}")
                 break
-            
-            for item in event_items:
-                try:
-                    # Extract title and URL
-                    article = item.find('article')
-                    if not article:
-                        continue
-                    
-                    link = article.find('a', href=True)
-                    if not link:
-                        continue
-                    
-                    title_elem = link.find('h2', class_='list-item-title')
-                    if not title_elem:
-                        continue
-                    
-                    title = title_elem.text.strip()
-                    event_url = link['href']
-                    
-                    # Make URL absolute if needed
-                    if not event_url.startswith('http'):
-                        event_url = f"https://www.upperhunter.nsw.gov.au{event_url}"
-                    
-                    # Check if title contains any keyword
-                    if not any(keyword.lower() in title.lower() for keyword in keywords):
-                        continue
-                    
-                    # Extract description
-                    desc_elem = link.find('span', class_='list-item-block-desc')
-                    description = desc_elem.text.strip() if desc_elem else ''
-                    
-                    # Extract location
-                    location_elem = item.find('p', class_='list-item-address')
-                    location_text = location_elem.text.strip() if location_elem else ''
-                    
-                    all_event_data.append({
-                        'title': title,
-                        'url': event_url,
-                        'description': description,
-                        'location_text': location_text
-                    })
-                    
-                except Exception as e:
-                    print(f"Error parsing event item: {e}")
-                    continue
-            
-            # Check if there's a next page link
-            next_link = soup.find('a', class_='page-link next')
-            if not next_link or next_link.has_attr('disabled'):
-                print(f"Reached last page at page {page_num}")
-                break
-            
-            page_num += 1
-            time.sleep(2)  # Be more polite with delays
-            
-        except requests.RequestException as e:
-            print(f"Error fetching page {page_num}: {e}")
-            print(f"Response status code: {response.status_code if 'response' in locals() else 'N/A'}")
-            break
-    
-    print(f"\nFound {len(all_event_data)} matching events. Fetching details...")
-    
-    # Now visit each event page to get datetime
-    events = []
-    for i, event_data in enumerate(all_event_data, 1):
-        print(f"Processing event {i}/{len(all_event_data)}: {event_data['title']}")
         
-        # Get datetime from event page
-        datetime_str = extract_event_datetime(event_data['url'])
+        print(f"\nFound {len(all_event_data)} matching events. Fetching details...")
         
-        # Parse location
-        location_data = parse_location(event_data['location_text'])
+        # Now visit each event page to get datetime
+        events = []
+        for i, event_data in enumerate(all_event_data, 1):
+            print(f"Processing event {i}/{len(all_event_data)}: {event_data['title']}")
+            
+            # Get datetime from event page
+            datetime_str = extract_event_datetime(driver, event_data['url'])
+            
+            # Parse location
+            location_data = parse_location(event_data['location_text'])
+            
+            event = {
+                'title': event_data['title'],
+                'description': event_data['description'],
+                'datetime': datetime_str or '',
+                'location': location_data['name'],
+                'url': event_data['url'],
+                'latitude': location_data['latitude'],
+                'longitude': location_data['longitude']
+            }
+            
+            events.append(event)
+            time.sleep(1)  # Be polite between requests
         
-        event = {
-            'title': event_data['title'],
-            'description': event_data['description'],
-            'datetime': datetime_str or '',
-            'location': location_data['name'],
-            'url': event_data['url'],
-            'latitude': location_data['latitude'],
-            'longitude': location_data['longitude']
-        }
+        return events
         
-        events.append(event)
-        time.sleep(1)  # Be polite between requests
-    
-    return events
+    finally:
+        # Always close the driver
+        driver.quit()
 
 def upload_to_supabase(events, supabase_url, supabase_key, table='events_upperhunter'):
     """
