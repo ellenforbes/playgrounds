@@ -6,6 +6,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
+from supabase import create_client, Client
 import json
 import time
 from datetime import datetime, timedelta
@@ -32,6 +33,16 @@ SCHOOL_TERM_DATES = {
                 ("Term 2", "2026-04-20", "2026-07-03"),
                 ("Term 3", "2026-07-20", "2026-09-25"),
                 ("Term 4", "2026-10-12", "2026-12-17"),
+            ]
+        }
+    },
+    2027: {
+        "terms": {
+            "eastern_nsw": [
+                ("Term 1", "2027-01-28", "2027-04-09"),
+                ("Term 2", "2027-04-26", "2027-07-02"),
+                ("Term 3", "2027-07-19", "2027-09-24"),
+                ("Term 4", "2027-10-11", "2027-12-20"),
             ]
         }
     }
@@ -568,7 +579,7 @@ class LakeMacSeleniumScraper:
                     new_event = {
                         'name': base_event['name'],
                         'url': base_event['url'],
-                        'when': when_text,
+                        'readable_date': when_text,
                         'start_date': event_date.isoformat(),
                         'location': base_event['location']
                     }
@@ -609,7 +620,7 @@ class LakeMacSeleniumScraper:
             event = {
                 'name': base_event['name'],
                 'url': base_event['url'],
-                'when': when_text,
+                'readable_date': when_text,
                 'start_date': start_date.isoformat(),
                 'location': base_event['location']
             }
@@ -808,7 +819,7 @@ class LakeMacSeleniumScraper:
         one_month_from_now = today + timedelta(days=30)
         
         for event in events:
-            when_text = event.get('when', '').lower()
+            when_text = event.get('readable_date', '').lower()
             
             # Check if this is a recurring event with term-time restrictions
             is_recurring = any(keyword in when_text for keyword in [
@@ -831,7 +842,7 @@ class LakeMacSeleniumScraper:
                 # Create a separate event for each occurrence
                 for occurrence_date, time_str in recurring_dates:
                     new_event = event.copy()
-                    new_event['when'] = f"{occurrence_date.strftime('%A, %d %B %Y')} | {time_str}"
+                    new_event['readable_date'] = f"{occurrence_date.strftime('%A, %d %B %Y')} | {time_str}"
                     new_event['start_date'] = occurrence_date.isoformat()
                     expanded_events.append(new_event)
             else:
@@ -924,31 +935,17 @@ class LakeMacSeleniumScraper:
         self.driver.execute_script("window.scrollTo(0, 0);")
         time.sleep(1)
     
-    def save_to_json(self, events, filename='lakemac_family_events.json'):
-        """Save events to JSON file"""
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(events, f, indent=2, ensure_ascii=False)
-        print(f"\nEvents saved to {filename}")
-    
-    def print_events(self, events):
-        """Pretty print the events"""
+    def upload_to_supabase(self, events, supabase_url, supabase_key, table='events_lakemac'):
+        """Upload events to Supabase"""
         if not events:
-            print("No family/kids events found.")
+            print("No events to upload.")
             return
-        
-        print(f"\nFound {len(events)} family/kids event(s) with details:\n")
-        print("=" * 80)
-        
-        for i, event in enumerate(events, 1):
-            print(f"\nEvent #{i}")
-            print(f"Name: {event.get('name', 'N/A')}")
-            print(f"URL: {event.get('url', 'N/A')}")
-            print(f"When: {event.get('when', 'N/A')}")
-            print(f"Start Date (ISO): {event.get('start_date', 'N/A')}")
-            print(f"Location: {event.get('location', 'N/A')}")
-            print(f"Latitude: {event.get('latitude', 'N/A')}")
-            print(f"Longitude: {event.get('longitude', 'N/A')}")
-            print("-" * 80)
+        supabase: Client = create_client(supabase_url, supabase_key)
+        columns = ['name', 'url', 'readable_date', 'start_date', 'location', 'latitude', 'longitude']
+        clean = [{k: e.get(k) for k in columns} for e in events if 'error' not in e]
+        supabase.table(table).delete().neq('title', '').execute()
+        supabase.table(table).insert(clean).execute()
+        print(f"Uploaded {len(clean)} records to {table}")
     
     def close(self):
         """Close the browser"""
@@ -963,22 +960,21 @@ class LakeMacSeleniumScraper:
 
 
 def main():
-    print("Lake Macquarie Family/Kids Events Scraper - Detailed Version")
-    print("=" * 80)
-    print("This scraper will:")
-    print("1. Collect event titles and URLs from listing pages")
-    print("2. Filter for family/kids events based on keywords")
-    print("3. Visit each event page to extract detailed information")
-    print("4. Handle 'No results found' pages and sub-listings")
-    print("=" * 80)
-    print()
+    import os
+    
+    # Get Supabase credentials from environment variables
+    supabase_url = os.getenv('SUPABASE_URL')
+    supabase_key = os.getenv('SUPABASE_KEY')
+    
+    if not supabase_url or not supabase_key:
+        print("ERROR: SUPABASE_URL and SUPABASE_KEY environment variables must be set")
+        return None
     
     with LakeMacSeleniumScraper(headless=True) as scraper:
         events = scraper.get_all_events(wait_time=10, scroll_pages=3)
         
         if events:
-            scraper.print_events(events)
-            scraper.save_to_json(events)
+            scraper.upload_to_supabase(events, supabase_url, supabase_key)
         else:
             print("\nNo family/kids events found with valid details.")
     
