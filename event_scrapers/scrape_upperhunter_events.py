@@ -3,23 +3,35 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
-from bs4 import BeautifulSoup
 from datetime import datetime
-import os
+import json
 import re
 import time
-from supabase import create_client, Client
 
 def setup_driver():
-    """Setup Selenium Chrome driver with options"""
+    """
+    Setup Chrome driver with options to avoid detection
+    """
     chrome_options = Options()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
+    
+    # Anti-detection options
     chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--no-sandbox')
+    
+    # Use a realistic user agent
+    chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+    
+    # Run headless
+    chrome_options.add_argument('--headless')
     
     driver = webdriver.Chrome(options=chrome_options)
+    
+    # Remove webdriver property
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    
     return driver
 
 def extract_event_datetime(driver, event_url):
@@ -28,28 +40,23 @@ def extract_event_datetime(driver, event_url):
     """
     try:
         driver.get(event_url)
-        time.sleep(2)  # Wait for page to load
         
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-        
-        # Find the event date paragraph
-        date_elem = soup.find('p', class_='event-date')
-        
-        if not date_elem:
-            return None
+        # Wait for the date element to load
+        wait = WebDriverWait(driver, 10)
+        date_elem = wait.until(
+            EC.presence_of_element_located((By.CLASS_NAME, 'event-date'))
+        )
         
         date_text = date_elem.text.strip()
         
         # Parse format like "Next date: Friday, 14 November 2025 | 10:00 AM to 11:00 AM"
-        # Extract the datetime part
         match = re.search(r'(\d{1,2}\s+\w+\s+\d{4})\s*\|\s*(\d{1,2}:\d{2}\s*(?:AM|PM))', date_text)
         
         if match:
-            date_part = match.group(1)  # "14 November 2025"
-            time_part = match.group(2)  # "10:00 AM"
+            date_part = match.group(1)
+            time_part = match.group(2)
             
             try:
-                # Combine and parse
                 datetime_str = f"{date_part} {time_part}"
                 event_datetime = datetime.strptime(datetime_str, '%d %B %Y %I:%M %p')
                 return event_datetime.strftime('%Y-%m-%d %H:%M')
@@ -67,7 +74,6 @@ def parse_location(location_text):
     """
     Parse location text and return location details with coordinates
     """
-    # Map of library locations to coordinates
     locations = {
         'murrurundi': {
             'name': 'Murrurundi Library',
@@ -92,16 +98,13 @@ def parse_location(location_text):
     }
     
     if not location_text:
-        return locations['scone']  # Default
+        return locations['scone']
     
-    # Check which location is mentioned
     location_lower = location_text.lower()
     for key, loc_data in locations.items():
         if key in location_lower:
             return loc_data
     
-    # If not found, try to extract the name from the text
-    # Format: "Murrurundi Library, 47 Mayne Street, Murrurundi 2338"
     parts = location_text.split(',')
     if parts:
         return {
@@ -110,7 +113,7 @@ def parse_location(location_text):
             'longitude': None
         }
     
-    return locations['scone']  # Default
+    return locations['scone']
 
 def scrape_upperhunter_library_events():
     """
@@ -118,7 +121,6 @@ def scrape_upperhunter_library_events():
     """
     base_url = "https://www.upperhunter.nsw.gov.au/Events-Activities"
     
-    # Keywords to filter events
     keywords = [
         'family', 'toddler', 'babies', 'baby', 'bubs', 'bubba', 'mummabubba',
         'kids', 'teen', 'art starter', 'art play', 'art explorers', 'storytime',
@@ -129,31 +131,26 @@ def scrape_upperhunter_library_events():
     
     driver = setup_driver()
     all_event_data = []
+    page_num = 1
+    
+    print("Collecting events from all pages...")
     
     try:
-        page_num = 1
+        # Load the first page
+        print(f"Fetching page {page_num}...")
+        driver.get(base_url)
         
-        print("Collecting events from all pages...")
+        # Wait for events to load
+        wait = WebDriverWait(driver, 10)
+        wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'list-item-container')))
+        time.sleep(2)
         
-        # Collect all event data by paginating
         while True:
             try:
-                if page_num == 1:
-                    url = base_url
-                else:
-                    url = f"{base_url}?page={page_num}"
-                
-                print(f"Fetching page {page_num}...")
-                driver.get(url)
-                
-                # Wait for content to load
-                time.sleep(3)
-                
-                # Get page source and parse with BeautifulSoup
-                soup = BeautifulSoup(driver.page_source, 'html.parser')
+                print(f"Processing page {page_num}...")
                 
                 # Find all event items
-                event_items = soup.find_all('div', class_='list-item-container')
+                event_items = driver.find_elements(By.CLASS_NAME, 'list-item-container')
                 
                 if not event_items:
                     print(f"No events found on page {page_num}")
@@ -162,36 +159,30 @@ def scrape_upperhunter_library_events():
                 for item in event_items:
                     try:
                         # Extract title and URL
-                        article = item.find('article')
-                        if not article:
-                            continue
-                        
-                        link = article.find('a', href=True)
-                        if not link:
-                            continue
-                        
-                        title_elem = link.find('h2', class_='list-item-title')
-                        if not title_elem:
-                            continue
+                        article = item.find_element(By.TAG_NAME, 'article')
+                        link = article.find_element(By.TAG_NAME, 'a')
+                        title_elem = link.find_element(By.CLASS_NAME, 'list-item-title')
                         
                         title = title_elem.text.strip()
-                        event_url = link['href']
-                        
-                        # Make URL absolute if needed
-                        if not event_url.startswith('http'):
-                            event_url = f"https://www.upperhunter.nsw.gov.au{event_url}"
+                        event_url = link.get_attribute('href')
                         
                         # Check if title contains any keyword
                         if not any(keyword.lower() in title.lower() for keyword in keywords):
                             continue
                         
                         # Extract description
-                        desc_elem = link.find('span', class_='list-item-block-desc')
-                        description = desc_elem.text.strip() if desc_elem else ''
+                        try:
+                            desc_elem = link.find_element(By.CLASS_NAME, 'list-item-block-desc')
+                            description = desc_elem.text.strip()
+                        except:
+                            description = ''
                         
                         # Extract location
-                        location_elem = item.find('p', class_='list-item-address')
-                        location_text = location_elem.text.strip() if location_elem else ''
+                        try:
+                            location_elem = item.find_element(By.CLASS_NAME, 'list-item-address')
+                            location_text = location_elem.text.strip()
+                        except:
+                            location_text = ''
                         
                         all_event_data.append({
                             'title': title,
@@ -204,17 +195,32 @@ def scrape_upperhunter_library_events():
                         print(f"Error parsing event item: {e}")
                         continue
                 
-                # Check if there's a next page link
-                next_link = soup.find('a', class_='page-link next')
-                if not next_link or next_link.has_attr('disabled'):
+                # Check if there's a next page link that's clickable
+                try:
+                    # Check if the next button is disabled (it will be a span, not an a tag)
+                    disabled_next = driver.find_elements(By.CSS_SELECTOR, 'li.disabled span.next')
+                    if disabled_next:
+                        print(f"Reached last page at page {page_num}")
+                        break
+                    
+                    # Find and click the next button
+                    next_link = driver.find_element(By.CSS_SELECTOR, 'a.page-link.next')
+                    print(f"Clicking next button to go to page {page_num + 1}...")
+                    next_link.click()
+                    
+                    # Wait for the page to update
+                    time.sleep(2)
+                    wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'list-item-container')))
+                    
+                    page_num += 1
+                    
+                except Exception as e:
+                    print(f"No more pages or error clicking next: {e}")
                     print(f"Reached last page at page {page_num}")
                     break
                 
-                page_num += 1
-                time.sleep(2)  # Be polite
-                
             except Exception as e:
-                print(f"Error fetching page {page_num}: {e}")
+                print(f"Error processing page {page_num}: {e}")
                 break
         
         print(f"\nFound {len(all_event_data)} matching events. Fetching details...")
@@ -234,10 +240,8 @@ def scrape_upperhunter_library_events():
                 'title': event_data['title'],
                 'description': event_data['description'],
                 'datetime': datetime_str or '',
-                'location': location_data['name'],
-                'url': event_data['url'],
-                'latitude': location_data['latitude'],
-                'longitude': location_data['longitude']
+                'location': location_data,
+                'url': event_data['url']
             }
             
             events.append(event)
@@ -246,7 +250,6 @@ def scrape_upperhunter_library_events():
         return events
         
     finally:
-        # Always close the driver
         driver.quit()
 
 def upload_to_supabase(events, supabase_url, supabase_key, table='events_upperhunter'):
