@@ -806,7 +806,7 @@ class LakeMacSeleniumScraper:
         into individual dated events for each occurrence during NSW school terms
         Limited to next 30 days only
         KEEPS the original recurring event AND adds date-specific instances
-        Date-specific instances keep the original readable_date text but add specific start_date
+        Date-specific instances show: "Tuesday, 12 November 2025, 11:00 AM - Every Tuesday 11am (excluding school holidays)"
         """
         expanded_events = []
         today = datetime.today().date()
@@ -814,6 +814,7 @@ class LakeMacSeleniumScraper:
         
         for event in events:
             when_text = event.get('readable_date', '').lower()
+            original_readable = event.get('readable_date', '')  # Keep original case
             
             # Check if this is a recurring event with term-time restrictions
             is_recurring = any(keyword in when_text for keyword in [
@@ -838,12 +839,11 @@ class LakeMacSeleniumScraper:
                 print(f"     Keeping original + adding {len(recurring_dates)} specific instances")
                 
                 # Create a separate event for each occurrence
-                # Keep the original readable_date text, but add the specific start_date
                 for occurrence_date, time_str in recurring_dates:
                     new_event = event.copy()
-                    # Keep original descriptive text in readable_date
-                    # new_event['readable_date'] stays the same (e.g., "Every Thursday 11am (excluding school holidays)")
-                    # Only update start_date with the specific occurrence
+                    # Format: "Tuesday, 12 November 2025, 11:00 AM - Every Tuesday 11am (excluding school holidays)"
+                    specific_date_str = f"{occurrence_date.strftime('%A, %d %B %Y, %I:%M %p')}"
+                    new_event['readable_date'] = f"{specific_date_str} - {original_readable}"
                     new_event['start_date'] = occurrence_date.isoformat()
                     expanded_events.append(new_event)
         
