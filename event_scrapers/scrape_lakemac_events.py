@@ -623,7 +623,7 @@ class LakeMacSeleniumScraper:
             if location_name.lower() in ['when', 'where', 'cost', 'contact', 'description']:
                 continue
             
-            # Get the next few siblings to find address and time
+            # Get the parent paragraph
             current = strong.parent
             if not current:
                 continue
@@ -631,22 +631,35 @@ class LakeMacSeleniumScraper:
             address = None
             when_text = None
             
-            # Look at next 3 siblings for address (<em>) and time info
-            for i in range(3):
+            # Look at next few siblings for address (<em>) and time info
+            # Limit to 5 siblings to capture the pattern
+            for i in range(5):
                 next_sibling = current.find_next_sibling()
                 if not next_sibling:
                     break
                 current = next_sibling
                 
-                # Check for address in <em> tag
+                # Get the text content
+                text = current.get_text(strip=True)
+                
+                # Skip empty paragraphs or just whitespace
+                if not text or text == '&nbsp;':
+                    continue
+                
+                # Check for address in <em> tag (should come first)
                 em = current.find('em')
                 if em and not address:
                     address = em.get_text(strip=True)
+                    continue
                 
-                # Check for time info (contains "am" or "pm")
-                text = current.get_text(strip=True)
-                if ('am' in text.lower() or 'pm' in text.lower()) and not when_text:
-                    when_text = text
+                # Check for time info (contains "every" or "am"/"pm")
+                # This should come after the address
+                if not when_text and address:
+                    if ('every' in text.lower() or 'am' in text.lower() or 'pm' in text.lower()):
+                        # Make sure this isn't another address (addresses contain numbers)
+                        if not re.search(r'\d{4}', text):  # No postcodes
+                            when_text = text
+                            break
             
             # If we found both location and timing info, create an event
             if address and when_text:
@@ -663,6 +676,9 @@ class LakeMacSeleniumScraper:
                 
                 events.append(event)
                 print(f"        → Created event for: {location_name}")
+            elif address and not when_text:
+                # Found location but no time - might need to look further
+                print(f"        → Found {location_name} but missing time info")
         
         # Return events if we found multiple locations, otherwise None
         if len(events) > 1:
@@ -703,8 +719,15 @@ class LakeMacSeleniumScraper:
         Parse start date from "when" text and return as ISO format datetime string
         Example: "Monday, 27 October 2025 | 09:00 AM - Friday, 30 January 2026 | 05:00 PM"
         Returns: ISO format datetime string (e.g., "2025-10-27T09:00:00") or None
+        
+        NOTE: This does NOT parse recurring patterns like "Every Tuesday 11am"
+        Those are handled by _expand_recurring_events() later
         """
         if not when_text or when_text == 'N/A':
+            return None
+        
+        # Skip recurring patterns - these will be expanded later
+        if any(keyword in when_text.lower() for keyword in ['every', 'each', 'weekly']):
             return None
         
         # Pattern: Day, DD Month YYYY | HH:MM AM/PM
