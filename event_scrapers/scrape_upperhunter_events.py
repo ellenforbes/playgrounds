@@ -6,15 +6,35 @@ import re
 import time
 from supabase import create_client, Client
 
+# Create a session to maintain cookies
+session = requests.Session()
+
+def get_headers(referer=None):
+    """Get headers for requests"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none' if not referer else 'same-origin',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0'
+    }
+    if referer:
+        headers['Referer'] = referer
+    return headers
+
 def extract_event_datetime(event_url):
     """
     Visit an individual event page and extract the datetime
     """
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        response = requests.get(event_url, headers=headers)
+        response = session.get(event_url, headers=get_headers('https://www.upperhunter.nsw.gov.au/Events-Activities'), timeout=30)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -114,24 +134,20 @@ def scrape_upperhunter_library_events():
         'story time', 'craft'
     ]
     
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Cache-Control': 'max-age=0'
-    }
-    
     all_event_data = []
     page_num = 1
     
     print("Collecting events from all pages...")
+    
+    # First, visit the homepage to establish a session
+    print("Establishing session...")
+    try:
+        home_response = session.get('https://www.upperhunter.nsw.gov.au/', headers=get_headers(), timeout=30)
+        home_response.raise_for_status()
+        print(f"Session established. Status: {home_response.status_code}")
+        time.sleep(2)  # Wait before first request
+    except Exception as e:
+        print(f"Warning: Could not establish session: {e}")
     
     # Collect all event data by paginating
     while True:
@@ -142,8 +158,21 @@ def scrape_upperhunter_library_events():
                 url = f"{base_url}?page={page_num}"
             
             print(f"Fetching page {page_num}...")
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
+            
+            # Add retry logic
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    response = session.get(url, headers=get_headers('https://www.upperhunter.nsw.gov.au/'), timeout=30)
+                    response.raise_for_status()
+                    break
+                except requests.RequestException as e:
+                    if attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 3
+                        print(f"  Attempt {attempt + 1} failed, waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                    else:
+                        raise
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
@@ -206,10 +235,11 @@ def scrape_upperhunter_library_events():
                 break
             
             page_num += 1
-            time.sleep(1)  # Be polite
+            time.sleep(2)  # Be more polite with delays
             
         except requests.RequestException as e:
             print(f"Error fetching page {page_num}: {e}")
+            print(f"Response status code: {response.status_code if 'response' in locals() else 'N/A'}")
             break
     
     print(f"\nFound {len(all_event_data)} matching events. Fetching details...")
@@ -236,7 +266,7 @@ def scrape_upperhunter_library_events():
         }
         
         events.append(event)
-        time.sleep(0.5)  # Be polite between requests
+        time.sleep(1)  # Be polite between requests
     
     return events
 
