@@ -772,6 +772,7 @@ class LakeMacSeleniumScraper:
         Expand recurring events (e.g., "Every Tuesday 11am (excluding school holidays)")
         into individual dated events for each occurrence during NSW school terms
         Limited to next 30 days only
+        KEEPS the original recurring event AND adds date-specific instances
         """
         expanded_events = []
         today = datetime.today().date()
@@ -786,17 +787,21 @@ class LakeMacSeleniumScraper:
                 'term time only', 'during school term'
             ])
             
-            if not is_recurring or event.get('start_date'):
-                # Not recurring or already has a specific date - keep as is
+            if not is_recurring:
+                # Not recurring - keep as is
                 expanded_events.append(event)
                 continue
             
-            # Try to parse the recurring pattern
+            # This IS a recurring event
+            # ALWAYS keep the original with its descriptive text
+            expanded_events.append(event)
+            
+            # Try to parse and create specific dated instances
             recurring_dates = self._parse_recurring_pattern(when_text, today, one_month_from_now)
             
             if recurring_dates and len(recurring_dates) > 0:
                 print(f"  → Expanding recurring event: {event['name']}")
-                print(f"     Found {len(recurring_dates)} occurrences in next 30 days")
+                print(f"     Keeping original + adding {len(recurring_dates)} specific instances")
                 
                 # Create a separate event for each occurrence
                 for occurrence_date, time_str in recurring_dates:
@@ -804,9 +809,6 @@ class LakeMacSeleniumScraper:
                     new_event['readable_date'] = f"{occurrence_date.strftime('%A, %d %B %Y')} | {time_str}"
                     new_event['start_date'] = occurrence_date.isoformat()
                     expanded_events.append(new_event)
-            else:
-                # Couldn't parse - keep original
-                expanded_events.append(event)
         
         return expanded_events
     
