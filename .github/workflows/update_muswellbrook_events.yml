@@ -28,4 +28,5 @@ jobs:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       run: |
+        cd event_scrapers
         python scrape_muswellbrook_events.py
