@@ -49,7 +49,6 @@ SCHOOL_TERM_DATES = {
 }
 
 
-
 class LakeMacSeleniumScraper:
     def __init__(self, headless=True):
         """
@@ -101,13 +100,15 @@ class LakeMacSeleniumScraper:
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        
-        # Suppress logging
-        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
         
         try:
             driver = webdriver.Chrome(options=chrome_options)
+            # Remove webdriver property to avoid detection
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             return driver
         except Exception as e:
             print(f"Error setting up Chrome driver: {e}")
@@ -192,15 +193,22 @@ class LakeMacSeleniumScraper:
         """
         try:
             self.driver.get(url)
-            time.sleep(3)
+            time.sleep(5)  # Increased wait time
             self._scroll_page(scroll_pages)
             
             try:
                 WebDriverWait(self.driver, wait_time).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
+                # Wait for event containers to load
+                WebDriverWait(self.driver, wait_time).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "list-item-container"))
+                )
             except TimeoutException:
-                print("  Timeout waiting for page")
+                print("  Timeout waiting for page - continuing anyway")
+            
+            # Additional wait for JavaScript to render
+            time.sleep(3)
             
             page_source = self.driver.page_source
             soup = BeautifulSoup(page_source, 'html.parser')
@@ -280,7 +288,7 @@ class LakeMacSeleniumScraper:
         """
         try:
             self.driver.get(url)
-            time.sleep(2)
+            time.sleep(3)  # Increased wait time
             
             page_source = self.driver.page_source
             soup = BeautifulSoup(page_source, 'html.parser')
@@ -931,9 +939,9 @@ class LakeMacSeleniumScraper:
         """Scroll page to trigger lazy loading"""
         for i in range(num_scrolls):
             self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(1)
+            time.sleep(2)  # Increased from 1 to 2 seconds
         self.driver.execute_script("window.scrollTo(0, 0);")
-        time.sleep(1)
+        time.sleep(2)  # Increased from 1 to 2 seconds
     
     def upload_to_supabase(self, events, supabase_url, supabase_key, table='events_lakemac'):
         """Upload events to Supabase"""
@@ -961,7 +969,6 @@ class LakeMacSeleniumScraper:
 
 def main():
     import os
-    
     # Get Supabase credentials from environment variables
     supabase_url = os.getenv('SUPABASE_URL')
     supabase_key = os.getenv('SUPABASE_KEY')
@@ -971,12 +978,17 @@ def main():
         return None
     
     with LakeMacSeleniumScraper(headless=True) as scraper:
-        events = scraper.get_all_events(wait_time=10, scroll_pages=3)
+        events = scraper.get_all_events(wait_time=15, scroll_pages=5)  # Increased timeouts
         
         if events:
+            print(f"\n✓ Successfully scraped {len(events)} events")
             scraper.upload_to_supabase(events, supabase_url, supabase_key)
         else:
-            print("\nNo family/kids events found with valid details.")
+            print("\n✗ No family/kids events found with valid details.")
+            print("This might be due to:")
+            print("  - Website blocking the scraper")
+            print("  - Network issues")
+            print("  - Page structure changes")
     
     return events
 
