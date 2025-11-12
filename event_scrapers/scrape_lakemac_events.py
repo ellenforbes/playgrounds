@@ -902,9 +902,29 @@ class LakeMacSeleniumScraper:
         supabase: Client = create_client(supabase_url, supabase_key)
         columns = ['name', 'url', 'readable_date', 'start_date', 'location', 'latitude', 'longitude']
         clean = [{k: e.get(k) for k in columns} for e in events if 'error' not in e]
-        supabase.table(table).delete().neq('title', '').execute()
+        supabase.table(table).delete().neq('name', '').execute()
         supabase.table(table).insert(clean).execute()
         print(f"Uploaded {len(clean)} records to {table}")
+    
+    def print_events(self, events):
+        """Pretty print the events"""
+        if not events:
+            print("No family/kids events found.")
+            return
+        
+        print(f"\nFound {len(events)} family/kids event(s) with details:\n")
+        print("=" * 80)
+        
+        for i, event in enumerate(events, 1):
+            print(f"\nEvent #{i}")
+            print(f"Name: {event.get('name', 'N/A')}")
+            print(f"URL: {event.get('url', 'N/A')}")
+            print(f"Readable Date: {event.get('readable_date', 'N/A')}")
+            print(f"Start Date (ISO): {event.get('start_date', 'N/A')}")
+            print(f"Location: {event.get('location', 'N/A')}")
+            print(f"Latitude: {event.get('latitude', 'N/A')}")
+            print(f"Longitude: {event.get('longitude', 'N/A')}")
+            print("-" * 80)
     
     def close(self):
         """Close the browser"""
@@ -921,6 +941,17 @@ class LakeMacSeleniumScraper:
 def main():
     import os
     
+    print("Lake Macquarie Family/Kids Events Scraper")
+    print("=" * 80)
+    print("This scraper will:")
+    print("1. Collect event titles and URLs from listing pages")
+    print("2. Filter for family/kids events based on keywords")
+    print("3. Visit each event page to extract detailed information")
+    print("4. Handle 'No results found' pages and sub-listings")
+    print("5. Upload to Supabase")
+    print("=" * 80)
+    print()
+    
     # Get Supabase credentials from environment variables
     supabase_url = os.getenv('SUPABASE_URL')
     supabase_key = os.getenv('SUPABASE_KEY')
@@ -934,6 +965,7 @@ def main():
         
         if events:
             print(f"\n✓ Successfully scraped {len(events)} events")
+            scraper.print_events(events)
             scraper.upload_to_supabase(events, supabase_url, supabase_key)
         else:
             print("\n✗ No family/kids events found with valid details.")
