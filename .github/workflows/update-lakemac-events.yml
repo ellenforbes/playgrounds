@@ -1,0 +1,39 @@
+name: Scrape Lake Mac Events
+
+on:
+  schedule:
+    - cron: '15 17 * * *' # Run every day at 3:15am Brisbane TIme
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install selenium beautifulsoup4 supabase
+      
+      - name: Install Chrome and ChromeDriver
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Run scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python lakemac_scraper.py
+      
+      - name: Notify on failure
+        if: failure()
+        run: echo "Scraper failed. Check the logs above for details."
