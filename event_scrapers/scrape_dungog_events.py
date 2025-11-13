@@ -317,16 +317,14 @@ class DungogEventsScraper:
         supabase: Client = create_client(supabase_url, supabase_key)
         
         # Map fields to match Supabase schema
-        columns = ['title', 'datetime', 'start_datetime', 'time', 'location', 'latitude', 'longitude', 'url']
+        columns = ['title', 'datetime', 'location', 'latitude', 'longitude', 'url']
         
         clean = []
         for e in events:
             if 'error' not in e:
                 mapped_event = {
                     'title': e.get('title'),
-                    'datetime': e.get('event_date_text'),  # Map event_date_text to datetime
-                    'start_datetime': e.get('event_datetime'),  # Map event_datetime to start_datetime
-                    'time': e.get('event_date_text'),  # Use event_date_text for time field too
+                    'datetime': e.get('event_datetime'),  # Map event_datetime to start_datetime
                     'location': e.get('location'),
                     'latitude': e.get('latitude'),
                     'longitude': e.get('longitude'),
