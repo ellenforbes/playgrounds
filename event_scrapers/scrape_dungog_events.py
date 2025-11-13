@@ -1,7 +1,13 @@
-import requests
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import re
 import os
+import time
 from datetime import datetime
 from supabase import create_client, Client
 
@@ -16,10 +22,25 @@ class DungogEventsScraper:
             'lego', 'code', 'stem', 'steam', 'children', 'school holiday', 
             'playgroup', 'rock', 'rhyme', 'story stomp', 'little ones', 'story time'
         ]
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
+        self.driver = None
+        
+    def setup_driver(self):
+        """Setup Selenium WebDriver with Chrome options"""
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--window-size=1920,1080')
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        
+        self.driver = webdriver.Chrome(options=chrome_options)
+        self.driver.implicitly_wait(10)
+        
+    def close_driver(self):
+        """Close the WebDriver"""
+        if self.driver:
+            self.driver.quit()
         
     def contains_keyword(self, text):
         """Check if text contains any of the keywords"""
@@ -32,10 +53,22 @@ class DungogEventsScraper:
     def scrape_events_list(self):
         """Scrape the events list from the homepage"""
         print(f"Fetching homepage: {self.home_url}")
-        response = self.session.get(self.home_url)
-        response.raise_for_status()
+        self.driver.get(self.home_url)
         
-        soup = BeautifulSoup(response.content, 'html.parser')
+        # Wait for the events panel to load
+        try:
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.ID, "panel-2"))
+            )
+        except Exception as e:
+            print(f"Error waiting for events panel: {e}")
+            return []
+        
+        # Give it a moment to fully render
+        time.sleep(2)
+        
+        # Get page source and parse with BeautifulSoup
+        soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         
         # Find the events panel
         events_panel = soup.find('div', id='panel-2')
@@ -83,10 +116,20 @@ class DungogEventsScraper:
         print(f"  Fetching details from: {event_url}")
         
         try:
-            response = self.session.get(event_url)
-            response.raise_for_status()
+            self.driver.get(event_url)
             
-            soup = BeautifulSoup(response.content, 'html.parser')
+            # Wait for content to load
+            try:
+                WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "content-area"))
+                )
+            except:
+                pass  # Continue anyway
+            
+            time.sleep(1)  # Brief pause for dynamic content
+            
+            # Parse with BeautifulSoup
+            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
             
             details = {}
             
@@ -220,46 +263,54 @@ class DungogEventsScraper:
         print("Dungog Events Scraper - Family & Kids Events")
         print("=" * 60)
         
-        # Get events list
-        events = self.scrape_events_list()
-        print(f"\nFound {len(events)} relevant events")
-        print("=" * 60)
-        
-        # Get details for each event and expand multi-date events
-        expanded_events = []
-        
-        for i, event in enumerate(events, 1):
-            print(f"\n[{i}/{len(events)}] {event['title']}")
-            details = self.scrape_event_details(event['url'])
+        try:
+            # Setup Selenium driver
+            self.setup_driver()
             
-            # Check if there are multiple dates
-            all_dates = details.get('all_dates', [])
+            # Get events list
+            events = self.scrape_events_list()
+            print(f"\nFound {len(events)} relevant events")
+            print("=" * 60)
             
-            if len(all_dates) > 1:
-                # Create separate event for each date
-                print(f"  → Creating {len(all_dates)} separate events for multiple dates")
-                for date_info in all_dates:
-                    event_copy = event.copy()
-                    event_copy.update(details)
-                    event_copy['event_date_text'] = date_info['text']
-                    event_copy['event_datetime'] = date_info['datetime'].isoformat()
-                    # Remove the all_dates field from individual events
-                    event_copy.pop('all_dates', None)
-                    expanded_events.append(event_copy)
-            elif len(all_dates) == 1:
-                # Single date - just add it normally
-                event.update(details)
-                event['event_date_text'] = all_dates[0]['text']
-                event['event_datetime'] = all_dates[0]['datetime'].isoformat()
-                event.pop('all_dates', None)
-                expanded_events.append(event)
-            else:
-                # No dates parsed - add the event as is
-                event.update(details)
-                event.pop('all_dates', None)
-                expanded_events.append(event)
-        
-        return expanded_events
+            # Get details for each event and expand multi-date events
+            expanded_events = []
+            
+            for i, event in enumerate(events, 1):
+                print(f"\n[{i}/{len(events)}] {event['title']}")
+                details = self.scrape_event_details(event['url'])
+                
+                # Check if there are multiple dates
+                all_dates = details.get('all_dates', [])
+                
+                if len(all_dates) > 1:
+                    # Create separate event for each date
+                    print(f"  → Creating {len(all_dates)} separate events for multiple dates")
+                    for date_info in all_dates:
+                        event_copy = event.copy()
+                        event_copy.update(details)
+                        event_copy['event_date_text'] = date_info['text']
+                        event_copy['event_datetime'] = date_info['datetime'].isoformat()
+                        # Remove the all_dates field from individual events
+                        event_copy.pop('all_dates', None)
+                        expanded_events.append(event_copy)
+                elif len(all_dates) == 1:
+                    # Single date - just add it normally
+                    event.update(details)
+                    event['event_date_text'] = all_dates[0]['text']
+                    event['event_datetime'] = all_dates[0]['datetime'].isoformat()
+                    event.pop('all_dates', None)
+                    expanded_events.append(event)
+                else:
+                    # No dates parsed - add the event as is
+                    event.update(details)
+                    event.pop('all_dates', None)
+                    expanded_events.append(event)
+            
+            return expanded_events
+            
+        finally:
+            # Always close the driver
+            self.close_driver()
     
     def upload_to_supabase(self, events, supabase_url, supabase_key, table='events_dungog'):
         """Upload events to Supabase"""
