@@ -145,7 +145,7 @@ class PlaygroupScraper:
                 try:
                     # Get event name and URL
                     title_link = event_elem.find_element(By.CSS_SELECTOR, "h2.card-title a")
-                    event_name = title_link.text.strip()
+                    event_name = title_link.text.strip()  + " Playgroup"
                     event_url = title_link.get_attribute('href')
                     
                     # Get location and coordinates
