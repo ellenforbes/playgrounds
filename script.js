@@ -1386,7 +1386,7 @@ function initialiseSizeSlider() {
     const slider = document.getElementById('sizeSlider');
     if (!slider) return;
 
-    const startMinIndex = visualSliderOrder.indexOf('Tiny');   // index of "Tiny"
+    const startMinIndex = visualSliderOrder.indexOf('Unverified');   // index of "Tiny"
     const startMaxIndex = visualSliderOrder.indexOf('Super');  // index of "Super"
 
     // Add class for multi-color styling
@@ -1426,7 +1426,7 @@ function initialiseSizeSlider() {
     // Set initial handle colors
     const handles = slider.querySelectorAll('.noUi-handle');
     if (handles.length >= 2) {
-        handles[0].style.background = getSizeColor('Tiny');
+        handles[0].style.background = getSizeColor('Unverified');
         handles[1].style.background = getSizeColor('Super');
     }
 }
@@ -1900,6 +1900,8 @@ async function loadPlaygroundData() {
         playgroundData = data;
        
         console.log("Loaded playground data:", playgroundData.length);
+        console.log("Raw playground data:", data);
+
 
     } catch (err) {
         console.error("Failed to load playground data:", err);
