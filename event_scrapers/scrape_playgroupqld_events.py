@@ -141,17 +141,25 @@ class PlayMattersScraper:
             date_part = parts[0].strip()
             time_part = parts[1].strip()
             
-            time_match = re.search(r'(\d{1,2}:\d{2}\s*[ap]m)', time_part, re.IGNORECASE)
+            time_match = re.search(r'(\d{1,2}:\d{2})\s*([ap]m)?', time_part, re.IGNORECASE)
             if not time_match:
                 print(f"  Could not extract time from: {time_part}")
                 return None
             
-            time_str = time_match.group(1).replace(' ', '').lower()
+            time_str = time_match.group(1)  # Just the time digits (e.g., "11:30")
+            am_pm = time_match.group(2).lower() if time_match.group(2) else None  # am/pm if present
             
-            # Check if time is 00:00 or 12:00am, use default of 10:00am
-            if time_str in ['0:00am', '00:00am', '12:00am', '0:00pm', '00:00pm']:
+            # Check if time is 0:00 or midnight, use default of 10:00am
+            if time_str in ['0:00', '00:00'] or (time_str == '12:00' and am_pm == 'am'):
                 time_str = '10:00am'
-                print(f"  Time was 00:00, defaulting to 10:00am")
+                print(f"  Time was midnight/unavailable, defaulting to 10:00am")
+            else:
+                # Default to AM for all times unless explicitly PM
+                if not am_pm:
+                    time_str = f"{time_str}am"
+                    print(f"  No AM/PM specified, defaulting to AM")
+                else:
+                    time_str = f"{time_str}{am_pm}"
             
             date_match = re.match(r'(\d{1,2})\s+(\w+)', date_part)
             if not date_match:
