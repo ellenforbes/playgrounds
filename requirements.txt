@@ -2,3 +2,4 @@ requests
 supabase
 beautifulsoup4
 selenium
+geopy
