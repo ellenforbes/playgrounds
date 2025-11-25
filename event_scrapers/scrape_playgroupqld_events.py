@@ -149,7 +149,7 @@ class PlayMattersScraper:
             time_str = time_match.group(1).replace(' ', '').lower()
             
             # Check if time is 00:00 or 12:00am, use default of 10:00am
-            if time_str in ['00:00am', '12:00am', '00:00pm']:
+            if time_str in ['0:00am', '00:00am', '12:00am', '0:00pm', '00:00pm']:
                 time_str = '10:00am'
                 print(f"  Time was 00:00, defaulting to 10:00am")
             
