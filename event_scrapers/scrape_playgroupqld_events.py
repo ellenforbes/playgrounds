@@ -141,25 +141,13 @@ class PlayMattersScraper:
             date_part = parts[0].strip()
             time_part = parts[1].strip()
             
-            time_match = re.search(r'(\d{1,2}:\d{2})\s*([ap]m)?', time_part, re.IGNORECASE)
+            # Extract 24-hour time: HH:MM
+            time_match = re.search(r'\b(\d{1,2}:\d{2})\b', time_part)
             if not time_match:
                 print(f"  Could not extract time from: {time_part}")
                 return None
             
-            time_str = time_match.group(1)  # Just the time digits (e.g., "11:30")
-            am_pm = time_match.group(2).lower() if time_match.group(2) else None  # am/pm if present
-            
-            # Check if time is 0:00 or midnight, use default of 10:00am
-            if time_str in ['0:00', '00:00'] or (time_str == '12:00' and am_pm == 'am'):
-                time_str = '10:00am'
-                print(f"  Time was midnight/unavailable, defaulting to 10:00am")
-            else:
-                # Default to AM for all times unless explicitly PM
-                if not am_pm:
-                    time_str = f"{time_str}am"
-                    print(f"  No AM/PM specified, defaulting to AM")
-                else:
-                    time_str = f"{time_str}{am_pm}"
+            time_str = time_match.group(1)  # Already 24-hour style (Play Matters uses thi
             
             date_match = re.match(r'(\d{1,2})\s+(\w+)', date_part)
             if not date_match:
@@ -179,7 +167,7 @@ class PlayMattersScraper:
             if temp_date.date() < now.date():
                 year += 1
             
-            dt = datetime.strptime(f"{day} {month_str} {year} {time_str}", '%d %B %Y %I:%M%p')
+            dt = datetime.strptime(f"{day} {month_str} {year} {time_str}",'%d %B %Y %H:%M')
             return dt
         except Exception as e:
             print(f"  Error parsing datetime: {e}")
