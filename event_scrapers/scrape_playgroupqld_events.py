@@ -148,6 +148,11 @@ class PlayMattersScraper:
             
             time_str = time_match.group(1).replace(' ', '').lower()
             
+            # Check if time is 00:00 or 12:00am, use default of 10:00am
+            if time_str in ['00:00am', '12:00am', '00:00pm']:
+                time_str = '10:00am'
+                print(f"  Time was 00:00, defaulting to 10:00am")
+            
             date_match = re.match(r'(\d{1,2})\s+(\w+)', date_part)
             if not date_match:
                 print(f"  Could not parse date: {date_part}")
