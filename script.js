@@ -588,7 +588,7 @@ function addMarkersToMap() {
 }
 
 // Track events and libraries visibility state
-let eventsVisible = false;
+let eventsVisible = true; // Change this if you reverser the toggle on at start to off
 let librariesVisible = true; // Start as true for visible by default
 
 function toggleEvents() {
@@ -3963,8 +3963,13 @@ function initializeToggleButtons() {
     
     if (toggleEventsBtn) {
         // Set initial state to hidden
-        toggleEventsBtn.classList.add('events-hidden');
-        map.removeLayer(eventsClusterGroup); // Hide events initially
+        //toggleEventsBtn.classList.add('events-hidden');
+        //map.removeLayer(eventsClusterGroup); // Hide events initially
+
+        // Set initial state to VISIBLE (remove the hidden class)
+        toggleEventsBtn.classList.remove('events-hidden');
+        // ADD libraries layer on load
+        map.addLayer(eventsClusterGroup);
         
         toggleEventsBtn.addEventListener('click', toggleEvents);
         console.log('Events toggle button initialized');
