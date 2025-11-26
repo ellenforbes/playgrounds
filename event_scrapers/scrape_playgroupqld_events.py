@@ -124,7 +124,6 @@ class PlayMattersScraper:
         options.add_argument('--disable-dev-shm-usage')
         self.driver = webdriver.Chrome(options=options)
         self.driver.implicitly_wait(10)
-        
     def parse_datetime(self, datetime_readable):
         """Convert datetime_readable string to datetime object
         Example input: '9 December,   at 10:15am Tuesday'
@@ -313,6 +312,10 @@ class PlayMattersScraper:
                         date_section = item.find_element(By.CSS_SELECTOR, "div.span3.h-txt__bold")
                         date_text = date_section.text.strip()
                         lines = [line.strip() for line in date_text.split('\n') if line.strip() and 'View group' not in line]
+                        print(lines)
+                        # The actual format is:
+                        # Line 0: "8:30pm Monday" (time + day name)
+                        # Line 1: "1 December" (date + month)
                         
                         if len(lines) >= 2:
                             time_and_day = lines[0]  # "8:30pm Monday"
@@ -320,6 +323,7 @@ class PlayMattersScraper:
                             
                             # Build datetime string in format: "1 December,  at 8:30pm Monday"
                             datetime_str = f"{date_and_month}, at {time_and_day}"
+                            print(datetime_str)
 
                             # Convert to datetime object
                             dt = self.parse_datetime(datetime_str)
@@ -332,8 +336,8 @@ class PlayMattersScraper:
                                 minute = dt.minute
                                 
                                 event_data['datetime_readable'] = f"{day} {month}, at {hour:02d}:{minute:02d} {day_name}"
-                                # Format as ISO 8601 with timezone for TIMESTAMPTZ
-                                event_data['datetime_stamp'] = dt.isoformat()
+                                # Format as YYYYMMDDHH:MM in 24-hour format
+                                event_data['datetime_stamp'] = dt.strftime('%Y%m%d%H:%M')
                             else:
                                 event_data['datetime_readable'] = datetime_str
                                 event_data['datetime_stamp'] = ""
@@ -346,6 +350,7 @@ class PlayMattersScraper:
                         print(f"  Error extracting date/time: {e}")
                         event_data['datetime_readable'] = ""
                         event_data['datetime_stamp'] = ""
+
 
                     
                     print(f"Event {idx + 1}: {event_data['name']}")
