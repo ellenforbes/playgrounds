@@ -126,9 +126,9 @@ class PlayMattersScraper:
         self.driver.implicitly_wait(10)
 
     def parse_datetime(self, datetime_readable):
-        """Convert datetime_readable string to UTC datetime object with -1 hour adjustment
+        """Convert datetime_readable string to naive datetime object with -1 hour adjustment
         Example input: '9 December,   at 10:15am Tuesday'
-        Returns datetime in UTC (naive) with 1 hour subtracted
+        Returns naive datetime (no timezone) with 1 hour subtracted
         """
         try:
             if not datetime_readable:
@@ -169,8 +169,8 @@ class PlayMattersScraper:
             day = int(date_match.group(1))
             month_str = date_match.group(2)
             
-            # Get current date for year determination (using naive datetime)
-            now = datetime.utcnow()
+            # Get current date for year determination
+            now = datetime.now()
             current_year = now.year
             
             # Parse month
@@ -182,7 +182,7 @@ class PlayMattersScraper:
             if temp_date.date() < now.date():
                 year += 1
             
-            # Create naive datetime in UTC (no timezone info)
+            # Create naive datetime (NO timezone info)
             dt = datetime(year, month_num, day, hour, minute)
             
             # Subtract 1 hour as requested
@@ -322,12 +322,12 @@ class PlayMattersScraper:
                             datetime_str = f"{date_and_month}, at {time_and_day}"
                             print(datetime_str)
                     
-                            # Convert to naive UTC datetime with -1 hour adjustment
+                            # Convert to naive datetime with -1 hour adjustment
                             dt = self.parse_datetime(datetime_str)
                             if dt:
-                                # Store as ISO format (naive UTC)
-                                event_data['datetime_stamp'] = dt.isoformat()
-                                print(f"  Parsed datetime (UTC, -1hr): {dt.isoformat()}")
+                                # Store as ISO format string (naive, no timezone)
+                                event_data['datetime_stamp'] = dt.strftime('%Y-%m-%d %H:%M:%S')
+                                print(f"  Parsed datetime (-1hr): {event_data['datetime_stamp']}")
                             else:
                                 event_data['datetime_stamp'] = None
                         else:
