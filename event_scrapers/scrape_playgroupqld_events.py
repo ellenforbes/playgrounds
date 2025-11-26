@@ -156,7 +156,7 @@ class PlayMattersScraper:
             am_pm = time_match.group(3).lower()
             
             if hour == 0:
-                hour = 10
+                hour = 11
             
             # Parse date_part to get day and month
             date_match = re.match(r'(\d{1,2})\s+(\w+)', date_part)
