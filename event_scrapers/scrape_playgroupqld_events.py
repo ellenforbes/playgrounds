@@ -150,15 +150,17 @@ class PlayMattersScraper:
                 print(f"  Could not extract time from: {time_part}")
                 return None
             
-            # Convert to 24-hour format
+            # Get hour and minute
             hour = int(time_match.group(1))
             minute = int(time_match.group(2))
             am_pm = time_match.group(3).lower()
             
-            if am_pm == 'pm' and hour != 12:
-                hour += 12
-            elif am_pm == 'am' and hour == 12:
-                hour = 0
+            # No conversion needed - keep as-is since times are already in 12-hour format
+            # We'll use strptime to properly handle AM/PM conversion
+            time_str = f"{hour}:{minute:02d} {am_pm.upper()}"
+            time_obj = datetime.strptime(time_str, "%I:%M %p")
+            hour = time_obj.hour
+            minute = time_obj.minute
             
             # Parse date_part to get day and month
             date_match = re.match(r'(\d{1,2})\s+(\w+)', date_part)
@@ -325,8 +327,8 @@ class PlayMattersScraper:
                             # Convert to naive datetime with -1 hour adjustment
                             dt = self.parse_datetime(datetime_str)
                             if dt:
-                                # Store as ISO format string (naive, no timezone)
-                                event_data['datetime_stamp'] = dt.strftime('%Y-%m-%d %H:%M:%S')
+                                # Store as ISO format string without timezone (will appear as local time in DB)
+                                event_data['datetime_stamp'] = dt.isoformat()
                                 print(f"  Parsed datetime (-1hr): {event_data['datetime_stamp']}")
                             else:
                                 event_data['datetime_stamp'] = None
