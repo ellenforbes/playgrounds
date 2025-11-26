@@ -10,6 +10,8 @@ from supabase import create_client, Client
 import time
 import re
 import os
+from zoneinfo import ZoneInfo
+from datetime import timedelta
 
 class PlayMattersScraper:
     def __init__(self, base_url):
@@ -330,8 +332,8 @@ class PlayMattersScraper:
                                 minute = dt.minute
                                 
                                 event_data['datetime_readable'] = f"{day} {month}, at {hour:02d}:{minute:02d} {day_name}"
-                                # Format as YYYYMMDDHH:MM in 24-hour format
-                                event_data['datetime_stamp'] = dt.strftime('%Y%m%d%H:%M')
+                                # Format as ISO 8601 with timezone for TIMESTAMPTZ
+                                event_data['datetime_stamp'] = dt.isoformat()
                             else:
                                 event_data['datetime_readable'] = datetime_str
                                 event_data['datetime_stamp'] = ""
