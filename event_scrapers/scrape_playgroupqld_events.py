@@ -126,29 +126,38 @@ class PlayMattersScraper:
     def parse_datetime(self, datetime_readable):
         """Convert datetime_readable string to datetime object
         Example input: '9 December,   at 10:15am Tuesday'
-        Returns datetime object in format suitable for TIMESTAMPTZ
         """
         try:
             if not datetime_readable:
                 return None
             
+            # Remove extra whitespace and split by ',  at' or ', at'
             parts = re.split(r',\s*at\s*', datetime_readable, flags=re.IGNORECASE)
             
             if len(parts) < 2:
                 print(f"  Could not split datetime: {datetime_readable}")
                 return None
             
-            date_part = parts[0].strip()
-            time_part = parts[1].strip()
+            date_part = parts[0].strip()  # "9 December"
+            time_part = parts[1].strip()  # "10:15am Tuesday"
             
-            # Extract 24-hour time: HH:MM
-            time_match = re.search(r'\b(\d{1,2}:\d{2})\b', time_part)
+            # Extract time from time_part (remove day name)
+            time_match = re.search(r'(\d{1,2}):(\d{2})\s*([ap]m)', time_part, re.IGNORECASE)
             if not time_match:
                 print(f"  Could not extract time from: {time_part}")
                 return None
             
-            time_str = time_match.group(1)  # Already 24-hour style (Play Matters uses thi
+            # Convert to 24-hour format
+            hour = int(time_match.group(1))
+            minute = int(time_match.group(2))
+            am_pm = time_match.group(3).lower()
             
+            if am_pm == 'pm' and hour != 12:
+                hour += 12
+            elif am_pm == 'am' and hour == 12:
+                hour = 0
+            
+            # Parse date_part to get day and month
             date_match = re.match(r'(\d{1,2})\s+(\w+)', date_part)
             if not date_match:
                 print(f"  Could not parse date: {date_part}")
@@ -157,17 +166,27 @@ class PlayMattersScraper:
             day = int(date_match.group(1))
             month_str = date_match.group(2)
             
-            now = datetime.now()
+            # Get current date in Queensland timezone
+            qld_tz = ZoneInfo("Australia/Brisbane")
+            now = datetime.now(qld_tz)
             current_year = now.year
             
+            # Parse month
             month_num = datetime.strptime(month_str, '%B').month
             
+            # Determine year - use current year, but if the date would be in the past, use next year
             year = current_year
-            temp_date = datetime(year, month_num, day)
+            temp_date = datetime(year, month_num, day, tzinfo=qld_tz)
             if temp_date.date() < now.date():
                 year += 1
             
-            dt = datetime.strptime(f"{day} {month_str} {year} {time_str}",'%d %B %Y %H:%M')
+            # Create datetime with 24-hour format in Queensland timezone
+            dt = datetime(year, month_num, day, hour, minute, tzinfo=qld_tz)
+            
+            # Subtract 1 hour to correct the website's incorrect times
+            from datetime import timedelta
+            dt = dt - timedelta(hours=1)
+            
             return dt
         except Exception as e:
             print(f"  Error parsing datetime: {e}")
@@ -294,27 +313,38 @@ class PlayMattersScraper:
                         lines = [line.strip() for line in date_text.split('\n') if line.strip() and 'View group' not in line]
                         
                         if len(lines) >= 2:
-                            time_and_day = lines[0]
-                            date_and_month = lines[1]
+                            time_and_day = lines[0]  # "8:30pm Monday"
+                            date_and_month = lines[1]  # "1 December"
                             
-                            datetime_str = f"{date_and_month},  at {time_and_day}"
-                            event_data['datetime_readable'] = datetime_str
-                            
+                            # Build datetime string in format: "1 December,  at 8:30pm Monday"
+                            datetime_str = f"{date_and_month}, at {time_and_day}"
+
+                            # Convert to datetime object
                             dt = self.parse_datetime(datetime_str)
                             if dt:
-                                # Store as ISO format datetime for TIMESTAMPTZ
-                                event_data['datetime_stamp'] = dt.isoformat()
+                                # Format the corrected datetime for both readable and stamp
+                                day_name = dt.strftime('%A')
+                                day = dt.day
+                                month = dt.strftime('%B')
+                                hour = dt.hour
+                                minute = dt.minute
+                                
+                                event_data['datetime_readable'] = f"{day} {month}, at {hour:02d}:{minute:02d} {day_name}"
+                                # Format as YYYYMMDDHH:MM in 24-hour format
+                                event_data['datetime_stamp'] = dt.strftime('%Y%m%d%H:%M')
                             else:
-                                event_data['datetime_stamp'] = None
+                                event_data['datetime_readable'] = datetime_str
+                                event_data['datetime_stamp'] = ""
                         else:
                             print(f"  Unexpected date format - lines: {lines}")
                             event_data['datetime_readable'] = date_text
-                            event_data['datetime_stamp'] = None
+                            event_data['datetime_stamp'] = ""
                         
                     except (NoSuchElementException, IndexError) as e:
                         print(f"  Error extracting date/time: {e}")
                         event_data['datetime_readable'] = ""
-                        event_data['datetime_stamp'] = None
+                        event_data['datetime_stamp'] = ""
+
                     
                     print(f"Event {idx + 1}: {event_data['name']}")
                     
