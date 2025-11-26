@@ -124,6 +124,7 @@ class PlayMattersScraper:
         options.add_argument('--disable-dev-shm-usage')
         self.driver = webdriver.Chrome(options=options)
         self.driver.implicitly_wait(10)
+
     def parse_datetime(self, datetime_readable):
         """Convert datetime_readable string to datetime object
         Example input: '9 December,   at 10:15am Tuesday'
@@ -185,7 +186,6 @@ class PlayMattersScraper:
             dt = datetime(year, month_num, day, hour, minute, tzinfo=qld_tz)
             
             # Subtract 1 hour to correct the website's incorrect times
-            from datetime import timedelta
             dt = dt - timedelta(hours=1)
             
             return dt
@@ -313,9 +313,6 @@ class PlayMattersScraper:
                         date_text = date_section.text.strip()
                         lines = [line.strip() for line in date_text.split('\n') if line.strip() and 'View group' not in line]
                         print(lines)
-                        # The actual format is:
-                        # Line 0: "8:30pm Monday" (time + day name)
-                        # Line 1: "1 December" (date + month)
                         
                         if len(lines) >= 2:
                             time_and_day = lines[0]  # "8:30pm Monday"
@@ -324,7 +321,7 @@ class PlayMattersScraper:
                             # Build datetime string in format: "1 December,  at 8:30pm Monday"
                             datetime_str = f"{date_and_month}, at {time_and_day}"
                             print(datetime_str)
-
+                    
                             # Convert to datetime object
                             dt = self.parse_datetime(datetime_str)
                             if dt:
@@ -336,15 +333,22 @@ class PlayMattersScraper:
                                 minute = dt.minute
                                 
                                 event_data['datetime_readable'] = f"{day} {month}, at {hour:02d}:{minute:02d} {day_name}"
-                                # Format as YYYYMMDDHH:MM in 24-hour format
-                                event_data['datetime_stamp'] = dt.strftime('%Y%m%d%H:%M')
+                                
+                                # FIXED: Use ISO 8601 format with timezone for Supabase
+                                # This will be stored as timestamptz and preserve Queensland time
+                                event_data['datetime_stamp'] = dt.isoformat()  # e.g., "2025-12-08T22:15:00+10:00"
                             else:
                                 event_data['datetime_readable'] = datetime_str
-                                event_data['datetime_stamp'] = ""
+                                event_data['datetime_stamp'] = None  # Use None instead of empty string
                         else:
                             print(f"  Unexpected date format - lines: {lines}")
                             event_data['datetime_readable'] = date_text
-                            event_data['datetime_stamp'] = ""
+                            event_data['datetime_stamp'] = None  # Use None instead of empty string
+                        
+                    except (NoSuchElementException, IndexError) as e:
+                        print(f"  Error extracting date/time: {e}")
+                        event_data['datetime_readable'] = ""
+                        event_data['datetime_stamp'] = None  # Use None instead of empty string
                         
                     except (NoSuchElementException, IndexError) as e:
                         print(f"  Error extracting date/time: {e}")
