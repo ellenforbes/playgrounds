@@ -155,15 +155,8 @@ class PlayMattersScraper:
             minute = int(time_match.group(2))
             am_pm = time_match.group(3).lower()
             
-            # Convert 12-hour to 24-hour format carefully
-            if am_pm == 'am':
-                if hour == 12:
-                    hour = 0  # 12am is midnight (00:00)
-                # else: 1am-11am stays as 1-11
-            else:  # pm
-                if hour != 12:
-                    hour += 12  # 1pm-11pm becomes 13-23
-                # else: 12pm stays as 12
+            if hour == 0:
+                hour = 10
             
             # Parse date_part to get day and month
             date_match = re.match(r'(\d{1,2})\s+(\w+)', date_part)
