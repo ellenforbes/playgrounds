@@ -150,17 +150,20 @@ class PlayMattersScraper:
                 print(f"  Could not extract time from: {time_part}")
                 return None
             
-            # Get hour and minute
+            # Get hour and minute - work in 24-hour time directly
             hour = int(time_match.group(1))
             minute = int(time_match.group(2))
             am_pm = time_match.group(3).lower()
             
-            # No conversion needed - keep as-is since times are already in 12-hour format
-            # We'll use strptime to properly handle AM/PM conversion
-            time_str = f"{hour}:{minute:02d} {am_pm.upper()}"
-            time_obj = datetime.strptime(time_str, "%I:%M %p")
-            hour = time_obj.hour
-            minute = time_obj.minute
+            # Convert 12-hour to 24-hour format carefully
+            if am_pm == 'am':
+                if hour == 12:
+                    hour = 0  # 12am is midnight (00:00)
+                # else: 1am-11am stays as 1-11
+            else:  # pm
+                if hour != 12:
+                    hour += 12  # 1pm-11pm becomes 13-23
+                # else: 12pm stays as 12
             
             # Parse date_part to get day and month
             date_match = re.match(r'(\d{1,2})\s+(\w+)', date_part)
