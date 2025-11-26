@@ -126,9 +126,9 @@ class PlayMattersScraper:
         self.driver.implicitly_wait(10)
 
     def parse_datetime(self, datetime_readable):
-        """Convert datetime_readable string to datetime object
+        """Convert datetime_readable string to UTC datetime object with -1 hour adjustment
         Example input: '9 December,   at 10:15am Tuesday'
-        Returns datetime in Queensland timezone WITHOUT any hour adjustments
+        Returns datetime in UTC (naive) with 1 hour subtracted
         """
         try:
             if not datetime_readable:
@@ -169,9 +169,8 @@ class PlayMattersScraper:
             day = int(date_match.group(1))
             month_str = date_match.group(2)
             
-            # Get current date in Queensland timezone
-            qld_tz = ZoneInfo("Australia/Brisbane")
-            now = datetime.now(qld_tz)
+            # Get current date for year determination (using naive datetime)
+            now = datetime.utcnow()
             current_year = now.year
             
             # Parse month
@@ -179,13 +178,15 @@ class PlayMattersScraper:
             
             # Determine year - use current year, but if the date would be in the past, use next year
             year = current_year
-            temp_date = datetime(year, month_num, day, tzinfo=qld_tz)
+            temp_date = datetime(year, month_num, day)
             if temp_date.date() < now.date():
                 year += 1
             
-            # Create datetime with 24-hour format in Queensland timezone
-            # NO HOUR ADJUSTMENT - store exactly what the website shows
-            dt = datetime(year, month_num, day, hour, minute, tzinfo=qld_tz)
+            # Create naive datetime in UTC (no timezone info)
+            dt = datetime(year, month_num, day, hour, minute)
+            
+            # Subtract 1 hour as requested
+            dt = dt - timedelta(hours=1)
             
             return dt
         except Exception as e:
@@ -321,12 +322,12 @@ class PlayMattersScraper:
                             datetime_str = f"{date_and_month}, at {time_and_day}"
                             print(datetime_str)
                     
-                            # Convert to datetime object
+                            # Convert to naive UTC datetime with -1 hour adjustment
                             dt = self.parse_datetime(datetime_str)
                             if dt:
-                                # Store as ISO format with timezone
+                                # Store as ISO format (naive UTC)
                                 event_data['datetime_stamp'] = dt.isoformat()
-                                print(f"  Parsed datetime: {dt.isoformat()}")
+                                print(f"  Parsed datetime (UTC, -1hr): {dt.isoformat()}")
                             else:
                                 event_data['datetime_stamp'] = None
                         else:
@@ -438,7 +439,7 @@ class PlayMattersScraper:
         try:
             supabase: Client = create_client(supabase_url, supabase_key)
             
-            # Map to Supabase table columns (removed datetime_readable)
+            # Map to Supabase table columns
             columns = ['name', 'datetime_stamp', 'location', 'url', 'description', 'latitude', 'longitude']
             clean = [{k: e.get(k) for k in columns} for e in self.events if 'error' not in e]
             
