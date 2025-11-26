@@ -128,6 +128,7 @@ class PlayMattersScraper:
     def parse_datetime(self, datetime_readable):
         """Convert datetime_readable string to datetime object
         Example input: '9 December,   at 10:15am Tuesday'
+        Returns datetime in Queensland timezone WITHOUT any hour adjustments
         """
         try:
             if not datetime_readable:
@@ -183,10 +184,8 @@ class PlayMattersScraper:
                 year += 1
             
             # Create datetime with 24-hour format in Queensland timezone
+            # NO HOUR ADJUSTMENT - store exactly what the website shows
             dt = datetime(year, month_num, day, hour, minute, tzinfo=qld_tz)
-            
-            # Subtract 1 hour to correct the website's incorrect times
-            dt = dt - timedelta(hours=1)
             
             return dt
         except Exception as e:
@@ -325,36 +324,18 @@ class PlayMattersScraper:
                             # Convert to datetime object
                             dt = self.parse_datetime(datetime_str)
                             if dt:
-                                # Format the corrected datetime for both readable and stamp
-                                day_name = dt.strftime('%A')
-                                day = dt.day
-                                month = dt.strftime('%B')
-                                hour = dt.hour
-                                minute = dt.minute
-                                
-                                event_data['datetime_readable'] = f"{day} {month}, at {hour:02d}:{minute:02d} {day_name}"
-                                
-                                # FIXED: Use ISO 8601 format with timezone for Supabase
-                                # This will be stored as timestamptz and preserve Queensland time
-                                event_data['datetime_stamp'] = dt.isoformat()  # e.g., "2025-12-08T22:15:00+10:00"
+                                # Store as ISO format with timezone
+                                event_data['datetime_stamp'] = dt.isoformat()
+                                print(f"  Parsed datetime: {dt.isoformat()}")
                             else:
-                                event_data['datetime_readable'] = datetime_str
-                                event_data['datetime_stamp'] = None  # Use None instead of empty string
+                                event_data['datetime_stamp'] = None
                         else:
                             print(f"  Unexpected date format - lines: {lines}")
-                            event_data['datetime_readable'] = date_text
-                            event_data['datetime_stamp'] = None  # Use None instead of empty string
+                            event_data['datetime_stamp'] = None
                         
                     except (NoSuchElementException, IndexError) as e:
                         print(f"  Error extracting date/time: {e}")
-                        event_data['datetime_readable'] = ""
-                        event_data['datetime_stamp'] = None  # Use None instead of empty string
-                        
-                    except (NoSuchElementException, IndexError) as e:
-                        print(f"  Error extracting date/time: {e}")
-                        event_data['datetime_readable'] = ""
-                        event_data['datetime_stamp'] = ""
-
+                        event_data['datetime_stamp'] = None
 
                     
                     print(f"Event {idx + 1}: {event_data['name']}")
@@ -457,8 +438,8 @@ class PlayMattersScraper:
         try:
             supabase: Client = create_client(supabase_url, supabase_key)
             
-            # Map to Supabase table columns
-            columns = ['name', 'datetime_readable', 'datetime_stamp', 'location', 'url', 'description', 'latitude', 'longitude']
+            # Map to Supabase table columns (removed datetime_readable)
+            columns = ['name', 'datetime_stamp', 'location', 'url', 'description', 'latitude', 'longitude']
             clean = [{k: e.get(k) for k in columns} for e in self.events if 'error' not in e]
             
             # Delete existing records and insert new ones
