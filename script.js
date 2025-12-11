@@ -1699,6 +1699,16 @@ function createLibraryClusterIcon(cluster) {
 // ===== EVENT MARKERS =====
 
 function createEventMarker(event) {
+    // Define colors based on display_category
+    const categoryColors = {
+        'council': '#3b82f6',    // blue (existing)
+        'playgroup': '#542a7b',  // purple
+        'other': '#8c0052'       // purple
+    };
+    
+    // Get the color for this event's category, defaulting to blue if category not found
+    const fillColor = categoryColors[event.display_category] || '#3b82f6';
+    
     const marker = L.marker([event.latitude, event.longitude], {
         icon: L.divIcon({
             html: `<div style="
@@ -1710,7 +1720,7 @@ function createEventMarker(event) {
                     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
                 ">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" 
-                          fill="#3b82f6" 
+                          fill="${fillColor}" 
                           stroke="#ffffff" 
                           stroke-width="1.5"/>
                 </svg>
