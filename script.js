@@ -1702,7 +1702,7 @@ function createEventMarker(event) {
     // Define colors based on display_category
     const categoryColors = {
         'council': '#3b82f6',    // blue (existing)
-        'playgroup': '#542a7b',  // purple
+        'playgroups': '#542a7b',  // purple
         'other': '#8c0052'       // purple
     };
     
