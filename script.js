@@ -18,6 +18,10 @@ let selectedLGAs = [];
 let userLocationMarker = null;
 let userAccuracyCircle = null;
 let watchId = null;
+let loadedBounds = new Set();
+let isLoadingPlaygrounds = false;
+let allLoadedPlaygrounds = []; // Store all loaded playgrounds for filtering
+let dropdownsInitialized = false;
 
 // ===== SUPABASE CLIENT =====
 
@@ -1902,28 +1906,114 @@ function createEventClusterIcon(cluster) {
 // ===== DATA LOADING AND PROCESSING =====
 
 async function loadPlaygroundData() {
+    // Initial load - just load visible area
+    await loadVisiblePlaygrounds();
+    
+    // Setup searches and filters after initial load
+    initialiseKeywordSearch();
+    initialiseSuburbSearch();
+    initialiseLGASearch();
+}
+
+async function loadVisiblePlaygrounds() {
+    if (isLoadingPlaygrounds) return;
+    isLoadingPlaygrounds = true;
+    
     try {
+        const bounds = map.getBounds().pad(0.5);
+        const north = bounds.getNorth();
+        const south = bounds.getSouth();
+        const east = bounds.getEast();
+        const west = bounds.getWest();
+        
+        const boundsKey = `${south.toFixed(2)},${west.toFixed(2)},${north.toFixed(2)},${east.toFixed(2)}`;
+        
+        if (loadedBounds.has(boundsKey)) {
+            console.log('Already loaded this viewport');
+            isLoadingPlaygrounds = false;
+            return;
+        }
+        
+        console.log('Loading playgrounds for viewport:', boundsKey);
+        
         const { data, error } = await supabaseClient
-            .rpc('get_playgrounds_with_coords');
-
+            .rpc('get_playgrounds_in_bounds', {
+                min_lat: south,
+                max_lat: north,
+                min_lng: west,
+                max_lng: east
+            });
+        
+        console.log('✅ Query completed');
+        console.log('Error:', error);
+        console.log('Data received:', data ? data.length : 0, 'playgrounds');
+        if (data && data.length > 0) {
+            console.log('First playground sample:', data[0]);
+        }
+        
         if (error) throw error;
-
-        playgroundData = data;
-       
-        console.log("Loaded playground data:", playgroundData.length);
-        console.log("Raw playground data:", data);
-
-
-    } catch (err) {
-        console.error("Failed to load playground data:", err);
-        throw err;
-    }
-
-    if (playgroundData && playgroundData.length > 0) {
-        addMarkersToMap();
-        populateDropdowns(playgroundData); // For map filters
-        populateEditFormDropdowns(); // For edit form
+        
+        data.forEach(playground => {
+            if (!allLoadedPlaygrounds.find(p => p.uid === playground.uid)) {
+                allLoadedPlaygrounds.push(playground);
+                playgroundLookup[playground.uid] = playground;
+            }
+        });
+        
+        console.log('📊 Total playgrounds loaded:', allLoadedPlaygrounds.length);
+        
+        playgroundData = allLoadedPlaygrounds;
+        updateSearchesWithNewData();
+        
+        console.log('🗺️ Markers before filter:', markerClusterGroup.getLayers().length);
+        
         filterMarkers();
+        
+        console.log('🗺️ Markers after filter:', markerClusterGroup.getLayers().length);
+        console.log('🗺️ Cluster group on map:', map.hasLayer(markerClusterGroup));
+        
+        // ✅ ADD THIS LINE - Ensure cluster group is on the map
+        if (!map.hasLayer(markerClusterGroup)) {
+            map.addLayer(markerClusterGroup);
+        }
+        
+        loadedBounds.add(boundsKey);
+        
+        if (loadedBounds.size > 20) {
+            clearOldCache();
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading playgrounds:', error);
+    } finally {
+        isLoadingPlaygrounds = false;
+    }
+}
+
+function clearOldCache() {
+    console.log('Clearing marker cache');
+    loadedBounds.clear();
+    allLoadedPlaygrounds = [];
+    playgroundData = [];
+    playgroundLookup = {};
+    markerClusterGroup.clearLayers();
+}
+
+function updateSearchesWithNewData() {
+    // Update keyword search
+    allKeywords = extractAllKeywords(playgroundData);
+    
+    // Update suburb search
+    allSuburbs = extractUniqueValues(playgroundData, 'suburb');
+    
+    // Update LGA search
+    allLGAs = extractUniqueValues(playgroundData, 'lga');
+    
+    // ✅ ONLY populate dropdowns on first load
+    if (!dropdownsInitialized) {
+        populateDropdowns(playgroundData);
+        populateEditFormDropdowns();
+        dropdownsInitialized = true;
     }
 }
 
@@ -4087,11 +4177,8 @@ function initialiseApp() {
     initialiseMap();
     initialiseClusterGroup();
     
-    // Load data first, then initialise searches after data is loaded
+    // Load data first, then initialize searches after data is loaded
     loadPlaygroundData().then(() => {
-        initialiseKeywordSearch();
-        initialiseSuburbSearch();
-        initialiseLGASearch();
         addSearchControl();
     });
 
@@ -4102,8 +4189,17 @@ function initialiseApp() {
     setupEventListeners();
     initialiseMobileDrawer();
 
-    // Update count when map moves/zooms
-    map.on('moveend zoomend', updateVisiblePlaygroundCount);
+    // Load more data when map moves
+    let moveTimeout;
+    map.on('moveend', () => {
+        clearTimeout(moveTimeout);
+        moveTimeout = setTimeout(() => {
+            loadVisiblePlaygrounds();
+            updateVisiblePlaygroundCount();
+        }, 300);
+    });
+    
+    map.on('zoomend', updateVisiblePlaygroundCount);
     
     console.log('initialiseApp completed');
 }
