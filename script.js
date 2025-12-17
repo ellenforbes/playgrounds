@@ -332,6 +332,9 @@ function handleOutsideClick(event) {
 
 // ===== MAP INITIALIZATION =====
 
+let hasGeolocated = false;
+let geolocationTimeout = null;
+
 function initialiseMap() {
   // init map immediately (fallback view)
   try {
@@ -351,12 +354,23 @@ function initialiseMap() {
     const secure = (location.protocol === 'https:' || location.hostname === 'localhost');
     if (!('geolocation' in navigator)) {
       console.warn('Geolocation not supported.');
+      hasGeolocated = true; // Mark as done so data loads
       return;
     }
     if (!secure) {
       console.warn('Geolocation requires HTTPS or localhost. Skipping auto-locate.');
+      hasGeolocated = true; // Mark as done so data loads
       return;
     }
+
+    // Set a timeout - if geolocation takes too long, load data anyway
+    geolocationTimeout = setTimeout(() => {
+      if (!hasGeolocated) {
+        console.log('Geolocation timeout - loading data at default location');
+        hasGeolocated = true;
+        loadPlaygroundData();
+      }
+    }, 2000); // Wait max 2 seconds for geolocation
 
     try {
       // Use watchPosition to continuously track user location
@@ -368,11 +382,17 @@ function initialiseMap() {
           
           // On first position, center the map
           if (!userLocationMarker) {
+            clearTimeout(geolocationTimeout); // Cancel timeout
+            hasGeolocated = true;
+            
             try {
-              map.setView([lat, lng], 14, { animate: true });
+              map.setView([lat, lng], 14, { animate: false }); // Don't animate first load
             } catch (e2) {
               map.setView([lat, lng], 14);
             }
+            
+            // Load data AFTER moving to user location
+            loadPlaygroundData();
           }
           
           // Update or add blue dot marker
@@ -380,15 +400,25 @@ function initialiseMap() {
         },
         (err) => {
           console.warn('Geolocation error:', err && err.message ? err.message : err);
+          clearTimeout(geolocationTimeout);
+          if (!hasGeolocated) {
+            hasGeolocated = true;
+            loadPlaygroundData(); // Load at default location on error
+          }
         },
         { 
-          enableHighAccuracy: true, // Use GPS for better accuracy
+          enableHighAccuracy: true,
           timeout: 10000, 
-          maximumAge: 0 // Always get fresh location
+          maximumAge: 0
         }
       );
     } catch (err) {
       console.warn('navigator.geolocation threw:', err);
+      clearTimeout(geolocationTimeout);
+      if (!hasGeolocated) {
+        hasGeolocated = true;
+        loadPlaygroundData();
+      }
     }
   });
 }
