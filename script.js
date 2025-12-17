@@ -23,7 +23,8 @@ let watchId = null;
 
 const supabaseUrl = 'https://mrcodrddkxvoszuwdaks.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yY29kcmRka3h2b3N6dXdkYWtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNTc0NzUsImV4cCI6MjA3NTkzMzQ3NX0.GOKyB7-vdg968lE2jC5PxrOdVKp7IOis6QtyG2FNptQ';
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+//const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey); 
 
 // ===== CONFIGURATION OBJECTS =====
 
@@ -1646,7 +1647,7 @@ function addLibrariesToMap() {
 
 async function loadLibrariesData() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('libraries')
             .select('*');
 
@@ -1902,7 +1903,7 @@ function createEventClusterIcon(cluster) {
 
 async function loadPlaygroundData() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .rpc('get_playgrounds_with_coords');
 
         if (error) throw error;
@@ -1928,7 +1929,7 @@ async function loadPlaygroundData() {
 
 async function loadEventsData() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .rpc('get_brisbane_events_with_coords');
 
         if (error) throw error;
@@ -3126,7 +3127,7 @@ async function uploadPhotoToSupabase(file) {
         const fileName = `playground_${timestamp}_${randomString}.${fileExt}`;
         
         // Upload to Supabase Storage
-        const { error } = await supabase
+        const { error } = await supabaseClient
             .storage
             .from('PhotosStaging')
             .upload(fileName, uploadFile, {
@@ -3288,7 +3289,7 @@ function getOrCreateSessionId() {
 async function sendEmailNotification(editData, changes, editRecordId) {
     try {
         // Call your Supabase Edge Function to send email
-        const { data, error } = await supabase.functions.invoke('email-notification-edit', {
+        const { data, error } = await supabaseClient.functions.invoke('email-notification-edit', {
             body: {
                 editId: editRecordId,  // ADDED: The ID of the record in playgrounds_edits
                 playgroundUid: editData.uid,
@@ -3578,7 +3579,7 @@ async function submitEditToSupabase(formData) {
 // Send email for new playground submission
 async function sendNewPlaygroundEmail(playgroundData) {
     try {
-        const { data, error } = await supabase.functions.invoke('email-notification-new', {
+        const { data, error } = await supabaseClient.functions.invoke('email-notification-new', {
             body: {
                 playgroundUid: playgroundData.uid,
                 playgroundName: playgroundData.name,
