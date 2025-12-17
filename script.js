@@ -22,6 +22,8 @@ let loadedBounds = new Set();
 let isLoadingPlaygrounds = false;
 let allLoadedPlaygrounds = []; // Store all loaded playgrounds for filtering
 let dropdownsInitialized = false;
+let initialLoadComplete = false;
+
 
 // ===== SUPABASE CLIENT =====
 
@@ -354,12 +356,18 @@ function initialiseMap() {
     const secure = (location.protocol === 'https:' || location.hostname === 'localhost');
     if (!('geolocation' in navigator)) {
       console.warn('Geolocation not supported.');
-      hasGeolocated = true; // Mark as done so data loads
+      hasGeolocated = true;
+      loadPlaygroundData().then(() => {
+        initialLoadComplete = true; // ✅ Mark as complete
+      });
       return;
     }
     if (!secure) {
       console.warn('Geolocation requires HTTPS or localhost. Skipping auto-locate.');
-      hasGeolocated = true; // Mark as done so data loads
+      hasGeolocated = true;
+      loadPlaygroundData().then(() => {
+        initialLoadComplete = true; // ✅ Mark as complete
+      });
       return;
     }
 
@@ -368,9 +376,11 @@ function initialiseMap() {
       if (!hasGeolocated) {
         console.log('Geolocation timeout - loading data at default location');
         hasGeolocated = true;
-        loadPlaygroundData();
+        loadPlaygroundData().then(() => {
+          initialLoadComplete = true; // ✅ Mark as complete
+        });
       }
-    }, 2000); // Wait max 2 seconds for geolocation
+    }, 2000);
 
     try {
       // Use watchPosition to continuously track user location
@@ -382,17 +392,19 @@ function initialiseMap() {
           
           // On first position, center the map
           if (!userLocationMarker) {
-            clearTimeout(geolocationTimeout); // Cancel timeout
+            clearTimeout(geolocationTimeout);
             hasGeolocated = true;
             
             try {
-              map.setView([lat, lng], 14, { animate: false }); // Don't animate first load
+              map.setView([lat, lng], 14, { animate: false });
             } catch (e2) {
               map.setView([lat, lng], 14);
             }
             
             // Load data AFTER moving to user location
-            loadPlaygroundData();
+            loadPlaygroundData().then(() => {
+              initialLoadComplete = true; // ✅ Mark as complete
+            });
           }
           
           // Update or add blue dot marker
@@ -403,7 +415,9 @@ function initialiseMap() {
           clearTimeout(geolocationTimeout);
           if (!hasGeolocated) {
             hasGeolocated = true;
-            loadPlaygroundData(); // Load at default location on error
+            loadPlaygroundData().then(() => {
+              initialLoadComplete = true; // ✅ Mark as complete
+            });
           }
         },
         { 
@@ -417,7 +431,9 @@ function initialiseMap() {
       clearTimeout(geolocationTimeout);
       if (!hasGeolocated) {
         hasGeolocated = true;
-        loadPlaygroundData();
+        loadPlaygroundData().then(() => {
+          initialLoadComplete = true; // ✅ Mark as complete
+        });
       }
     }
   });
@@ -4222,6 +4238,8 @@ function initialiseApp() {
     // Load more data when map moves
     let moveTimeout;
     map.on('moveend', () => {
+        if (!initialLoadComplete) return; // Ignore moveend until initial load done
+        
         clearTimeout(moveTimeout);
         moveTimeout = setTimeout(() => {
             loadVisiblePlaygrounds();
