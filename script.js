@@ -1300,16 +1300,15 @@ function updateSelectedItemsDisplay(selectedItemsArray, itemType) {
 }
 
 function initialiseSuburbSearch() {
-    allSuburbs = extractUniqueValues(playgroundData, 'suburb'); // Changed from extractUniqueValuesForSearch
+    // allSuburbs is already loaded from loadAllSearchValues()
     initialiseMultiSelectSearch('suburbSearchInput', 'suburbDropdown', allSuburbs, selectedSuburbs, 'suburb');
 }
-
 function clearAllSuburbs() {
     clearAllItems(selectedSuburbs, 'suburb');
 }
 
 function initialiseLGASearch() {
-    allLGAs = extractUniqueValues(playgroundData, 'lga'); // Changed from extractUniqueValuesForSearch
+    // allLGAs is already loaded from loadAllSearchValues()
     initialiseMultiSelectSearch('lgaSearchInput', 'lgaDropdown', allLGAs, selectedLGAs, 'lga');
 }
 
@@ -1320,31 +1319,8 @@ function clearAllLGAs() {
 
 // ===== KEYWORD SEARCH FUNCTIONALITY =====
 
-// Needs special function as this is comma separated values inside a cell 
-function extractAllKeywords(data) {
-    const keywordSet = new Set();
-    
-    if (!data || data.length === 0) return [];
-    
-    data.forEach(playground => {
-        const keywords = playground.keywords;
-        if (keywords && keywords.trim() !== '') {
-            keywords.split(',').forEach(keyword => {
-                const trimmed = keyword.trim();
-                if (trimmed) {
-                    keywordSet.add(trimmed);
-                }
-            });
-        }
-    });
-    
-    return Array.from(keywordSet).sort((a, b) => 
-        a.toLowerCase().localeCompare(b.toLowerCase())
-    );
-}
-
 function initialiseKeywordSearch() {
-    allKeywords = extractAllKeywords(playgroundData);
+    // allKeywords is already loaded from loadAllSearchValues()
     initialiseMultiSelectSearch('keywordSearchInput', 'keywordDropdown', allKeywords, selectedKeywords, 'keyword');
 }
 
@@ -1949,16 +1925,45 @@ function createEventClusterIcon(cluster) {
     });
 }
 
+// ===== LOAD ALL SEARCH VALUES (LIGHTWEIGHT) =====
+
+async function loadAllSearchValues() {
+    try {
+        // Load all suburbs
+        const { data: suburbs, error: suburbError } = await supabaseClient.rpc('get_all_suburbs');
+        if (suburbError) throw suburbError;
+        allSuburbs = suburbs.map(s => s.suburb);
+        
+        // Load all LGAs
+        const { data: lgas, error: lgaError } = await supabaseClient.rpc('get_all_lgas');
+        if (lgaError) throw lgaError;
+        allLGAs = lgas.map(l => l.lga);
+        
+        // Load all keywords
+        const { data: keywords, error: keywordError } = await supabaseClient.rpc('get_all_keywords');
+        if (keywordError) throw keywordError;
+        allKeywords = keywords.map(k => k.keyword);
+        
+        console.log(`Loaded ${allSuburbs.length} suburbs, ${allLGAs.length} LGAs, ${allKeywords.length} keywords`);
+        
+    } catch (error) {
+        console.error('Error loading search values:', error);
+    }
+}
+
 // ===== DATA LOADING AND PROCESSING =====
 
 async function loadPlaygroundData() {
     // Initial load - just load visible area
-    await loadVisiblePlaygrounds();
+    await loadAllSearchValues();
     
     // Setup searches and filters after initial load
     initialiseKeywordSearch();
     initialiseSuburbSearch();
     initialiseLGASearch();
+    addSearchControl();
+
+    await loadVisiblePlaygrounds();
 }
 
 async function loadVisiblePlaygrounds() {
@@ -2046,16 +2051,7 @@ function clearOldCache() {
 }
 
 function updateSearchesWithNewData() {
-    // Update keyword search
-    allKeywords = extractAllKeywords(playgroundData);
-    
-    // Update suburb search
-    allSuburbs = extractUniqueValues(playgroundData, 'suburb');
-    
-    // Update LGA search
-    allLGAs = extractUniqueValues(playgroundData, 'lga');
-    
-    // ✅ ONLY populate dropdowns on first load
+    // Only update dropdowns on first load
     if (!dropdownsInitialized) {
         populateDropdowns(playgroundData);
         populateEditFormDropdowns();
