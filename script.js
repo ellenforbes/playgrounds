@@ -23,6 +23,11 @@ let isLoadingPlaygrounds = false;
 let allLoadedPlaygrounds = []; // Store all loaded playgrounds for filtering
 let dropdownsInitialized = false;
 let initialLoadComplete = false;
+let allTypes = [];
+let allShadeOptions = [];
+let allFencingOptions = [];
+let allParkingOptions = [];
+
 
 
 // ===== SUPABASE CLIENT =====
@@ -1945,7 +1950,25 @@ async function loadAllSearchValues() {
         allKeywords = keywords.map(k => k.keyword);
         
         console.log(`Loaded ${allSuburbs.length} suburbs, ${allLGAs.length} LGAs, ${allKeywords.length} keywords`);
+
+        const { data: types, error: typeError } = await supabaseClient.rpc('get_all_types');
+        if (typeError) throw typeError;
+        allTypes = types.map(t => t.type);
         
+        const { data: shades, error: shadeError } = await supabaseClient.rpc('get_all_shade_options');
+        if (shadeError) throw shadeError;
+        allShadeOptions = shades.map(s => s.shade);
+        
+        const { data: fencing, error: fencingError } = await supabaseClient.rpc('get_all_fencing_options');
+        if (fencingError) throw fencingError;
+        allFencingOptions = fencing.map(f => f.fencing);
+        
+        const { data: parking, error: parkingError } = await supabaseClient.rpc('get_all_parking_options');
+        if (parkingError) throw parkingError;
+        allParkingOptions = parking.map(p => p.parking);
+
+        console.log(`✅ Loaded filter values: ${allTypes.length} types, ${allShadeOptions.length} shade, ${allFencingOptions.length} fencing, ${allParkingOptions.length} parking`);
+
     } catch (error) {
         console.error('Error loading search values:', error);
     }
@@ -2051,9 +2074,9 @@ function clearOldCache() {
 }
 
 function updateSearchesWithNewData() {
-    // Only update dropdowns on first load
+    // Only populate dropdowns on first load
     if (!dropdownsInitialized) {
-        populateDropdowns(playgroundData);
+        populateDropdowns();
         populateEditFormDropdowns();
         dropdownsInitialized = true;
     }
@@ -2082,34 +2105,22 @@ async function loadEventsData() {
 
 
 // ===== Drop =====
-function populateDropdowns(data) {
-    if (!data || data.length === 0) {
-        console.warn('No data provided to populateDropdowns');
-        return;
-    }
-
-    const types = extractUniqueValues(data, 'type');
-    const shade = extractUniqueValues(data, 'shade');
-    const fencing = extractUniqueValues(data, 'fencing');
-    const parking = extractUniqueValues(data, 'parking');
-
-    // Sort playground type with custom order
-    const typesSorted = sortWithCustomOrder(types, [
+function populateDropdowns() {
+    // Sort with custom order
+    const typesSorted = sortWithCustomOrder(allTypes, [
         'Council Playground',
         'Private Playground', 
         'School Playground'
     ]);   
 
-    // Sort shade with custom order
-    const shadeSorted = sortWithCustomOrder(shade, [
+    const shadeSorted = sortWithCustomOrder(allShadeOptions, [
         'Natural and Sail',
         'Sail', 
         'Natural',
         'No Shade'
     ]);    
 
-    // Sort fencing with custom order
-    const fencingSorted = sortWithCustomOrder(fencing, [
+    const fencingSorted = sortWithCustomOrder(allFencingOptions, [
         'Fully Fenced',
         'Partially Fenced', 
         'Natural Fence',
@@ -2119,7 +2130,7 @@ function populateDropdowns(data) {
     populateDropdownOptions('typeOptions', typesSorted, 'type-checkbox', updateTypeSelection, 'Council Playground');
     populateDropdownOptions('shadeOptions', shadeSorted, 'shade-checkbox', updateShadeSelection);
     populateDropdownOptions('fencingOptions', fencingSorted, 'fence-checkbox', updateFencingSelection);
-    populateDropdownOptions('parkingOptions', parking, 'parking-checkbox', updateParkingSelection);
+    populateDropdownOptions('parkingOptions', allParkingOptions, 'parking-checkbox', updateParkingSelection);
 }
 
 function extractUniqueValues(data, propertyName) {
@@ -2220,10 +2231,10 @@ function populateEditFormDropdowns() {
     }
 
     // Extract unique values from the database
-    const types = extractUniqueValues(playgroundData, 'type');
-    const shadeOptions = extractUniqueValues(playgroundData, 'shade');
-    const fencingOptions = extractUniqueValues(playgroundData, 'fencing');
-    const parkingOptions = extractUniqueValues(playgroundData, 'parking');
+    const types = allTypes;
+    const shadeOptions = allShadeOptions;
+    const fencingOptions = allFencingOptions;
+    const parkingOptions = allParkingOptions;
     const seatingOptions = extractUniqueValues(playgroundData, 'seating');
     const floorOptions = extractUniqueValues(playgroundData, 'floor');
     const verifiedOptions = extractUniqueValues(playgroundData, 'verified');
