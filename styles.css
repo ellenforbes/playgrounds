@@ -715,17 +715,18 @@ label,
     color: var(--text-light);
 }
 
+/* In your CSS file or <style> tag */
 .dropdown-menu {
+    display: block;
     position: absolute;
-    z-index: 10;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    max-height: 300px;
+    overflow-y: auto;
     width: 100%;
-    margin-top: 4px;
-    background: var(--bg-white);
-    border: 1px solid var(--supplementary);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-md);
-    max-height: 240px;
-    overflow: auto;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .dropdown-menu.hidden {
@@ -733,18 +734,12 @@ label,
 }
 
 .dropdown-option {
-    display: flex;
-    align-items: center;
-    padding: var(--space-md);
+    padding: 8px 12px;
     cursor: pointer;
-    font-size: var(--font-size-sm);
-    font-weight: 400;
-    color: var(--text-tertiary);
-    transition: background-color var(--transition-fast);
 }
 
 .dropdown-option:hover {
-    background-color: var(--supplementary);
+    background-color: #f0f0f0;
 }
 
 .dropdown-option input[type="checkbox"]:checked + span {

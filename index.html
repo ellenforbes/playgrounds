@@ -19,10 +19,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css">
     <link rel="stylesheet" href="styles.css">
-
-    <!-- Mobile Debugging -->
-    <!-- <script src="https://cdn.jsdelivr.net/npm/eruda"></script> -->
-    <!-- <script>eruda.init();</script> -->
 </head>
 
 <body class="bg-gray-100">
@@ -107,6 +103,70 @@
               </div>
             </div>
           </div>
+
+                    <!-- Keyword Search -->
+          <div class="filter-section">
+            <label class="filter-label">Search Keywords:</label>
+            <div class="dropdown-wrapper">
+              <input 
+                type="text" 
+                id="keywordSearchInput"
+                placeholder="Search keywords (e.g. Train, Boat)..."
+                class="form-input small"
+              />
+              <div id="keywordDropdown" class="dropdown-menu hidden"></div>
+            </div>
+            
+            <div class="mt-2">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs text-gray-500">Selected:</span>
+                <button 
+                  onclick="clearAllKeywords()"
+                  class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+                >
+                  Clear all
+                </button>
+              </div>
+              <div 
+                id="selectedKeywords"
+                class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
+              >
+                <span class="text-gray-400 text-xs">No keywords selected</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Favourites -->
+          <div class="filter-section">
+            <label class="filter-label">Quick Favourites:</label>
+            <div class="feature-filter">
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasWaterPlay">
+                Water Play 💦
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasScootTrack">
+                Scooter Track 🛴
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasSandpit">
+                Sandpit ⛱️
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasLargeFlyingFox">
+                Large Flying Fox 🦇
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasSkatePark">
+                Skate Park 🛹
+              </label>
+              <label class="feature-filter-option">
+                <input type="checkbox" id="filterHasTrampoline">
+                Trampoline 🦘
+              </label>
+            </div>
+          </div>
+
 
           <!-- Suburb Search -->
           <div class="filter-section">
@@ -249,69 +309,6 @@
               <div id="parkingOptions">
                 <!-- Options populated by JavaScript -->
               </div>
-            </div>
-          </div>
-
-          <!-- Keyword Search -->
-          <div class="filter-section">
-            <label class="filter-label">Search Keywords:</label>
-            <div class="dropdown-wrapper">
-              <input 
-                type="text" 
-                id="keywordSearchInput"
-                placeholder="Search keywords (e.g. Train, Boat)..."
-                class="form-input small"
-              />
-              <div id="keywordDropdown" class="dropdown-menu hidden"></div>
-            </div>
-            
-            <div class="mt-2">
-              <div class="flex justify-between items-center mb-1">
-                <span class="text-xs text-gray-500">Selected:</span>
-                <button 
-                  onclick="clearAllKeywords()"
-                  class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
-                >
-                  Clear all
-                </button>
-              </div>
-              <div 
-                id="selectedKeywords"
-                class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
-              >
-                <span class="text-gray-400 text-xs">No keywords selected</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Quick Favourites -->
-          <div class="filter-section">
-            <label class="filter-label">Quick Favourites:</label>
-            <div class="feature-filter">
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasWaterPlay">
-                Water Play 💦
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasScootTrack">
-                Scooter Track 🛴
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasSandpit">
-                Sandpit ⛱️
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasLargeFlyingFox">
-                Large Flying Fox 🦇
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasSkatePark">
-                Skate Park 🛹
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasTrampoline">
-                Trampoline 🦘
-              </label>
             </div>
           </div>
 
@@ -832,6 +829,4 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="script.js"></script>
 </body>
-
 </html>
-

@@ -27,6 +27,12 @@ let allTypes = [];
 let allShadeOptions = [];
 let allFencingOptions = [];
 let allParkingOptions = [];
+let allSeatingOptions = [];
+let allFloorOptions = [];
+let allVerifiedOptions = [];
+let allFoxOptions = [];
+let searchIndex = []; // Store lightweight search data
+let searchIndexLoaded = false; // 
 
 
 
@@ -1305,7 +1311,6 @@ function updateSelectedItemsDisplay(selectedItemsArray, itemType) {
 }
 
 function initialiseSuburbSearch() {
-    // allSuburbs is already loaded from loadAllSearchValues()
     initialiseMultiSelectSearch('suburbSearchInput', 'suburbDropdown', allSuburbs, selectedSuburbs, 'suburb');
 }
 function clearAllSuburbs() {
@@ -1313,7 +1318,6 @@ function clearAllSuburbs() {
 }
 
 function initialiseLGASearch() {
-    // allLGAs is already loaded from loadAllSearchValues()
     initialiseMultiSelectSearch('lgaSearchInput', 'lgaDropdown', allLGAs, selectedLGAs, 'lga');
 }
 
@@ -1325,7 +1329,6 @@ function clearAllLGAs() {
 // ===== KEYWORD SEARCH FUNCTIONALITY =====
 
 function initialiseKeywordSearch() {
-    // allKeywords is already loaded from loadAllSearchValues()
     initialiseMultiSelectSearch('keywordSearchInput', 'keywordDropdown', allKeywords, selectedKeywords, 'keyword');
 }
 
@@ -1500,15 +1503,25 @@ function isSizeIncluded(classification) {
 // ===== FILTERING FUNCTIONALITY =====
 
 function filterMarkers() {
-    if (!playgroundData || playgroundData.length === 0) return;
+    if (!searchIndex || searchIndex.length === 0) {
+        console.warn('Search index not loaded yet');
+        return;
+    }
 
     const filters = getActiveFilters();
     markerClusterGroup.clearLayers();
     
+    // Filter the search index first (lightweight)
+    const filteredIds = searchIndex
+        .filter(playground => shouldShowPlayground(playground, filters))
+        .map(p => p.uid);
+    
+    // Then only add markers for playgrounds that:
+    // 1. Pass the filters
+    // 2. Are in the loaded playgroundData (viewport-loaded full details)
     playgroundData.forEach(playground => {
-        if (shouldShowPlayground(playground, filters)) {
-            // Just use lat/lng directly - no need to parse geometry
-            const marker = createMarker(playground); 
+        if (filteredIds.includes(playground.uid)) {
+            const marker = createMarker(playground);
             markerClusterGroup.addLayer(marker);
         }
     });
@@ -1932,60 +1945,67 @@ function createEventClusterIcon(cluster) {
 
 // ===== LOAD ALL SEARCH VALUES (LIGHTWEIGHT) =====
 
-async function loadAllSearchValues() {
+async function loadSearchIndex() {
     try {
-        // Load all suburbs
-        const { data: suburbs, error: suburbError } = await supabaseClient.rpc('get_all_suburbs');
-        if (suburbError) throw suburbError;
-        allSuburbs = suburbs.map(s => s.suburb);
+        console.log('Loading search index...');
         
-        // Load all LGAs
-        const { data: lgas, error: lgaError } = await supabaseClient.rpc('get_all_lgas');
-        if (lgaError) throw lgaError;
-        allLGAs = lgas.map(l => l.lga);
+        // Load the entire search index (just ~20 columns, not all 66)
+        const { data, error } = await supabaseClient
+            .from('playgrounds_search_mv')
+            .select('*');
         
-        // Load all keywords
-        const { data: keywords, error: keywordError } = await supabaseClient.rpc('get_all_keywords');
-        if (keywordError) throw keywordError;
-        allKeywords = keywords.map(k => k.keyword);
+        if (error) throw error;
         
-        console.log(`Loaded ${allSuburbs.length} suburbs, ${allLGAs.length} LGAs, ${allKeywords.length} keywords`);
-
-        const { data: types, error: typeError } = await supabaseClient.rpc('get_all_types');
-        if (typeError) throw typeError;
-        allTypes = types.map(t => t.type);
+        searchIndex = data;
+        console.log(`✅ Loaded search index: ${searchIndex.length} playgrounds`);
         
-        const { data: shades, error: shadeError } = await supabaseClient.rpc('get_all_shade_options');
-        if (shadeError) throw shadeError;
-        allShadeOptions = shades.map(s => s.shade);
+        // Extract unique values for filters from the search index
+        allSuburbs = extractUniqueValues(searchIndex, 'suburb');
+        allLGAs = extractUniqueValues(searchIndex, 'lga');
+        allTypes = extractUniqueValues(searchIndex, 'type');
+        allShadeOptions = extractUniqueValues(searchIndex, 'shade');
+        allFencingOptions = extractUniqueValues(searchIndex, 'fencing');
+        allParkingOptions = extractUniqueValues(searchIndex, 'parking');
+        allSeatingOptions = extractUniqueValues(searchIndex, 'seating');
+        allFloorOptions = extractUniqueValues(searchIndex, 'floor');
+        allVerifiedOptions = extractUniqueValues(searchIndex, 'verified');
+        allFoxOptions = extractUniqueValues(searchIndex, 'flying_fox');
         
-        const { data: fencing, error: fencingError } = await supabaseClient.rpc('get_all_fencing_options');
-        if (fencingError) throw fencingError;
-        allFencingOptions = fencing.map(f => f.fencing);
+        // Extract keywords (split comma-separated values)
+        const keywordSets = searchIndex
+            .map(p => p.keywords)
+            .filter(k => k)
+            .map(k => k.split(',').map(kw => kw.trim()))
+            .flat();
+        allKeywords = [...new Set(keywordSets)].sort();
         
-        const { data: parking, error: parkingError } = await supabaseClient.rpc('get_all_parking_options');
-        if (parkingError) throw parkingError;
-        allParkingOptions = parking.map(p => p.parking);
-
-        console.log(`✅ Loaded filter values: ${allTypes.length} types, ${allShadeOptions.length} shade, ${allFencingOptions.length} fencing, ${allParkingOptions.length} parking`);
-
+        // Initialize search UI
+        initialiseKeywordSearch();
+        initialiseSuburbSearch();
+        initialiseLGASearch();
+        
+        // Populate dropdowns
+        populateDropdowns();
+        populateEditFormDropdowns();
+        dropdownsInitialized = true;
+        
+        searchIndexLoaded = true;
+        
     } catch (error) {
-        console.error('Error loading search values:', error);
+        console.error('Error loading search index:', error);
     }
 }
 
 // ===== DATA LOADING AND PROCESSING =====
 
 async function loadPlaygroundData() {
-    // Initial load - just load visible area
-    await loadAllSearchValues();
+    // 1. Load search index first (for filters/search)
+    await loadSearchIndex();
     
-    // Setup searches and filters after initial load
-    initialiseKeywordSearch();
-    initialiseSuburbSearch();
-    initialiseLGASearch();
+    // 2. THEN add search control to map (after searchIndex is populated)
     addSearchControl();
-
+    
+    // 3. Load visible playgrounds (full details for current viewport)
     await loadVisiblePlaygrounds();
 }
 
@@ -2221,26 +2241,46 @@ window.addEventListener('resize', function() {
 });
 
 
-// ===== POPULATE EDIT FORM DROPDOWNS FROM DATABASE =====
-
-// Call this function when loading playground data
+// ===== POPULATE EDIT FORM DROPDOWNS FROM SEARCH INDEX =====
+// This populates the OPTIONS available in each dropdown
 function populateEditFormDropdowns() {
-    if (!playgroundData || playgroundData.length === 0) {
-        console.warn('No playground data available to populate form dropdowns');
+    if (!searchIndex || searchIndex.length === 0) {
+        console.warn('No search index available to populate form dropdowns');
         return;
     }
 
-    // Extract unique values from the database
+    console.log('Populating edit form dropdowns from search index...');
+
+    // Extract unique values from the search index
     const types = allTypes;
     const shadeOptions = allShadeOptions;
     const fencingOptions = allFencingOptions;
     const parkingOptions = allParkingOptions;
-    const seatingOptions = extractUniqueValues(playgroundData, 'seating');
-    const floorOptions = extractUniqueValues(playgroundData, 'floor');
-    const verifiedOptions = extractUniqueValues(playgroundData, 'verified');
-    const flyingFoxOptions = extractUniqueValues(playgroundData, 'flying_fox');
+    const seatingOptions = allSeatingOptions;
+    const floorOptions = allFloorOptions;
+    const verifiedOptions = allVerifiedOptions;
+    const flyingFoxOptions = allFoxOptions;
 
-    // Sort with custom order (optional)
+    // ✅ ADD THESE LINES - Sort seating and floor options
+    const seatingSorted = sortWithCustomOrder(seatingOptions, [
+        'Picnic Tables and Benches',
+        'Picnic Tables',
+        'Benches', 
+        'Limited',
+        'None'
+    ]);
+    
+    const floorSorted = sortWithCustomOrder(floorOptions, [
+        'Softfall',
+        'Artificial Turf',
+        'Natural Turf',
+        'Mulch',
+        'Sand',
+        'Concrete',
+        'Other'
+    ]);
+
+    // Sort with custom order (existing sorts)
     const typesSorted = sortWithCustomOrder(types, [
         'Council Playground',
         'Private Playground', 
@@ -2267,19 +2307,20 @@ function populateEditFormDropdowns() {
         'Large'
     ]);
 
-
-    // Populate the form dropdowns
+    // Populate the form dropdowns with OPTIONS only
     populateFormDropdown('edit-type', typesSorted);
     populateFormDropdown('edit-shade', shadeSorted);
     populateFormDropdown('edit-fencing', fencingSorted);
     populateFormDropdown('edit-parking', parkingOptions);
-    populateFormDropdown('edit-seating', seatingOptions);
-    populateFormDropdown('edit-floor', floorOptions);
+    populateFormDropdown('edit-seating', seatingSorted);  // ✅ Now sorted
+    populateFormDropdown('edit-floor', floorSorted);      // ✅ Now sorted
     populateFormDropdown('edit-verified', verifiedOptions);
     populateFormDropdown('edit-flying_fox', flyingFoxSorted);
+    
+    console.log('✅ Edit form dropdowns populated with options');
 }
 
-// Helper function to populate a single dropdown
+// Helper function to populate a single dropdown with options
 function populateFormDropdown(selectId, options) {
     const selectElement = document.getElementById(selectId);
     
@@ -2293,7 +2334,7 @@ function populateFormDropdown(selectId, options) {
         selectElement.remove(1);
     }
 
-    // Add options from database
+    // Add options from search index
     options.forEach(value => {
         if (value) { // Skip null/undefined values
             const option = document.createElement('option');
@@ -2326,24 +2367,74 @@ function sortWithCustomOrder(items, customOrder) {
     });
 }
 
-function editPlayground(uniqueId) {
+// Load full playground details when opening edit modal
+// Load full playground details when opening edit modal
+// Load full playground details when opening edit modal
+async function editPlayground(uniqueId) {
     const normalizedId = uniqueId ? uniqueId.toString().trim() : null;
-    const playgroundData = playgroundLookup[normalizedId];
+    
+    console.log('=== EDIT PLAYGROUND DEBUG ===');
+    console.log('1. uniqueId:', uniqueId);
+    console.log('2. normalizedId:', normalizedId);
+    
+    // First check if we have the full data already loaded
+    let playgroundData = playgroundLookup[normalizedId];
+    
+    console.log('3. playgroundData from lookup:', playgroundData);
+    console.log('4. Has shade?', playgroundData?.shade);
+    console.log('5. Has fencing?', playgroundData?.fencing);
+    console.log('6. Has parking?', playgroundData?.parking);
+    console.log('7. All keys:', playgroundData ? Object.keys(playgroundData) : 'NO DATA');
+    
+    // Check if data exists AND if it has full details (not just search index)
+    if (!playgroundData || !playgroundData.hasOwnProperty('seating')) {
+        console.log('8. Loading from database because:', !playgroundData ? 'no data' : 'missing seating field');
+        
+        // Load full playground data from database
+        const { data, error } = await supabaseClient
+            .from('playgrounds_main')
+            .select('*')
+            .eq('uid', normalizedId)
+            .single();
+        
+        if (error) {
+            console.error('Error loading playground:', error);
+            alert('Failed to load playground details');
+            return;
+        }
+        
+        console.log('9. Loaded from DB:', data);
+        console.log('10. DB shade:', data.shade);
+        console.log('11. DB fencing:', data.fencing);
+        
+        playgroundData = data;
+        playgroundLookup[normalizedId] = data; // Cache it
+    } else {
+        console.log('8. Using cached data (not loading from DB)');
+    }
+    
+    console.log('12. Final playgroundData:', playgroundData);
+    console.log('13. Final shade:', playgroundData.shade);
+    console.log('14. Final fencing:', playgroundData.fencing);
+    console.log('=== END DEBUG ===');
     
     currentEditingPlayground = { uid: normalizedId, data: playgroundData };
     
     const modal = document.getElementById('editModal');
 
     populateEditForm(playgroundData);
-        // Initialize keyword functionality
+    
+    // Initialize keyword functionality
     initialiseEditModalKeywords();
     populateEditModalKeywords(playgroundData);
-    // Ensure the modal is visible (assuming modal CSS has high z-index and fixed positioning)
+    
     modal.style.display = 'block'; 
 }
 
 // populateEditForm to work with dropdowns
 function populateEditForm(playgroundData) {
+    console.log('=== POPULATE FORM DEBUG ===');
+    console.log('1. playgroundData received:', playgroundData);
     
     // Text inputs - direct mapping
     const textFields = ['name', 'keywords', 'comments', 'link'];
@@ -2356,10 +2447,25 @@ function populateEditForm(playgroundData) {
     // Dropdown fields - direct mapping
     const dropdownFields = ['type', 'shade', 'parking', 'fencing', 'seating', 'floor', 'verified', 'flying_fox'];
     
+    console.log('2. About to populate dropdowns...');
+    
     dropdownFields.forEach(field => {
         const element = document.getElementById(`edit-${field}`);
-        if (element) element.value = playgroundData[field] || '';
+        const value = playgroundData[field] || '';
+        
+        console.log(`3. Field: ${field}, Element exists: ${!!element}, Value: "${value}"`);
+        
+        if (element) {
+            element.value = value;
+            console.log(`4. Set ${field} to "${value}", actual value now: "${element.value}"`);
+            
+            // Check if the option exists in the dropdown
+            const optionExists = Array.from(element.options).some(opt => opt.value === value);
+            console.log(`5. Option "${value}" exists in ${field} dropdown: ${optionExists}`);
+        }
     });
+    
+    console.log('=== END POPULATE FORM DEBUG ===');
     
     // Checkboxes - direct mapping
     const checkboxFields = [
@@ -3872,6 +3978,21 @@ function addSearchControl() {
         return;
     }
     
+    // ✅ CHECK: Don't add search control if it already exists
+    if (document.getElementById('search-container')) {
+        console.log('Search control already exists, skipping');
+        return;
+    }
+    
+    // ✅ Check if searchIndex is loaded
+    if (!searchIndex || searchIndex.length === 0) {
+        console.error('Search index not loaded yet! Retrying in 1 second...');
+        setTimeout(addSearchControl, 1000);
+        return;
+    }
+    
+    console.log(`✅ Adding search control with ${searchIndex.length} playgrounds available`);
+    
     const searchContainer = document.createElement('div');
     searchContainer.id = 'search-container';
     
@@ -3896,18 +4017,25 @@ function addSearchControl() {
     const searchBtn = document.getElementById('searchBtn');
     
     if (searchInput && searchBtn) {
+        console.log('Adding event listeners to search input');
+        
+        // ✅ Add input event listener for suggestions
+        searchInput.addEventListener('input', function(e) {
+            console.log('Input event fired, value:', e.target.value);
+            handleSuggestions();
+        });
+        
         searchBtn.addEventListener('click', () => {
             performSearch();
         });
-        if (searchInput) {
-            searchInput.addEventListener('input', handleSuggestions);
-        }
+        
         searchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 performSearch();
             }
         });
-        console.log('Search event listeners added successfully');
+        
+        console.log('✅ Search event listeners added successfully');
     } else {
         console.error('Could not find search input or button after creation');
     }
@@ -3917,22 +4045,41 @@ function handleSuggestions() {
     const searchInput = document.getElementById('searchInput');
     const query = searchInput.value.trim().toLowerCase();
     const suggestionsContainer = document.getElementById('suggestions');
+    
+    // Clear previous suggestions
     suggestionsContainer.innerHTML = '';
 
-    if (!query || !playgroundData || playgroundData.length === 0) {
-        suggestionsContainer.style.display = 'none';
+    // Debug logging
+    console.log('handleSuggestions called:', {
+        query: query,
+        searchIndexLength: searchIndex ? searchIndex.length : 0,
+        searchIndexExists: !!searchIndex
+    });
+
+    if (!query) {
+        suggestionsContainer.classList.add('hidden');
+        return;
+    }
+    
+    if (!searchIndex || searchIndex.length === 0) {
+        console.error('Search index not available for suggestions');
+        suggestionsContainer.classList.add('hidden');
         return;
     }
 
-    const matches = playgroundData
+    // Filter matches from searchIndex
+    const matches = searchIndex
         .filter(pg => pg.name && pg.name.toLowerCase().includes(query))
         .slice(0, 6); // limit to 6 suggestions
 
+    console.log(`Found ${matches.length} matches for "${query}"`);
+
     if (matches.length === 0) {
-        suggestionsContainer.style.display = 'none';
+        suggestionsContainer.classList.add('hidden');
         return;
     }
 
+    // Create suggestion items
     matches.forEach(match => {
         const suggestionItem = document.createElement('div');
         suggestionItem.className = 'dropdown-option';
@@ -3941,24 +4088,33 @@ function handleSuggestions() {
         suggestionItem.addEventListener('click', () => {
             searchInput.value = match.name;
             suggestionsContainer.innerHTML = '';
-            suggestionsContainer.style.display = 'none';
-            // Pan to playground
-            map.setView([match.lat, match.lng], 16);
-            addSearchResultMarker(match.lat, match.lng, match.name, true);
+            suggestionsContainer.classList.add('hidden');
+            
+            // Get coordinates from the search index item
+            const coords = getPlaygroundCoordinates(match);
+            if (coords) {
+                map.setView([coords.lat, coords.lng], 16);
+                addSearchResultMarker(coords.lat, coords.lng, match.name, true);
+            } else {
+                console.error('No coordinates found for:', match.name);
+            }
         });
 
         suggestionsContainer.appendChild(suggestionItem);
     });
 
-    suggestionsContainer.style.display = 'block';
+    // Show suggestions
+    suggestionsContainer.classList.remove('hidden');
+    console.log('✅ Displayed suggestions');
 }
+
 // Hide suggestions when clicking outside
 document.addEventListener('click', (e) => {
     if (!e.target.closest('#search-container')) {
         const suggestionsContainer = document.getElementById('suggestions');
         if (suggestionsContainer) {
             suggestionsContainer.innerHTML = '';
-            suggestionsContainer.style.display = 'none';
+            suggestionsContainer.classList.add('hidden'); // ✅ Use classList instead of style.display
         }
     }
 });
@@ -4010,13 +4166,13 @@ async function performSearch() {
 
 // Search through playground names in data
 function searchPlaygrounds(query) {
-    if (!playgroundData || playgroundData.length === 0) {
+    if (!searchIndex || searchIndex.length === 0) {
         return null;
     }
     
     const lowerQuery = query.toLowerCase();
     
-    const match = playgroundData.find(playground => {
+    const match = searchIndex.find(playground => {
         const name = playground.name;
         return name && name.toLowerCase().includes(lowerQuery);
     });
