@@ -7,12 +7,5 @@
     "api/**/*.js": {
       "runtime": "nodejs20.x"
     }
-  },
-  "env": {
-    "SUPABASE_URL": "@supabase-url",
-    "SUPABASE_KEY": "@supabase-key",
-    "REFRESH_SECRET": "@refresh-secret",
-    "EDGE_CONFIG_ID": "@edge-config-id",
-    "VERCEL_TOKEN": "@vercel-token"
   }
 }
