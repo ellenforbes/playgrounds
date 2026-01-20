@@ -1,11 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
-
 export default async function handler(req, res) {
+  // Move Supabase client creation INSIDE the handler
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_KEY;
+  
+  // Debug: Check if env vars are loaded
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing Supabase credentials:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseKey
+    });
+    return res.status(500).json({ 
+      error: 'Missing Supabase environment variables',
+      hint: 'Check SUPABASE_URL and SUPABASE_KEY in Vercel settings'
+    });
+  }
+  
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   // Authentication
   const { secret } = req.query;
   
@@ -23,7 +36,7 @@ export default async function handler(req, res) {
     
     if (searchError) throw new Error(`Search index error: ${searchError.message}`);
     
-    // Fetch all playgrounds (you might need to adjust this query)
+    // Fetch all playgrounds
     const { data: allPlaygrounds, error: playgroundsError } = await supabase
       .from('playgrounds_main')
       .select('*');
