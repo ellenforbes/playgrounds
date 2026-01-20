@@ -1,28 +1,22 @@
-import { createClient } from '@supabase/supabase-js';
+const { createClient } = require('@supabase/supabase-js');
 
-export default async function handler(req, res) {
-  // Debug: Log ALL environment variables (be careful - this will show in logs)
-  console.log('Environment check:', {
-    SUPABASE_URL: process.env.SUPABASE_URL ? 'EXISTS' : 'MISSING',
-    SUPABASE_KEY: process.env.SUPABASE_KEY ? 'EXISTS' : 'MISSING',
-    REFRESH_SECRET: process.env.REFRESH_SECRET ? 'EXISTS' : 'MISSING',
-    EDGE_CONFIG_ID: process.env.EDGE_CONFIG_ID ? 'EXISTS' : 'MISSING',
-    VERCEL_TOKEN: process.env.VERCEL_TOKEN ? 'EXISTS' : 'MISSING',
-    // Show first few characters to verify
-    urlStart: process.env.SUPABASE_URL?.substring(0, 20),
-    allKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
-  });
-  
+module.exports = async (req, res) => {
+  // Get environment variables
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_KEY;
+  
+  console.log('Environment check:', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseKey,
+    url: supabaseUrl?.substring(0, 30) + '...'
+  });
   
   if (!supabaseUrl || !supabaseKey) {
     return res.status(500).json({ 
       error: 'Missing Supabase environment variables',
       debug: {
         hasUrl: !!supabaseUrl,
-        hasKey: !!supabaseKey,
-        availableKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+        hasKey: !!supabaseKey
       }
     });
   }
@@ -129,4 +123,4 @@ export default async function handler(req, res) {
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-}
+};
