@@ -1,6 +1,6 @@
 {
   "crons": [{
     "path": "/api/refresh-edge-config?secret=playground_refresh_2024_secure_key",
-    "schedule": "0 */6 * * *"
+    "schedule": "0 0 * * *"
   }]
 }
