@@ -93,32 +93,55 @@ module.exports = async (req, res) => {
     
     console.log('Updating Edge Config...');
     
-    // Split playgrounds into chunks of 50
+    // Split ALL large datasets into chunks
     const chunkSize = 50;
+
+    // Chunk search index
+    const searchChunks = [];
+    for (let i = 0; i < searchIndex.length; i += chunkSize) {
+      searchChunks.push(searchIndex.slice(i, i + chunkSize));
+    }
+
+    // Chunk playgrounds
     const playgroundChunks = [];
     for (let i = 0; i < allPlaygrounds.length; i += chunkSize) {
       playgroundChunks.push(allPlaygrounds.slice(i, i + chunkSize));
     }
-    
-    // Build items array with chunks
+
+    // Chunk events
+    const eventChunks = [];
+    for (let i = 0; i < events.length; i += chunkSize) {
+      eventChunks.push(events.slice(i, i + chunkSize));
+    }
+
+    // Build items array
     const items = [
-      { operation: 'upsert', key: 'search_index', value: searchIndex },
-      { operation: 'upsert', key: 'events', value: events },
       { operation: 'upsert', key: 'libraries', value: libraries },
-      { operation: 'upsert', key: 'playgrounds_total', value: allPlaygrounds.length }
+      { operation: 'upsert', key: 'search_total', value: searchIndex.length },
+      { operation: 'upsert', key: 'playgrounds_total', value: allPlaygrounds.length },
+      { operation: 'upsert', key: 'events_total', value: events.length }
     ];
-    
-    // Add chunked playgrounds
-    playgroundChunks.forEach((chunk, index) => {
-      items.push({
-        operation: 'upsert',
-        key: `playgrounds_chunk_${index}`,
-        value: chunk
-      });
+
+    // Add all chunks
+    searchChunks.forEach((chunk, index) => {
+      items.push({ operation: 'upsert', key: `search_chunk_${index}`, value: chunk });
     });
-    
+
+    playgroundChunks.forEach((chunk, index) => {
+      items.push({ operation: 'upsert', key: `playgrounds_chunk_${index}`, value: chunk });
+    });
+
+    eventChunks.forEach((chunk, index) => {
+      items.push({ operation: 'upsert', key: `events_chunk_${index}`, value: chunk });
+    });
+
     console.log('Uploading', items.length, 'items to Edge Config');
-    
+    console.log('Chunks:', {
+      search: searchChunks.length,
+      playgrounds: playgroundChunks.length,
+      events: eventChunks.length
+    });
+
     const response = await fetch(
       `https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`,
       {
@@ -144,9 +167,14 @@ module.exports = async (req, res) => {
       message: 'Edge Config updated successfully',
       updated: new Date().toISOString(),
       counts: {
+        searchChunks: searchChunks.length,
+        playgroundChunks: playgroundChunks.length,
+        eventChunks: eventChunks.length,
+        libraries: libraries.length
+      },
+      totals: {
         searchIndex: searchIndex.length,
         playgrounds: allPlaygrounds.length,
-        playgroundChunks: playgroundChunks.length,
         events: events.length,
         libraries: libraries.length
       },
