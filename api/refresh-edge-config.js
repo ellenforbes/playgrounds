@@ -38,15 +38,8 @@ module.exports = async (req, res) => {
       .from('playgrounds_search_mv')
       .select('*');
     
-    if (searchError) {
-      console.error('Full Supabase error:', {
-        message: searchError.message,
-        details: searchError.details,
-        hint: searchError.hint,
-        code: searchError.code
-      });
-      throw new Error(`Search index error: ${searchError.message} (${searchError.code})`);
-    }
+    if (searchError) throw new Error(`Search index error: ${searchError.message}`);
+    
     // Fetch all playgrounds
     const { data: allPlaygrounds, error: playgroundsError } = await supabase
       .from('playgrounds_main')
@@ -74,6 +67,22 @@ module.exports = async (req, res) => {
       libraries: libraries.length
     });
     
+    // Check data sizes
+    const dataSize = JSON.stringify({
+      search_index: searchIndex,
+      all_playgrounds: allPlaygrounds,
+      events: events,
+      libraries: libraries
+    }).length;
+    
+    console.log('Total data size:', (dataSize / 1024 / 1024).toFixed(2), 'MB');
+    console.log('Individual sizes:', {
+      searchIndex: (JSON.stringify(searchIndex).length / 1024).toFixed(2) + 'KB',
+      playgrounds: (JSON.stringify(allPlaygrounds).length / 1024).toFixed(2) + 'KB',
+      events: (JSON.stringify(events).length / 1024).toFixed(2) + 'KB',
+      libraries: (JSON.stringify(libraries).length / 1024).toFixed(2) + 'KB'
+    });
+    
     // Update Edge Config via Vercel API
     const edgeConfigId = process.env.EDGE_CONFIG_ID;
     const token = process.env.VERCEL_TOKEN;
@@ -84,6 +93,32 @@ module.exports = async (req, res) => {
     
     console.log('Updating Edge Config...');
     
+    // Split playgrounds into chunks of 50
+    const chunkSize = 50;
+    const playgroundChunks = [];
+    for (let i = 0; i < allPlaygrounds.length; i += chunkSize) {
+      playgroundChunks.push(allPlaygrounds.slice(i, i + chunkSize));
+    }
+    
+    // Build items array with chunks
+    const items = [
+      { operation: 'upsert', key: 'search_index', value: searchIndex },
+      { operation: 'upsert', key: 'events', value: events },
+      { operation: 'upsert', key: 'libraries', value: libraries },
+      { operation: 'upsert', key: 'playgrounds_total', value: allPlaygrounds.length }
+    ];
+    
+    // Add chunked playgrounds
+    playgroundChunks.forEach((chunk, index) => {
+      items.push({
+        operation: 'upsert',
+        key: `playgrounds_chunk_${index}`,
+        value: chunk
+      });
+    });
+    
+    console.log('Uploading', items.length, 'items to Edge Config');
+    
     const response = await fetch(
       `https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`,
       {
@@ -92,14 +127,7 @@ module.exports = async (req, res) => {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          items: [
-            { operation: 'upsert', key: 'search_index', value: searchIndex },
-            { operation: 'upsert', key: 'all_playgrounds', value: allPlaygrounds },
-            { operation: 'upsert', key: 'events', value: events },
-            { operation: 'upsert', key: 'libraries', value: libraries },
-          ],
-        }),
+        body: JSON.stringify({ items }),
       }
     );
     
@@ -118,9 +146,11 @@ module.exports = async (req, res) => {
       counts: {
         searchIndex: searchIndex.length,
         playgrounds: allPlaygrounds.length,
+        playgroundChunks: playgroundChunks.length,
         events: events.length,
         libraries: libraries.length
-      }
+      },
+      dataSizeMB: (dataSize / 1024 / 1024).toFixed(2)
     });
     
   } catch (error) {
