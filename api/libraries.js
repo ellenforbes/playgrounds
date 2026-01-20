@@ -1,40 +1,23 @@
-import { kv } from '@vercel/kv';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+import { get } from '@vercel/edge-config';
 
 export default async function handler(req, res) {
-  const CACHE_KEY = 'libraries';
-  
   try {
-    // Try cache first
-    const cached = await kv.get(CACHE_KEY);
-    if (cached) {
+    const data = await get('libraries');
+    
+    if (data) {
       return res.status(200).json({
-        data: cached,
-        source: 'cache'
+        data,
+        source: 'edge-config',
+        count: data.length
       });
     }
     
-    // Cache miss - fetch from Supabase
-    const { data, error } = await supabase
-      .from('libraries')
-      .select('*');
-    
-    if (error) throw error;
-    
-    // Cache for 24 hours (libraries change less frequently)
-    await kv.set(CACHE_KEY, data, { ex: 86400 });
-    
-    return res.status(200).json({
-      data,
-      source: 'database'
+    return res.status(404).json({ 
+      error: 'Libraries not found in Edge Config. Please refresh the cache.' 
     });
     
   } catch (error) {
+    console.error('Edge Config error:', error);
     return res.status(500).json({ error: error.message });
   }
 }

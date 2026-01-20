@@ -1,40 +1,24 @@
-import { kv } from '@vercel/kv';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+import { get } from '@vercel/edge-config';
 
 export default async function handler(req, res) {
-  const CACHE_KEY = 'search_index';
-  
   try {
-    // Try cache first
-    const cached = await kv.get(CACHE_KEY);
-    if (cached) {
+    const data = await get('search_index');
+    
+    if (data) {
       return res.status(200).json({
-        data: cached,
-        source: 'cache'
+        data,
+        source: 'edge-config',
+        count: data.length
       });
     }
     
-    // Cache miss - fetch from Supabase
-    const { data, error } = await supabase
-      .from('playgrounds_search_mv')
-      .select('*');
-    
-    if (error) throw error;
-    
-    // Cache for 6 hours
-    await kv.set(CACHE_KEY, data, { ex: 21600 });
-    
-    return res.status(200).json({
-      data,
-      source: 'database'
+    return res.status(404).json({ 
+      error: 'Search index not found. Please refresh the cache.',
+      hint: 'Call /api/refresh-edge-config?secret=YOUR_SECRET'
     });
     
   } catch (error) {
+    console.error('Edge Config error:', error);
     return res.status(500).json({ error: error.message });
   }
 }
