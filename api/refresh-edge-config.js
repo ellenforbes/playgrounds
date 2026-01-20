@@ -1,19 +1,29 @@
 import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req, res) {
-  // Move Supabase client creation INSIDE the handler
+  // Debug: Log ALL environment variables (be careful - this will show in logs)
+  console.log('Environment check:', {
+    SUPABASE_URL: process.env.SUPABASE_URL ? 'EXISTS' : 'MISSING',
+    SUPABASE_KEY: process.env.SUPABASE_KEY ? 'EXISTS' : 'MISSING',
+    REFRESH_SECRET: process.env.REFRESH_SECRET ? 'EXISTS' : 'MISSING',
+    EDGE_CONFIG_ID: process.env.EDGE_CONFIG_ID ? 'EXISTS' : 'MISSING',
+    VERCEL_TOKEN: process.env.VERCEL_TOKEN ? 'EXISTS' : 'MISSING',
+    // Show first few characters to verify
+    urlStart: process.env.SUPABASE_URL?.substring(0, 20),
+    allKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+  });
+  
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_KEY;
   
-  // Debug: Check if env vars are loaded
   if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase credentials:', {
-      hasUrl: !!supabaseUrl,
-      hasKey: !!supabaseKey
-    });
     return res.status(500).json({ 
       error: 'Missing Supabase environment variables',
-      hint: 'Check SUPABASE_URL and SUPABASE_KEY in Vercel settings'
+      debug: {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseKey,
+        availableKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+      }
     });
   }
   

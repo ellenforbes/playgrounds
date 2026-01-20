@@ -2,5 +2,17 @@
   "crons": [{
     "path": "/api/refresh-edge-config?secret=playground_refresh_2024_secure_key",
     "schedule": "0 0 * * *"
-  }]
+  }],
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "env": {
+    "SUPABASE_URL": "@supabase-url",
+    "SUPABASE_KEY": "@supabase-key",
+    "REFRESH_SECRET": "@refresh-secret",
+    "EDGE_CONFIG_ID": "@edge-config-id",
+    "VERCEL_TOKEN": "@vercel-token"
+  }
 }
