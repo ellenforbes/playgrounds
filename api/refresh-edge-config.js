@@ -94,7 +94,7 @@ module.exports = async (req, res) => {
     console.log('Updating Edge Config...');
     
     // Use smaller chunk size since playgrounds data is huge
-    const chunkSize = 20;
+    const chunkSize = 5;
     
     // Chunk search index
     const searchChunks = [];
