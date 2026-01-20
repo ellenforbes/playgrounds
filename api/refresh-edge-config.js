@@ -93,27 +93,27 @@ module.exports = async (req, res) => {
     
     console.log('Updating Edge Config...');
     
-    // Split ALL large datasets into chunks
-    const chunkSize = 50;
-
+    // Use smaller chunk size since playgrounds data is huge
+    const chunkSize = 20;
+    
     // Chunk search index
     const searchChunks = [];
     for (let i = 0; i < searchIndex.length; i += chunkSize) {
       searchChunks.push(searchIndex.slice(i, i + chunkSize));
     }
-
+    
     // Chunk playgrounds
     const playgroundChunks = [];
     for (let i = 0; i < allPlaygrounds.length; i += chunkSize) {
       playgroundChunks.push(allPlaygrounds.slice(i, i + chunkSize));
     }
-
+    
     // Chunk events
     const eventChunks = [];
     for (let i = 0; i < events.length; i += chunkSize) {
       eventChunks.push(events.slice(i, i + chunkSize));
     }
-
+    
     // Build items array
     const items = [
       { operation: 'upsert', key: 'libraries', value: libraries },
@@ -121,43 +121,60 @@ module.exports = async (req, res) => {
       { operation: 'upsert', key: 'playgrounds_total', value: allPlaygrounds.length },
       { operation: 'upsert', key: 'events_total', value: events.length }
     ];
-
+    
     // Add all chunks
     searchChunks.forEach((chunk, index) => {
       items.push({ operation: 'upsert', key: `search_chunk_${index}`, value: chunk });
     });
-
+    
     playgroundChunks.forEach((chunk, index) => {
       items.push({ operation: 'upsert', key: `playgrounds_chunk_${index}`, value: chunk });
     });
-
+    
     eventChunks.forEach((chunk, index) => {
       items.push({ operation: 'upsert', key: `events_chunk_${index}`, value: chunk });
     });
-
-    console.log('Uploading', items.length, 'items to Edge Config');
-    console.log('Chunks:', {
+    
+    console.log('Total items to upload:', items.length);
+    console.log('Chunks created:', {
       search: searchChunks.length,
       playgrounds: playgroundChunks.length,
       events: eventChunks.length
     });
-
-    const response = await fetch(
-      `https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items }),
+    
+    // Upload in batches of 5 items to stay well under 2MB
+    const batchSize = 5;
+    const batches = [];
+    
+    for (let i = 0; i < items.length; i += batchSize) {
+      batches.push(items.slice(i, i + batchSize));
+    }
+    
+    console.log(`Uploading in ${batches.length} batches...`);
+    
+    // Upload each batch
+    for (let i = 0; i < batches.length; i++) {
+      console.log(`Uploading batch ${i + 1}/${batches.length}...`);
+      
+      const response = await fetch(
+        `https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ items: batches[i] }),
+        }
+      );
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(`Batch ${i + 1} failed: ${JSON.stringify(result)}`);
       }
-    );
-    
-    const result = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(`Edge Config update failed: ${JSON.stringify(result)}`);
+      
+      console.log(`Batch ${i + 1}/${batches.length} uploaded successfully`);
     }
     
     console.log('Edge Config updated successfully');
@@ -166,6 +183,7 @@ module.exports = async (req, res) => {
       success: true,
       message: 'Edge Config updated successfully',
       updated: new Date().toISOString(),
+      batches: batches.length,
       counts: {
         searchChunks: searchChunks.length,
         playgroundChunks: playgroundChunks.length,
