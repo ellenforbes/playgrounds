@@ -38,8 +38,15 @@ module.exports = async (req, res) => {
       .from('playgrounds_search_mv')
       .select('*');
     
-    if (searchError) throw new Error(`Search index error: ${searchError.message}`);
-    
+    if (searchError) {
+      console.error('Full Supabase error:', {
+        message: searchError.message,
+        details: searchError.details,
+        hint: searchError.hint,
+        code: searchError.code
+      });
+      throw new Error(`Search index error: ${searchError.message} (${searchError.code})`);
+    }
     // Fetch all playgrounds
     const { data: allPlaygrounds, error: playgroundsError } = await supabase
       .from('playgrounds_main')
