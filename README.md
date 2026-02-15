@@ -19,10 +19,12 @@ A web application for discovering and exploring playgrounds and finding children
 
 ### Backend
 - **Python** - Server-side logic and web scraping and API connections
+- **Supabase** - SQL Database (PostGIS enabled) for holding playground and events data
 
 ### Infrastructure
 - **Vercel** - Deployment and hosting
 - **GitHub Actions** - CI/CD pipeline
+- **Resend** - Email Service
 
 ## Project Structure
 ```
