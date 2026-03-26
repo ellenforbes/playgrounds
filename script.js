@@ -1691,15 +1691,16 @@ function addLibrariesToMap() {
 
 async function loadLibrariesData() {
     try {
-        const { data, error } = await supabaseClient
-            .from('libraries')
-            .select('*');
-
-        if (error) throw error;
-
-        librariesData = data;
-       
-        console.log("Loaded libraries data:", librariesData.length);
+        console.log('Loading libraries data...');
+        
+        // Call your API instead of Supabase directly
+        const response = await fetch('/api/libraries');
+        const result = await response.json();
+        
+        if (!response.ok) throw new Error(result.error);
+        
+        librariesData = result.data;
+        console.log(`✅ Loaded libraries data: ${librariesData.length} libraries (${result.source})`);
 
     } catch (err) {
         console.error("Failed to load libraries data:", err);
@@ -1943,23 +1944,45 @@ function createEventClusterIcon(cluster) {
     });
 }
 
-// ===== LOAD ALL SEARCH VALUES (LIGHTWEIGHT) =====
+// ===== DATA LOADING AND PROCESSING =====
 
-async function loadSearchIndex() {
+async function loadPlaygroundData() {
     try {
-        console.log('Loading search index...');
-        
-        // Load the entire search index (just ~20 columns, not all 66)
-        const { data, error } = await supabaseClient
-            .from('playgrounds_search_mv')
-            .select('*');
-        
-        if (error) throw error;
-        
-        searchIndex = data;
-        console.log(`✅ Loaded search index: ${searchIndex.length} playgrounds`);
-        
-        // Extract unique values for filters from the search index
+        console.log('Loading all playgrounds from Supabase...');
+
+        // Supabase returns max 1000 rows by default, so page through all records
+        let allData = [];
+        let from = 0;
+        const pageSize = 1000;
+
+        while (true) {
+            const { data, error } = await supabaseClient
+                .from('playgrounds_main')
+                .select('*')
+                .range(from, from + pageSize - 1);
+
+            if (error) throw error;
+            if (!data || data.length === 0) break;
+
+            allData = allData.concat(data);
+            console.log(`  Fetched rows ${from}–${from + data.length - 1} (${allData.length} total so far)`);
+
+            if (data.length < pageSize) break; // Last page
+            from += pageSize;
+        }
+
+        console.log(`✅ Loaded all ${allData.length} playgrounds from Supabase`);
+
+        // Store data globally
+        playgroundData = allData;
+        allLoadedPlaygrounds = allData;
+        allData.forEach(p => { playgroundLookup[p.uid] = p; });
+
+        // Use the full dataset as the search index (no separate lightweight index needed)
+        searchIndex = allData;
+        searchIndexLoaded = true;
+
+        // Extract unique values for filters
         allSuburbs = extractUniqueValues(searchIndex, 'suburb');
         allLGAs = extractUniqueValues(searchIndex, 'lga');
         allTypes = extractUniqueValues(searchIndex, 'type');
@@ -1970,148 +1993,54 @@ async function loadSearchIndex() {
         allFloorOptions = extractUniqueValues(searchIndex, 'floor');
         allVerifiedOptions = extractUniqueValues(searchIndex, 'verified');
         allFoxOptions = extractUniqueValues(searchIndex, 'flying_fox');
-        
-        // Extract keywords (split comma-separated values)
+
+        // Extract keywords
         const keywordSets = searchIndex
             .map(p => p.keywords)
             .filter(k => k)
             .map(k => k.split(',').map(kw => kw.trim()))
             .flat();
         allKeywords = [...new Set(keywordSets)].sort();
-        
-        // Initialize search UI
+
+        // Initialise search UI
         initialiseKeywordSearch();
         initialiseSuburbSearch();
         initialiseLGASearch();
-        
+        addSearchControl();
+
         // Populate dropdowns
         populateDropdowns();
         populateEditFormDropdowns();
         dropdownsInitialized = true;
-        
-        searchIndexLoaded = true;
-        
-    } catch (error) {
-        console.error('Error loading search index:', error);
-    }
-}
 
-// ===== DATA LOADING AND PROCESSING =====
-
-async function loadPlaygroundData() {
-    // 1. Load search index first (for filters/search)
-    await loadSearchIndex();
-    
-    // 2. THEN add search control to map (after searchIndex is populated)
-    addSearchControl();
-    
-    // 3. Load visible playgrounds (full details for current viewport)
-    await loadVisiblePlaygrounds();
-}
-
-async function loadVisiblePlaygrounds() {
-    if (isLoadingPlaygrounds) return;
-    isLoadingPlaygrounds = true;
-    
-    try {
-        const bounds = map.getBounds().pad(0.5);
-        const north = bounds.getNorth();
-        const south = bounds.getSouth();
-        const east = bounds.getEast();
-        const west = bounds.getWest();
-        
-        const boundsKey = `${south.toFixed(2)},${west.toFixed(2)},${north.toFixed(2)},${east.toFixed(2)}`;
-        
-        if (loadedBounds.has(boundsKey)) {
-            console.log('Already loaded this viewport');
-            isLoadingPlaygrounds = false;
-            return;
-        }
-        
-        console.log('Loading playgrounds for viewport:', boundsKey);
-        
-        const { data, error } = await supabaseClient
-            .rpc('get_playgrounds_in_bounds', {
-                min_lat: south,
-                max_lat: north,
-                min_lng: west,
-                max_lng: east
-            });
-        
-        console.log('✅ Query completed');
-        console.log('Error:', error);
-        console.log('Data received:', data ? data.length : 0, 'playgrounds');
-        if (data && data.length > 0) {
-            console.log('First playground sample:', data[0]);
-        }
-        
-        if (error) throw error;
-        
-        data.forEach(playground => {
-            if (!allLoadedPlaygrounds.find(p => p.uid === playground.uid)) {
-                allLoadedPlaygrounds.push(playground);
-                playgroundLookup[playground.uid] = playground;
-            }
-        });
-        
-        console.log('📊 Total playgrounds loaded:', allLoadedPlaygrounds.length);
-        
-        playgroundData = allLoadedPlaygrounds;
-        updateSearchesWithNewData();
-        
-        console.log('🗺️ Markers before filter:', markerClusterGroup.getLayers().length);
-        
+        // Render markers
         filterMarkers();
-        
-        console.log('🗺️ Markers after filter:', markerClusterGroup.getLayers().length);
-        console.log('🗺️ Cluster group on map:', map.hasLayer(markerClusterGroup));
-        
-        // ✅ ADD THIS LINE - Ensure cluster group is on the map
+
         if (!map.hasLayer(markerClusterGroup)) {
             map.addLayer(markerClusterGroup);
         }
-        
-        loadedBounds.add(boundsKey);
-        
-        if (loadedBounds.size > 20) {
-            clearOldCache();
-        }
-        
+
+        initialLoadComplete = true;
+
     } catch (error) {
-        console.error('❌ Error loading playgrounds:', error);
-    } finally {
-        isLoadingPlaygrounds = false;
+        console.error('❌ Error loading playground data:', error);
     }
 }
 
-function clearOldCache() {
-    console.log('Clearing marker cache');
-    loadedBounds.clear();
-    allLoadedPlaygrounds = [];
-    playgroundData = [];
-    playgroundLookup = {};
-    markerClusterGroup.clearLayers();
-}
-
-function updateSearchesWithNewData() {
-    // Only populate dropdowns on first load
-    if (!dropdownsInitialized) {
-        populateDropdowns();
-        populateEditFormDropdowns();
-        dropdownsInitialized = true;
-    }
-}
+// updateSearchesWithNewData removed - dropdowns are populated once on initial load
 
 async function loadEventsData() {
     try {
-        const { data, error } = await supabaseClient
-            .rpc('get_brisbane_events_with_coords');
-
-        if (error) throw error;
-
-        eventsData = data;
-       
-        console.log("Loaded events data:", eventsData.length);
+        console.log('Loading events data...');
+        
+        // Call your API instead of Supabase directly
+        const response = await fetch('/api/events');
+        const result = await response.json();
+        
+        if (!response.ok) throw new Error(result.error);
+        
+        eventsData = result.data;
+        console.log(`✅ Loaded events data: ${eventsData.length} events (${result.source})`);
 
     } catch (err) {
         console.error("Failed to load events data:", err);
@@ -4386,10 +4315,8 @@ function initialiseApp() {
     initialiseMap();
     initialiseClusterGroup();
     
-    // Load data first, then initialize searches after data is loaded
-    loadPlaygroundData().then(() => {
-        addSearchControl();
-    });
+    // Load all playground data directly from Supabase
+    loadPlaygroundData();
 
     createToggleButtons();
     initializeToggleButtons();
@@ -4398,18 +4325,8 @@ function initialiseApp() {
     setupEventListeners();
     initialiseMobileDrawer();
 
-    // Load more data when map moves
-    let moveTimeout;
-    map.on('moveend', () => {
-        if (!initialLoadComplete) return; // Ignore moveend until initial load done
-        
-        clearTimeout(moveTimeout);
-        moveTimeout = setTimeout(() => {
-            loadVisiblePlaygrounds();
-            updateVisiblePlaygroundCount();
-        }, 300);
-    });
-    
+    // Update count when user pans/zooms (data is already all loaded)
+    map.on('moveend', updateVisiblePlaygroundCount);
     map.on('zoomend', updateVisiblePlaygroundCount);
     
     console.log('initialiseApp completed');
