@@ -1973,6 +1973,17 @@ async function loadPlaygroundData() {
 
         console.log(`✅ Loaded all ${allData.length} playgrounds from Supabase`);
 
+        // Normalise lat/lng from geom field if not already present as flat fields
+        allData.forEach(p => {
+            if (p.lat == null || p.lng == null) {
+                const coords = getPlaygroundCoordinates(p);
+                if (coords) {
+                    p.lat = coords.lat;
+                    p.lng = coords.lng;
+                }
+            }
+        });
+
         // Store data globally
         playgroundData = allData;
         allLoadedPlaygrounds = allData;
