@@ -1503,8 +1503,8 @@ function isSizeIncluded(classification) {
 // ===== FILTERING FUNCTIONALITY =====
 
 function filterMarkers() {
-    if (!searchIndex || searchIndex.length === 0) {
-        console.warn('Search index not loaded yet');
+    if (!searchIndexLoaded || !searchIndex || searchIndex.length === 0) {
+        console.warn('Search index not loaded yet, skipping filter');
         return;
     }
 
@@ -1693,14 +1693,14 @@ async function loadLibrariesData() {
     try {
         console.log('Loading libraries data...');
         
-        // Call your API instead of Supabase directly
-        const response = await fetch('/api/libraries');
-        const result = await response.json();
-        
-        if (!response.ok) throw new Error(result.error);
-        
-        librariesData = result.data;
-        console.log(`✅ Loaded libraries data: ${librariesData.length} libraries (${result.source})`);
+        const { data: librariesResult, error: librariesError } = await supabaseClient
+            .from('libraries')
+            .select('*');
+
+        if (librariesError) throw librariesError;
+
+        librariesData = librariesResult || [];
+        console.log(`✅ Loaded libraries data: ${librariesData.length} libraries`);
 
     } catch (err) {
         console.error("Failed to load libraries data:", err);
@@ -1957,8 +1957,7 @@ async function loadPlaygroundData() {
 
         while (true) {
             const { data, error } = await supabaseClient
-                .from('playgrounds_main')
-                .select('*')
+                .rpc('get_playgrounds_with_coords')
                 .range(from, from + pageSize - 1);
 
             if (error) throw error;
@@ -1973,17 +1972,7 @@ async function loadPlaygroundData() {
 
         console.log(`✅ Loaded all ${allData.length} playgrounds from Supabase`);
 
-        // Normalise lat/lng from geom field if not already present as flat fields
-        allData.forEach(p => {
-            if (p.lat == null || p.lng == null) {
-                const coords = getPlaygroundCoordinates(p);
-                if (coords) {
-                    p.lat = coords.lat;
-                    p.lng = coords.lng;
-                }
-            }
-        });
-
+        // lat/lng already flat from the RPC function
         // Store data globally
         playgroundData = allData;
         allLoadedPlaygrounds = allData;
@@ -2044,14 +2033,13 @@ async function loadEventsData() {
     try {
         console.log('Loading events data...');
         
-        // Call your API instead of Supabase directly
-        const response = await fetch('/api/events');
-        const result = await response.json();
-        
-        if (!response.ok) throw new Error(result.error);
-        
-        eventsData = result.data;
-        console.log(`✅ Loaded events data: ${eventsData.length} events (${result.source})`);
+        const { data: eventsResult, error: eventsError } = await supabaseClient
+            .rpc('get_brisbane_events_with_coords');
+
+        if (eventsError) throw eventsError;
+
+        eventsData = eventsResult || [];
+        console.log(`✅ Loaded events data: ${eventsData.length} events`);
 
     } catch (err) {
         console.error("Failed to load events data:", err);
