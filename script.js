@@ -4315,7 +4315,7 @@ function initialiseApp() {
     initialiseClusterGroup();
     
     // Load all playground data directly from Supabase
-    loadPlaygroundData();
+    // loadPlaygroundData() is called by initialiseMap() after geolocation resolves (or times out)
 
     createToggleButtons();
     initializeToggleButtons();
