@@ -4,7 +4,7 @@ module.exports = async (req, res) => {
   try {
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-    const { data, error } = await supabase.from('playgrounds_main').select('*');
+    const { data, error } = await supabase.rpc('get_playgrounds_with_coords');
 
     if (error) throw new Error(error.message);
 
