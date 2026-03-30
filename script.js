@@ -43,8 +43,8 @@ let ferryProtoLoaded = false;        // Protobuf schema loaded flag
 let FeedMessageType = null;          // Decoded protobuf type
 
 const FERRY_TARGETS = ['GOOTCHA', 'KULUWIN'];
-const FERRY_GTFS_URL = 'https://gtfsrt.api.translink.com.au/api/realtime/SEQ/VehiclePositions/Ferry';
-const FERRY_CORS_PROXY = 'https://corsproxy.io/?';
+const FERRY_GTFS_URL = '/api/ferry-positions';
+const FERRY_CORS_PROXY = '';
 const FERRY_REFRESH_MS = 30000; // 30 seconds
 
 const FERRY_PROTO_SCHEMA = `
@@ -4312,7 +4312,7 @@ async function loadFerryProto() {
 async function fetchAndDisplayFerries() {
     try {
         await loadFerryProto();
-        const res = await fetch(FERRY_CORS_PROXY + encodeURIComponent(FERRY_GTFS_URL));
+        const res = await fetch(FERRY_GTFS_URL);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const buf = await res.arrayBuffer();
         const feed = FeedMessageType.decode(new Uint8Array(buf));
