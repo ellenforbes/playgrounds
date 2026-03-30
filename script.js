@@ -34,6 +34,71 @@ let allFoxOptions = [];
 let searchIndex = []; // Store lightweight search data
 let searchIndexLoaded = false; // 
 
+// ===== FERRY TRACKING GLOBALS =====
+let ferryLayerGroup = null;          // L.layerGroup holding GOOTCHA & KULUWIN markers
+let ferryMarkers = {};               // { GOOTCHA: L.marker, KULUWIN: L.marker }
+let ferryRefreshInterval = null;     // setInterval handle
+let ferryVisible = false;            // Current toggle state
+let ferryProtoLoaded = false;        // Protobuf schema loaded flag
+let FeedMessageType = null;          // Decoded protobuf type
+
+const FERRY_TARGETS = ['GOOTCHA', 'KULUWIN'];
+const FERRY_GTFS_URL = 'https://gtfsrt.api.translink.com.au/api/realtime/SEQ/VehiclePositions/Ferry';
+const FERRY_CORS_PROXY = 'https://corsproxy.io/?';
+const FERRY_REFRESH_MS = 30000; // 30 seconds
+
+const FERRY_PROTO_SCHEMA = `
+  syntax = "proto2";
+  message FeedMessage {
+    required FeedHeader header = 1;
+    repeated FeedEntity entity = 2;
+    extensions 1000 to 1999;
+  }
+  message FeedHeader {
+    required string gtfs_realtime_version = 1;
+    optional uint32 incrementality = 2;
+    optional uint64 timestamp = 3;
+    extensions 1000 to 1999;
+  }
+  message FeedEntity {
+    required string id = 1;
+    optional bool is_deleted = 2;
+    optional TripUpdate trip_update = 3;
+    optional VehiclePosition vehicle = 4;
+    optional Alert alert = 5;
+    extensions 1000 to 1999;
+  }
+  message VehiclePosition {
+    optional TripDescriptor trip = 1;
+    optional VehicleDescriptor vehicle = 8;
+    optional Position position = 2;
+    optional uint32 current_stop_sequence = 3;
+    optional string stop_id = 7;
+    optional int32 current_status = 4;
+    optional uint64 timestamp = 5;
+    extensions 1000 to 1999;
+  }
+  message Position {
+    required float latitude = 1;
+    required float longitude = 2;
+    optional float bearing = 3;
+    optional double odometer = 4;
+    optional float speed = 5;
+  }
+  message TripDescriptor {
+    optional string trip_id = 1;
+    optional string route_id = 5;
+    extensions 1000 to 1999;
+  }
+  message VehicleDescriptor {
+    optional string id = 1;
+    optional string label = 2;
+    optional string license_plate = 3;
+  }
+  message TripUpdate { optional TripDescriptor trip = 1; extensions 1000 to 1999; }
+  message Alert { extensions 1000 to 1999; }
+`;
+
 
 
 // ===== SUPABASE CLIENT =====
@@ -1503,8 +1568,8 @@ function isSizeIncluded(classification) {
 // ===== FILTERING FUNCTIONALITY =====
 
 function filterMarkers() {
-    if (!searchIndexLoaded || !searchIndex || searchIndex.length === 0) {
-        console.warn('Search index not loaded yet, skipping filter');
+    if (!searchIndex || searchIndex.length === 0) {
+        console.warn('Search index not loaded yet');
         return;
     }
 
@@ -1693,14 +1758,14 @@ async function loadLibrariesData() {
     try {
         console.log('Loading libraries data...');
         
-        const { data: librariesResult, error: librariesError } = await supabaseClient
-            .from('libraries')
-            .select('*');
-
-        if (librariesError) throw librariesError;
-
-        librariesData = librariesResult || [];
-        console.log(`✅ Loaded libraries data: ${librariesData.length} libraries`);
+        // Call your API instead of Supabase directly
+        const response = await fetch('/api/libraries');
+        const result = await response.json();
+        
+        if (!response.ok) throw new Error(result.error);
+        
+        librariesData = result.data;
+        console.log(`✅ Loaded libraries data: ${librariesData.length} libraries (${result.source})`);
 
     } catch (err) {
         console.error("Failed to load libraries data:", err);
@@ -1944,45 +2009,22 @@ function createEventClusterIcon(cluster) {
     });
 }
 
-// ===== DATA LOADING AND PROCESSING =====
+// ===== LOAD ALL SEARCH VALUES (LIGHTWEIGHT) =====
 
-async function loadPlaygroundData() {
+async function loadSearchIndex() {
     try {
-        console.log('Loading all playgrounds from Supabase...');
-
-        // Supabase returns max 1000 rows by default, so page through all records
-        let allData = [];
-        let from = 0;
-        const pageSize = 1000;
-
-        while (true) {
-            const { data, error } = await supabaseClient
-                .rpc('get_playgrounds_with_coords')
-                .range(from, from + pageSize - 1);
-
-            if (error) throw error;
-            if (!data || data.length === 0) break;
-
-            allData = allData.concat(data);
-            console.log(`  Fetched rows ${from}–${from + data.length - 1} (${allData.length} total so far)`);
-
-            if (data.length < pageSize) break; // Last page
-            from += pageSize;
-        }
-
-        console.log(`✅ Loaded all ${allData.length} playgrounds from Supabase`);
-
-        // lat/lng already flat from the RPC function
-        // Store data globally
-        playgroundData = allData;
-        allLoadedPlaygrounds = allData;
-        allData.forEach(p => { playgroundLookup[p.uid] = p; });
-
-        // Use the full dataset as the search index (no separate lightweight index needed)
-        searchIndex = allData;
-        searchIndexLoaded = true;
-
-        // Extract unique values for filters
+        console.log('Loading search index...');
+        
+        // Call your API instead of Supabase directly
+        const response = await fetch('/api/search-index');
+        const result = await response.json();
+        
+        if (!response.ok) throw new Error(result.error);
+        
+        searchIndex = result.data;
+        console.log(`✅ Loaded search index: ${searchIndex.length} playgrounds (${result.source})`);
+        
+        // Extract unique values for filters from the search index
         allSuburbs = extractUniqueValues(searchIndex, 'suburb');
         allLGAs = extractUniqueValues(searchIndex, 'lga');
         allTypes = extractUniqueValues(searchIndex, 'type');
@@ -1993,7 +2035,7 @@ async function loadPlaygroundData() {
         allFloorOptions = extractUniqueValues(searchIndex, 'floor');
         allVerifiedOptions = extractUniqueValues(searchIndex, 'verified');
         allFoxOptions = extractUniqueValues(searchIndex, 'flying_fox');
-
+        
         // Extract keywords
         const keywordSets = searchIndex
             .map(p => p.keywords)
@@ -2001,45 +2043,129 @@ async function loadPlaygroundData() {
             .map(k => k.split(',').map(kw => kw.trim()))
             .flat();
         allKeywords = [...new Set(keywordSets)].sort();
-
-        // Initialise search UI
+        
+        // Initialize search UI
         initialiseKeywordSearch();
         initialiseSuburbSearch();
         initialiseLGASearch();
-        addSearchControl();
-
+        
         // Populate dropdowns
         populateDropdowns();
         populateEditFormDropdowns();
         dropdownsInitialized = true;
-
-        // Render markers
-        filterMarkers();
-
-        if (!map.hasLayer(markerClusterGroup)) {
-            map.addLayer(markerClusterGroup);
-        }
-
-        initialLoadComplete = true;
-
+        
+        searchIndexLoaded = true;
+        
     } catch (error) {
-        console.error('❌ Error loading playground data:', error);
+        console.error('Error loading search index:', error);
     }
 }
 
-// updateSearchesWithNewData removed - dropdowns are populated once on initial load
+// ===== DATA LOADING AND PROCESSING =====
+
+async function loadPlaygroundData() {
+    // 1. Load search index first (for filters/search)
+    await loadSearchIndex();
+    
+    // 2. THEN add search control to map (after searchIndex is populated)
+    addSearchControl();
+    
+    // 3. Load visible playgrounds (full details for current viewport)
+    await loadVisiblePlaygrounds();
+}
+
+async function loadVisiblePlaygrounds() {
+    if (isLoadingPlaygrounds) return;
+    isLoadingPlaygrounds = true;
+    
+    try {
+        const bounds = map.getBounds().pad(0.5);
+        const params = new URLSearchParams({
+            min_lat: bounds.getSouth(),
+            max_lat: bounds.getNorth(),
+            min_lng: bounds.getWest(),
+            max_lng: bounds.getEast()
+        });
+        
+        const boundsKey = `${bounds.getSouth().toFixed(2)},${bounds.getWest().toFixed(2)},${bounds.getNorth().toFixed(2)},${bounds.getEast().toFixed(2)}`;
+        
+        if (loadedBounds.has(boundsKey)) {
+            console.log('Already loaded this viewport');
+            isLoadingPlaygrounds = false;
+            return;
+        }
+        
+        console.log('Loading playgrounds for viewport:', boundsKey);
+        
+        // Call your API instead of Supabase directly
+        const response = await fetch(`/api/playgrounds?${params}`);
+        const result = await response.json();
+        
+        if (!response.ok) throw new Error(result.error);
+        
+        const data = result.data;
+        
+        console.log(`✅ Loaded ${data.length} playgrounds (${result.source})`);
+        
+        data.forEach(playground => {
+            if (!allLoadedPlaygrounds.find(p => p.uid === playground.uid)) {
+                allLoadedPlaygrounds.push(playground);
+                playgroundLookup[playground.uid] = playground;
+            }
+        });
+        
+        playgroundData = allLoadedPlaygrounds;
+        updateSearchesWithNewData();
+        
+        filterMarkers();
+        
+        if (!map.hasLayer(markerClusterGroup)) {
+            map.addLayer(markerClusterGroup);
+        }
+        
+        loadedBounds.add(boundsKey);
+        
+        if (loadedBounds.size > 20) {
+            clearOldCache();
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading playgrounds:', error);
+    } finally {
+        isLoadingPlaygrounds = false;
+    }
+}
+
+function clearOldCache() {
+    console.log('Clearing marker cache');
+    loadedBounds.clear();
+    allLoadedPlaygrounds = [];
+    playgroundData = [];
+    playgroundLookup = {};
+    markerClusterGroup.clearLayers();
+}
+
+function updateSearchesWithNewData() {
+    // Only populate dropdowns on first load
+    if (!dropdownsInitialized) {
+        populateDropdowns();
+        populateEditFormDropdowns();
+        dropdownsInitialized = true;
+    }
+}
 
 async function loadEventsData() {
     try {
         console.log('Loading events data...');
         
-        const { data: eventsResult, error: eventsError } = await supabaseClient
-            .rpc('get_brisbane_events_with_coords');
-
-        if (eventsError) throw eventsError;
-
-        eventsData = eventsResult || [];
-        console.log(`✅ Loaded events data: ${eventsData.length} events`);
+        // Call your API instead of Supabase directly
+        const response = await fetch('/api/events');
+        const result = await response.json();
+        
+        if (!response.ok) throw new Error(result.error);
+        
+        eventsData = result.data;
+        console.log(`✅ Loaded events data: ${eventsData.length} events (${result.source})`);
 
     } catch (err) {
         console.error("Failed to load events data:", err);
@@ -4155,6 +4281,136 @@ function addSearchResultMarker(lat, lng, displayName, isPlayground) {
     }, 8000);
 }
 
+// ===== FERRY TRACKING FUNCTIONS =====
+
+function makeFerryIcon(vesselName) {
+    const color = vesselName === 'GOOTCHA' ? '#00e5a0' : '#1e90ff';
+    return L.divIcon({
+        className: '',
+        html: `<div style="
+            width: 38px; height: 38px;
+            background: ${color};
+            border: 3px solid #fff;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 0 10px ${color}99;
+        ">⛴</div>`,
+        iconSize: [38, 38],
+        iconAnchor: [19, 19],
+        popupAnchor: [0, -22]
+    });
+}
+
+async function loadFerryProto() {
+    if (ferryProtoLoaded) return;
+    const root = protobuf.parse(FERRY_PROTO_SCHEMA).root;
+    FeedMessageType = root.lookupType('FeedMessage');
+    ferryProtoLoaded = true;
+}
+
+async function fetchAndDisplayFerries() {
+    try {
+        await loadFerryProto();
+        const res = await fetch(FERRY_CORS_PROXY + encodeURIComponent(FERRY_GTFS_URL));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const buf = await res.arrayBuffer();
+        const feed = FeedMessageType.decode(new Uint8Array(buf));
+
+        for (const entity of feed.entity) {
+            const vp = entity.vehicle;
+            if (!vp) continue;
+
+            const label = (vp.vehicle?.label || '').toUpperCase().trim();
+            if (!FERRY_TARGETS.includes(label)) continue;
+
+            const lat = vp.position?.latitude;
+            const lon = vp.position?.longitude;
+            const bearing = vp.position?.bearing;
+            const speed = vp.position?.speed;
+            const ts = vp.timestamp;
+            const routeId = vp.trip?.routeId || '—';
+
+            if (!lat || !lon) continue;
+
+            const updatedTime = ts
+                ? new Date(Number(ts) * 1000).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                : '—';
+            const speedKmh = speed ? (speed * 3.6).toFixed(1) + ' km/h' : '—';
+            const bearingStr = bearing ? bearing.toFixed(0) + '°' : '—';
+
+            const popupHtml = `
+                <div style="font-family: sans-serif; min-width: 160px;">
+                    <div style="font-weight: 700; font-size: 1rem; margin-bottom: 6px;">⛴ ${label}</div>
+                    <div style="font-size: 0.8rem; color: #444; line-height: 1.7;">
+                        <b>Route:</b> ${routeId}<br>
+                        <b>Speed:</b> ${speedKmh}<br>
+                        <b>Bearing:</b> ${bearingStr}<br>
+                        <b>Updated:</b> ${updatedTime}
+                    </div>
+                </div>`;
+
+            if (ferryMarkers[label]) {
+                ferryMarkers[label].setLatLng([lat, lon]).setPopupContent(popupHtml);
+            } else {
+                ferryMarkers[label] = L.marker([lat, lon], { icon: makeFerryIcon(label) })
+                    .bindPopup(popupHtml)
+                    .addTo(ferryLayerGroup);
+            }
+        }
+
+        // Remove markers for vessels that didn't appear in this feed
+        for (const name of FERRY_TARGETS) {
+            const inFeed = feed.entity.some(e =>
+                (e.vehicle?.vehicle?.label || '').toUpperCase().trim() === name &&
+                e.vehicle?.position?.latitude
+            );
+            if (!inFeed && ferryMarkers[name]) {
+                ferryLayerGroup.removeLayer(ferryMarkers[name]);
+                delete ferryMarkers[name];
+            }
+        }
+
+        console.log(`Ferry positions updated: ${Object.keys(ferryMarkers).join(', ') || 'none found'}`);
+    } catch (err) {
+        console.warn('Ferry GTFS-RT fetch failed:', err.message);
+    }
+}
+
+function initialiseFerryLayer() {
+    ferryLayerGroup = L.layerGroup();
+}
+
+function startFerryTracking() {
+    fetchAndDisplayFerries();
+    ferryRefreshInterval = setInterval(fetchAndDisplayFerries, FERRY_REFRESH_MS);
+    console.log('Ferry tracking started (30s refresh)');
+}
+
+function stopFerryTracking() {
+    if (ferryRefreshInterval) {
+        clearInterval(ferryRefreshInterval);
+        ferryRefreshInterval = null;
+    }
+}
+
+function toggleFerries() {
+    const btn = document.getElementById('toggleFerriesBtn');
+    if (!ferryVisible) {
+        map.addLayer(ferryLayerGroup);
+        ferryVisible = true;
+        startFerryTracking();
+        if (btn) btn.classList.remove('ferries-hidden');
+        console.log('Ferries layer shown');
+    } else {
+        map.removeLayer(ferryLayerGroup);
+        ferryVisible = false;
+        stopFerryTracking();
+        if (btn) btn.classList.add('ferries-hidden');
+        console.log('Ferries layer hidden');
+    }
+}
+
 // ===== TOGGLE BUTTON LOCATIONS =====
 function createToggleButtons() {
     const buttonContainer = document.createElement('div');
@@ -4190,6 +4446,11 @@ function createToggleButtons() {
             <span class="events-icon">📚</span>
             <span class="events-text">Libraries</span>
         </button>
+
+        <button id="toggleFerriesBtn" class="toggle-events-btn ferries-hidden">
+            <span class="events-icon">⛴</span>
+            <span class="events-text">Ferries</span>
+        </button>
     `;
     
     document.body.appendChild(buttonContainer);
@@ -4221,6 +4482,15 @@ function initializeToggleButtons() {
         
         toggleLibrariesBtn.addEventListener('click', toggleLibraries);
         console.log('Libraries toggle button initialized');
+    }
+
+    // ── Ferry toggle button ──
+    const toggleFerriesBtn = document.getElementById('toggleFerriesBtn');
+    if (toggleFerriesBtn) {
+        // Start hidden – user opts in by clicking
+        toggleFerriesBtn.classList.add('ferries-hidden');
+        toggleFerriesBtn.addEventListener('click', toggleFerries);
+        console.log('Ferries toggle button initialized');
     }
 }
 
@@ -4313,9 +4583,12 @@ function getMarkerColor(classification) {
 function initialiseApp() {
     initialiseMap();
     initialiseClusterGroup();
+    initialiseFerryLayer(); // Set up ferry layer group before toggle buttons
     
-    // Load all playground data directly from Supabase
-    // loadPlaygroundData() is called by initialiseMap() after geolocation resolves (or times out)
+    // Load data first, then initialize searches after data is loaded
+    loadPlaygroundData().then(() => {
+        addSearchControl();
+    });
 
     createToggleButtons();
     initializeToggleButtons();
@@ -4324,8 +4597,18 @@ function initialiseApp() {
     setupEventListeners();
     initialiseMobileDrawer();
 
-    // Update count when user pans/zooms (data is already all loaded)
-    map.on('moveend', updateVisiblePlaygroundCount);
+    // Load more data when map moves
+    let moveTimeout;
+    map.on('moveend', () => {
+        if (!initialLoadComplete) return; // Ignore moveend until initial load done
+        
+        clearTimeout(moveTimeout);
+        moveTimeout = setTimeout(() => {
+            loadVisiblePlaygrounds();
+            updateVisiblePlaygroundCount();
+        }, 300);
+    });
+    
     map.on('zoomend', updateVisiblePlaygroundCount);
     
     console.log('initialiseApp completed');
