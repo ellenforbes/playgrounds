@@ -1,24 +1,17 @@
-import { get } from '@vercel/edge-config';
+const { createClient } = require('@supabase/supabase-js');
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   try {
-    const data = await get('search_index');
-    
-    if (data) {
-      return res.status(200).json({
-        data,
-        source: 'edge-config',
-        count: data.length
-      });
-    }
-    
-    return res.status(404).json({ 
-      error: 'Search index not found. Please refresh the cache.',
-      hint: 'Call /api/refresh-edge-config?secret=YOUR_SECRET'
-    });
-    
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+    const { data, error } = await supabase.from('playgrounds_search_mv').select('*');
+
+    if (error) throw new Error(error.message);
+
+    return res.status(200).json({ data, count: data.length });
+
   } catch (error) {
-    console.error('Edge Config error:', error);
+    console.error('Search index error:', error);
     return res.status(500).json({ error: error.message });
   }
-}
+};

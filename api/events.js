@@ -1,23 +1,17 @@
-import { get } from '@vercel/edge-config';
+const { createClient } = require('@supabase/supabase-js');
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   try {
-    const data = await get('events');
-    
-    if (data) {
-      return res.status(200).json({
-        data,
-        source: 'edge-config',
-        count: data.length
-      });
-    }
-    
-    return res.status(404).json({ 
-      error: 'Events not found in Edge Config. Please refresh the cache.' 
-    });
-    
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+    const { data, error } = await supabase.rpc('get_brisbane_events_with_coords');
+
+    if (error) throw new Error(error.message);
+
+    return res.status(200).json({ data, count: data.length });
+
   } catch (error) {
-    console.error('Edge Config error:', error);
+    console.error('Events error:', error);
     return res.status(500).json({ error: error.message });
   }
-}
+};
