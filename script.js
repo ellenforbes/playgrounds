@@ -67,6 +67,25 @@ const VEHICLE_STATUS_TEXT = {
 // Trip-updates endpoint (same proxy pattern as vehicle positions)
 const FERRY_TRIP_UPDATES_URL = '/api/ferry-trip-updates';
 
+// ── Generic stop-name lookup (shared across all transit types) ──────────────
+// Call loadTransitStopNames('Ferry'), ('Bus'), ('Rail'), ('Tram'), or ('all')
+// Returns { stop_id: "Stop Name" } — graceful empty object on failure
+const TRANSIT_STOPS_URL = '/api/transit-stops';
+let ferryStopNames = {};   // ferry-specific slice of the lookup
+
+async function loadTransitStopNames(type = 'Ferry') {
+    try {
+        const res = await fetch(`${TRANSIT_STOPS_URL}?type=${type}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const lookup = await res.json();
+        console.log(`Transit stop names loaded (type=${type}): ${Object.keys(lookup).length} stops`);
+        return lookup;
+    } catch (e) {
+        console.warn(`Could not load transit stop names (type=${type}):`, e.message);
+        return {};
+    }
+}
+
 const FERRY_PROTO_SCHEMA = `
   syntax = "proto2";
   message FeedMessage {
@@ -4417,7 +4436,8 @@ async function fetchAndDisplayFerries() {
             let stopLine = '';
             if (stopId !== null) {
                 const statusText = VEHICLE_STATUS_TEXT[statusCode] ?? 'Near stop';
-                stopLine = `<b>${statusText}:</b> ${stopId}<br>`;
+                const stopName = ferryStopNames[stopId] || stopId;
+                stopLine = `<b>${statusText}:</b> ${stopName}<br>`;
             }
 
             // Build next arrival line from trip updates
@@ -4432,9 +4452,10 @@ async function fetchAndDisplayFerries() {
                 if (nextStop) {
                     const arrTime = formatArrivalTime(nextStop.arrival?.time);
                     const depTime = formatArrivalTime(nextStop.departure?.time);
-                    const nextStopId = nextStop.stop_id || nextStop.stopId || '—';
+                    const rawStopId = nextStop.stop_id || nextStop.stopId || '—';
+                    const nextStopName = ferryStopNames[rawStopId] || rawStopId;
                     const timeStr = arrTime || depTime || '—';
-                    arrivalLine = `<b>Next arrival:</b> ${nextStopId} @ ${timeStr}<br>`;
+                    arrivalLine = `<b>Next arrival:</b> ${nextStopName} @ ${timeStr}<br>`;
                 }
             }
 
@@ -4478,6 +4499,7 @@ async function fetchAndDisplayFerries() {
 
 function initialiseFerryLayer() {
     ferryLayerGroup = L.layerGroup();
+    loadTransitStopNames('Ferry').then(lookup => { ferryStopNames = lookup; });
 }
 
 function startFerryTracking() {
