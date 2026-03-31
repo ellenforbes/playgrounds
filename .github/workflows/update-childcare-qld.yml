@@ -1,0 +1,31 @@
+name: Import ACECQA QLD Childcare Data
+
+on:
+  schedule:
+    - cron: '0 20 1 * *'   # 1st of every month at 6:00am Brisbane time (UTC+10)
+  workflow_dispatch:        # Allow manual triggering from GitHub UI
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90     # First run (geocoding ~3000 addresses) can take ~60 mins
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run childcare import
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          cd childcare_import
+          python import_childcare_qld.py
