@@ -47,6 +47,26 @@ const FERRY_GTFS_URL = '/api/ferry-positions';
 const FERRY_CORS_PROXY = '';
 const FERRY_REFRESH_MS = 30000; // 30 seconds
 
+// Display names (Bluey / Bingo) and vessel names shown in info box
+const FERRY_DISPLAY_NAMES = {
+    'GOOTCHA': 'Bluey',
+    'KULUWIN': 'Bingo'
+};
+const FERRY_VESSEL_NAMES = {
+    'GOOTCHA': 'Gootcha',
+    'KULUWIN': 'Kuluwin'
+};
+
+// GTFS-RT current_status codes
+const VEHICLE_STATUS_TEXT = {
+    0: 'Incoming at',
+    1: 'Stopped at',
+    2: 'In transit to'
+};
+
+// Trip-updates endpoint (same proxy pattern as vehicle positions)
+const FERRY_TRIP_UPDATES_URL = '/api/ferry-trip-updates';
+
 const FERRY_PROTO_SCHEMA = `
   syntax = "proto2";
   message FeedMessage {
@@ -95,7 +115,23 @@ const FERRY_PROTO_SCHEMA = `
     optional string label = 2;
     optional string license_plate = 3;
   }
-  message TripUpdate { optional TripDescriptor trip = 1; extensions 1000 to 1999; }
+  message TripUpdate {
+    optional TripDescriptor trip = 1;
+    repeated StopTimeUpdate stop_time_update = 2;
+    extensions 1000 to 1999;
+  }
+  message StopTimeUpdate {
+    optional uint32 stop_sequence = 1;
+    optional string stop_id = 4;
+    optional StopTimeEvent arrival = 2;
+    optional StopTimeEvent departure = 3;
+    optional int32 schedule_relationship = 5;
+  }
+  message StopTimeEvent {
+    optional int32 delay = 1;
+    optional int64 time = 2;
+    optional float uncertainty = 3;
+  }
   message Alert { extensions 1000 to 1999; }
 `;
 
@@ -4284,7 +4320,9 @@ function addSearchResultMarker(lat, lng, displayName, isPlayground) {
 // ===== FERRY TRACKING FUNCTIONS =====
 
 function makeFerryIcon(vesselName) {
-    const color = vesselName === 'GOOTCHA' ? '#00e5a0' : '#1e90ff';
+    // Bluey = teal/green, Bingo = orange
+    const color = vesselName === 'GOOTCHA' ? '#00e5a0' : '#ff8c00';
+    const displayName = FERRY_DISPLAY_NAMES[vesselName] || vesselName;
     return L.divIcon({
         className: '',
         html: `<div style="
@@ -4309,12 +4347,46 @@ async function loadFerryProto() {
     ferryProtoLoaded = true;
 }
 
+// Fetch trip-update predictions and return a map of { trip_id -> [StopTimeUpdate] }
+async function fetchTripUpdates() {
+    try {
+        await loadFerryProto();
+        const res = await fetch(FERRY_TRIP_UPDATES_URL);
+        if (!res.ok) return {};
+        const buf = await res.arrayBuffer();
+        const feed = FeedMessageType.decode(new Uint8Array(buf));
+        const map = {};
+        for (const entity of feed.entity) {
+            const tu = entity.trip_update;
+            if (!tu || !tu.trip) continue;
+            const tripId = tu.trip.trip_id;
+            if (tripId) map[tripId] = tu.stop_time_update || [];
+        }
+        return map;
+    } catch (e) {
+        return {};
+    }
+}
+
+// Format a Unix timestamp as a human-readable time string
+function formatArrivalTime(unixSecs) {
+    if (!unixSecs) return null;
+    const d = new Date(Number(unixSecs) * 1000);
+    return d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+}
+
 async function fetchAndDisplayFerries() {
     try {
         await loadFerryProto();
-        const res = await fetch(FERRY_GTFS_URL);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const buf = await res.arrayBuffer();
+
+        // Fetch both vehicle positions and trip updates concurrently
+        const [posRes, tripUpdates] = await Promise.all([
+            fetch(FERRY_GTFS_URL),
+            fetchTripUpdates()
+        ]);
+
+        if (!posRes.ok) throw new Error(`HTTP ${posRes.status}`);
+        const buf = await posRes.arrayBuffer();
         const feed = FeedMessageType.decode(new Uint8Array(buf));
 
         for (const entity of feed.entity) {
@@ -4326,27 +4398,54 @@ async function fetchAndDisplayFerries() {
 
             const lat = vp.position?.latitude;
             const lon = vp.position?.longitude;
-            const bearing = vp.position?.bearing;
-            const speed = vp.position?.speed;
             const ts = vp.timestamp;
-            const routeId = vp.trip?.routeId || '—';
+            const routeId = vp.trip?.route_id || vp.trip?.routeId || '—';
+            const tripId = vp.trip?.trip_id || vp.trip?.tripId || null;
+            const stopId = vp.stop_id || vp.stopId || null;
+            const statusCode = vp.current_status ?? vp.currentStatus ?? null;
 
             if (!lat || !lon) continue;
+
+            const displayName = FERRY_DISPLAY_NAMES[label] || label;
+            const vesselName = FERRY_VESSEL_NAMES[label] || label;
 
             const updatedTime = ts
                 ? new Date(Number(ts) * 1000).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                 : '—';
-            const speedKmh = speed ? (speed * 3.6).toFixed(1) + ' km/h' : '—';
-            const bearingStr = bearing ? bearing.toFixed(0) + '°' : '—';
 
+            // Build stop status line
+            let stopLine = '';
+            if (stopId !== null) {
+                const statusText = VEHICLE_STATUS_TEXT[statusCode] ?? 'Near stop';
+                stopLine = `<b>${statusText}:</b> ${stopId}<br>`;
+            }
+
+            // Build next arrival line from trip updates
+            let arrivalLine = '';
+            if (tripId && tripUpdates[tripId] && tripUpdates[tripId].length > 0) {
+                // Find the first future stop time update with an arrival time
+                const now = Math.floor(Date.now() / 1000);
+                const nextStop = tripUpdates[tripId].find(stu => {
+                    const arrTime = stu.arrival?.time;
+                    return arrTime && Number(arrTime) >= now - 60;
+                });
+                if (nextStop) {
+                    const arrTime = formatArrivalTime(nextStop.arrival?.time);
+                    const depTime = formatArrivalTime(nextStop.departure?.time);
+                    const nextStopId = nextStop.stop_id || nextStop.stopId || '—';
+                    const timeStr = arrTime || depTime || '—';
+                    arrivalLine = `<b>Next arrival:</b> ${nextStopId} @ ${timeStr}<br>`;
+                }
+            }
+
+            const iconColor = label === 'GOOTCHA' ? '#00e5a0' : '#ff8c00';
             const popupHtml = `
-                <div style="font-family: sans-serif; min-width: 160px;">
-                    <div style="font-weight: 700; font-size: 1rem; margin-bottom: 6px;">⛴ ${label}</div>
+                <div style="font-family: sans-serif; min-width: 175px;">
+                    <div style="font-weight: 700; font-size: 1rem; margin-bottom: 6px; color: ${iconColor};">⛴ ${displayName}</div>
                     <div style="font-size: 0.8rem; color: #444; line-height: 1.7;">
+                        <b>Vessel:</b> ${vesselName}<br>
                         <b>Route:</b> ${routeId}<br>
-                        <b>Speed:</b> ${speedKmh}<br>
-                        <b>Bearing:</b> ${bearingStr}<br>
-                        <b>Updated:</b> ${updatedTime}
+                        ${stopLine}${arrivalLine}<b>Updated:</b> ${updatedTime}
                     </div>
                 </div>`;
 
@@ -4449,7 +4548,7 @@ function createToggleButtons() {
 
         <button id="toggleFerriesBtn" class="toggle-events-btn ferries-hidden">
             <span class="events-icon">⛴</span>
-            <span class="events-text">Ferries</span>
+            <span class="events-text">CityDogs</span>
         </button>
     `;
     
