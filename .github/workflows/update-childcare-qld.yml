@@ -27,5 +27,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          cd childcare_import
+          cd event_scrapers
           python import_childcare_qld.py
