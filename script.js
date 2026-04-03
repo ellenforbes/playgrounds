@@ -1229,38 +1229,7 @@ function parseEventDate(str) {
     } catch { return null; }
 }
 
-// Populate event-type checkboxes after data loads (call from loadEventsData)
-function populateEventTypeFilters() {
-    if (!eventsData?.length) return;
 
-    const allTypes = new Set();
-    eventsData.forEach(event => {
-        parseArrayField(event.event_type).forEach(t => { if (t) allTypes.add(t); });
-    });
-
-    const container = document.getElementById('eventTypeFilters');
-    if (!container) return;
-    container.innerHTML = '';
-
-    if (!allTypes.size) {
-        container.innerHTML = '<span class="text-xs text-gray-400 italic">No event types found.</span>';
-        return;
-    }
-
-    [...allTypes].sort().forEach(type => {
-        const label    = document.createElement('label');
-        label.className = 'feature-filter-option';
-        const cb       = document.createElement('input');
-        cb.type        = 'checkbox';
-        cb.className   = 'event-type-cb';
-        cb.value       = type;
-        cb.checked     = true;
-        cb.addEventListener('change', filterEvents);
-        label.appendChild(cb);
-        label.appendChild(document.createTextNode(' ' + type));
-        container.appendChild(label);
-    });
-}
 // ===== LIBRARY MARKERS =====
 
 function createLibraryMarker(library) {
@@ -1441,7 +1410,6 @@ async function loadEventsData() {
         console.log(`✅ Loaded ${eventsData.length} events`);
         if (eventsData.length) {
             addEventsToMap();
-            populateEventTypeFilters();  // ← new
         }
     } catch (err) {
         console.error('Failed to load events data:', err);
