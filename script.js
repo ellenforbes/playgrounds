@@ -358,6 +358,31 @@ function handleOutsideClick(event) {
     });
 }
 
+function updateTopicCount() {
+    let count = 0;
+    let label = '';
+
+    if (activeFilterTab === 'playgrounds') {
+        if (map && markerClusterGroup) {
+            const bounds = map.getBounds();
+            markerClusterGroup.eachLayer(m => { if (bounds.contains(m.getLatLng())) count++; });
+        }
+        label = `playground${count !== 1 ? 's' : ''}`;
+
+    } else if (activeFilterTab === 'events') {
+        eventsClusterGroup?.eachLayer(() => count++);
+        label = `event${count !== 1 ? 's' : ''}`;
+
+    } else if (activeFilterTab === 'libraries') {
+        librariesClusterGroup?.eachLayer(() => count++);
+        label = `librar${count !== 1 ? 'ies' : 'y'}`;
+    }
+
+    document.querySelectorAll('.playgroundCount').forEach(el => {
+        el.textContent = `${count} ${label}`;
+    });
+}
+
 // ===== MAP INITIALIZATION =====
 
 let hasGeolocated = false;
@@ -544,19 +569,40 @@ function addMarkersToMap() {
     if (!map.hasLayer(markerClusterGroup)) map.addLayer(markerClusterGroup);
 }
 
-let eventsVisible = true;
-let librariesVisible = true;
+let eventsVisible = false;
+let librariesVisible = false;
+let playgroundsVisible = true;    // Playgrounds start ON
+let activeFilterTab    = 'playgrounds';
+
+
+function togglePlaygrounds() {
+    const btn = document.getElementById('togglePlaygroundsBtn');
+    if (playgroundsVisible) {
+        map.removeLayer(markerClusterGroup);
+        btn?.classList.add('playgrounds-hidden');
+        playgroundsVisible = false;
+    } else {
+        map.addLayer(markerClusterGroup);
+        btn?.classList.remove('playgrounds-hidden');
+        playgroundsVisible = true;
+        switchFilterTab('playgrounds');
+    }
+    updateTopicCount();
+}
 
 function toggleEvents() {
     const btn = document.getElementById('toggleEventsBtn');
     if (eventsVisible) {
         map.removeLayer(eventsClusterGroup);
         btn?.classList.add('events-hidden');
+        eventsVisible = false;
     } else {
         map.addLayer(eventsClusterGroup);
         btn?.classList.remove('events-hidden');
+        eventsVisible = true;
+        switchFilterTab('events');  // auto-switch filter tab
     }
-    eventsVisible = !eventsVisible;
+    updateTopicCount();
 }
 
 function toggleLibraries() {
@@ -564,11 +610,14 @@ function toggleLibraries() {
     if (librariesVisible) {
         map.removeLayer(librariesClusterGroup);
         btn?.classList.add('libraries-hidden');
+        librariesVisible = false;
     } else {
         map.addLayer(librariesClusterGroup);
         btn?.classList.remove('libraries-hidden');
+        librariesVisible = true;
+        switchFilterTab('libraries');  // auto-switch filter tab
     }
-    librariesVisible = !librariesVisible;
+    updateTopicCount();
 }
 
 // ===== POPUP FUNCTIONALITY =====
@@ -1054,22 +1103,13 @@ function filterMarkers() {
         if (filteredIds.has(playground.uid)) markerClusterGroup.addLayer(createMarker(playground));
     });
 
-    updateVisiblePlaygroundCount();
+    updateTopicCount();
 }
 
 function updatePlaygroundCount(count) {
     document.querySelectorAll('.playgroundCount').forEach(el => {
         el.textContent = `${count} playground${count !== 1 ? 's' : ''}`;
     });
-}
-
-function updateVisiblePlaygroundCount() {
-    const bounds = map.getBounds();
-    let visibleCount = 0;
-    markerClusterGroup.eachLayer(marker => {
-        if (bounds.contains(marker.getLatLng())) visibleCount++;
-    });
-    updatePlaygroundCount(visibleCount);
 }
 
 function getActiveFilters() {
@@ -1118,6 +1158,94 @@ function shouldShowPlayground(playground, filters) {
     return true;
 }
 
+//Events filtering //
+function filterEvents() {
+    if (!eventsData?.length) return;
+
+    const futureOnly      = document.getElementById('filterEventsFutureOnly')?.checked;
+    const dateFrom        = document.getElementById('filterEventsDateFrom')?.value;
+    const dateTo          = document.getElementById('filterEventsDateTo')?.value;
+    const selCategories   = Array.from(document.querySelectorAll('.event-category-cb:checked')).map(cb => cb.value);
+    const selTypes        = Array.from(document.querySelectorAll('.event-type-cb:checked')).map(cb => cb.value);
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const fromDate = dateFrom ? new Date(dateFrom) : null;
+    const toDate   = dateTo   ? new Date(dateTo + 'T23:59:59') : null;
+
+    eventsClusterGroup.clearLayers();
+
+    eventsData.forEach(event => {
+        const eventDate = parseEventDate(event.formatteddatetime);
+
+        // Future-only gate
+        if (futureOnly && eventDate && eventDate < today) return;
+
+        // Date-from gate
+        if (fromDate && eventDate && eventDate < fromDate) return;
+
+        // Date-to gate
+        if (toDate && eventDate && eventDate > toDate) return;
+
+        // Category gate
+        if (selCategories.length && !selCategories.includes(event.display_category)) return;
+
+        // Type gate (event_type is array-ish)
+        if (selTypes.length) {
+            const types = parseArrayField(event.event_type);
+            if (!types.some(t => selTypes.includes(t))) return;
+        }
+
+        if (event.latitude != null && event.longitude != null) {
+            eventsClusterGroup.addLayer(createEventMarker(event));
+        }
+    });
+
+    updateTopicCount();
+}
+
+// Parse the formatteddatetime string — handles common AU formats
+function parseEventDate(str) {
+    if (!str) return null;
+    try {
+        // "Saturday, 5 April 2025 10:00am"
+        // new Date() handles many formats, including ISO
+        const d = new Date(str);
+        return isNaN(d) ? null : d;
+    } catch { return null; }
+}
+
+// Populate event-type checkboxes after data loads (call from loadEventsData)
+function populateEventTypeFilters() {
+    if (!eventsData?.length) return;
+
+    const allTypes = new Set();
+    eventsData.forEach(event => {
+        parseArrayField(event.event_type).forEach(t => { if (t) allTypes.add(t); });
+    });
+
+    const container = document.getElementById('eventTypeFilters');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!allTypes.size) {
+        container.innerHTML = '<span class="text-xs text-gray-400 italic">No event types found.</span>';
+        return;
+    }
+
+    [...allTypes].sort().forEach(type => {
+        const label    = document.createElement('label');
+        label.className = 'feature-filter-option';
+        const cb       = document.createElement('input');
+        cb.type        = 'checkbox';
+        cb.className   = 'event-type-cb';
+        cb.value       = type;
+        cb.checked     = true;
+        cb.addEventListener('change', filterEvents);
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(' ' + type));
+        container.appendChild(label);
+    });
+}
 // ===== LIBRARY MARKERS =====
 
 function createLibraryMarker(library) {
@@ -1162,6 +1290,25 @@ function addLibrariesToMap() {
         }
     });
 }
+
+//Library filtering
+function filterLibraries() {
+    if (!librariesData?.length) return;
+
+    // const openNow = document.getElementById('filterLibrariesOpenNow')?.checked;
+    // Parsing opening hours reliably requires knowing the data format —
+    // add logic here once the field format is confirmed.
+
+    librariesClusterGroup.clearLayers();
+    librariesData.forEach(lib => {
+        if (lib.latitude != null && lib.longitude != null) {
+            librariesClusterGroup.addLayer(createLibraryMarker(lib));
+        }
+    });
+
+    updateTopicCount();
+}
+
 
 async function loadLibrariesData() {
     try {
@@ -1277,11 +1424,15 @@ async function loadEventsData() {
         if (!response.ok) throw new Error(result.error);
         eventsData = result.data;
         console.log(`✅ Loaded ${eventsData.length} events`);
-        if (eventsData.length) addEventsToMap();
+        if (eventsData.length) {
+            addEventsToMap();
+            populateEventTypeFilters();  // ← new
+        }
     } catch (err) {
         console.error('Failed to load events data:', err);
     }
 }
+
 
 // ===== SEARCH INDEX (filters/dropdowns — loads independently of viewport) =====
 
@@ -2425,34 +2576,69 @@ function createToggleButtons() {
 
     function updatePosition() {
         const isMobile = window.innerWidth <= 768;
-        buttonContainer.style.cssText = `position:fixed;top:${isMobile ? '140px' : '80px'};right:20px;z-index:999;display:flex;flex-direction:column;gap:10px;`;
+        buttonContainer.style.cssText = `
+            position: fixed;
+            top: ${isMobile ? '140px' : '80px'};
+            right: 20px;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        `;
     }
     updatePosition();
     window.addEventListener('resize', updatePosition);
 
     buttonContainer.innerHTML = `
-        <button id="toggleEventsBtn"    class="toggle-events-btn events-hidden">   <span class="events-icon">⭐</span><span class="events-text">Events</span></button>
-        <button id="toggleLibrariesBtn" class="toggle-events-btn libraries-hidden"><span class="events-icon">📚</span><span class="events-text">Libraries</span></button>
-        <button id="toggleFerriesBtn"   class="toggle-events-btn ferries-hidden">  <span class="events-icon">⛴</span><span class="events-text">CityDogs</span></button>
+        <button id="togglePlaygroundsBtn" class="toggle-events-btn">
+            <span class="events-icon">🛝</span>
+            <span class="events-text">Playgrounds</span>
+        </button>
+
+        <button id="toggleEventsBtn" class="toggle-events-btn events-hidden">
+            <span class="events-icon">⭐</span>
+            <span class="events-text">Events</span>
+        </button>
+
+        <button id="toggleLibrariesBtn" class="toggle-events-btn libraries-hidden">
+            <span class="events-icon">📚</span>
+            <span class="events-text">Libraries</span>
+        </button>
+
+        <button id="toggleFerriesBtn" class="toggle-events-btn ferries-hidden">
+            <span class="events-icon">⛴</span>
+            <span class="events-text">CityDogs</span>
+        </button>
     `;
+
     document.body.appendChild(buttonContainer);
 }
 
 function initializeToggleButtons() {
-    const eventsBtn    = document.getElementById('toggleEventsBtn');
-    const librariesBtn = document.getElementById('toggleLibrariesBtn');
-    const ferriesBtn   = document.getElementById('toggleFerriesBtn');
+    // Playgrounds — starts ON, no hidden class
+    const playgroundsBtn = document.getElementById('togglePlaygroundsBtn');
+    if (playgroundsBtn) {
+        playgroundsBtn.addEventListener('click', togglePlaygrounds);
+    }
 
+    // Events — starts OFF
+    const eventsBtn = document.getElementById('toggleEventsBtn');
     if (eventsBtn) {
-        eventsBtn.classList.remove('events-hidden');
-        map.addLayer(eventsClusterGroup);
+        eventsBtn.classList.add('events-hidden');
+        // layer NOT added (off by default)
         eventsBtn.addEventListener('click', toggleEvents);
     }
+
+    // Libraries — starts OFF
+    const librariesBtn = document.getElementById('toggleLibrariesBtn');
     if (librariesBtn) {
-        librariesBtn.classList.remove('libraries-hidden');
-        map.addLayer(librariesClusterGroup);
+        librariesBtn.classList.add('libraries-hidden');
+        // layer NOT added
         librariesBtn.addEventListener('click', toggleLibraries);
     }
+
+    // Ferries — starts OFF
+    const ferriesBtn = document.getElementById('toggleFerriesBtn');
     if (ferriesBtn) {
         ferriesBtn.classList.add('ferries-hidden');
         ferriesBtn.addEventListener('click', toggleFerries);
@@ -2505,20 +2691,15 @@ function getMarkerColor(classification) { return getMarkerSizeConfig(classificat
 function initialiseApp() {
     initialiseClusterGroup();
     initialiseFerryLayer();
-
-    // Create the map immediately (no initial view — geolocation sets it)
     initialiseMap();
 
-    // Load search index NOW, in parallel with geolocation.
-    // This populates filters/dropdowns without waiting for location to resolve.
-    loadSearchIndex().then(() => {
-        addSearchControl();
-    });
+    // Load search index in parallel with geolocation
+    loadSearchIndex().then(() => { addSearchControl(); });
 
     createToggleButtons();
     initializeToggleButtons();
 
-    // Events and libraries don't depend on location either
+    // Start events/libraries loading but don't show layers yet
     loadEventsData();
     loadLibrariesData();
 
@@ -2531,11 +2712,13 @@ function initialiseApp() {
         clearTimeout(moveTimeout);
         moveTimeout = setTimeout(() => {
             loadVisiblePlaygrounds();
-            updateVisiblePlaygroundCount();
+            updateTopicCount();
         }, 300);
     });
 
-    map.on('zoomend', updateVisiblePlaygroundCount);
+    map.on('zoomend', updateTopicCount);
+    map.on('moveend', updateTopicCount);
 }
+
 
 document.addEventListener('DOMContentLoaded', initialiseApp);
