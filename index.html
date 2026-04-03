@@ -40,10 +40,10 @@
         <div class="collapse-toggle-bar"></div>
     </button>
 
-    <!-- Sidebar -->
+    <!-- ===== SIDEBAR ===== -->
     <div class="w-80 bg-white shadow-lg">
 
-      <!-- Collapse for Mobile View -->
+      <!-- Mobile drawer handle -->
       <div class="drawer-handle" id="drawerHandle">
         <div class="drawer-handle-bar"></div>
         <div class="drawer-handle-text">
@@ -51,274 +51,373 @@
         </div>
       </div>
 
-      <!-- Header for Desktop View -->
+      <!-- Desktop Header -->
       <div class="playground-header">
         <h1>Playground Finder</h1>
         <p>Hunter Region and Brisbane</p>
       </div>
 
-      <!-- NEW: Scrollable wrapper for mobile -->
-      <div class="drawer-content-wrapper">
+      <!-- ===== TOPIC TAB BAR ===== -->
+      <div class="topic-tabs" id="topicTabs">
+        <button class="topic-tab active" data-tab="playgrounds" onclick="switchFilterTab('playgrounds')">
+          🛝 <span class="tab-label">Playgrounds</span>
+        </button>
+        <button class="topic-tab" data-tab="events" onclick="switchFilterTab('events')">
+          ⭐ <span class="tab-label">Events</span>
+        </button>
+        <button class="topic-tab" data-tab="libraries" onclick="switchFilterTab('libraries')">
+          📚 <span class="tab-label">Libraries</span>
+        </button>
+      </div>
 
+      <!-- Scrollable content wrapper -->
+      <div class="drawer-content-wrapper">
         <div class="p-4 bg-white rounded-lg shadow">
 
-          <!-- Count in Desktop View -->
-          <div class="">
+          <!-- Count display -->
+          <div class="topic-count-bar">
             <span id="playgroundCountDesktop" class="playgroundCount">...counting</span>
           </div>
 
-          <!-- Add A Playground -->
-          <div class="p-4">
-            <button id="addNewPlaygroundBtn" class="add-new-playground-btn">
-              ➕ Record New Playground
-            </button>
-          </div>
+          <!-- ================================================ -->
+          <!-- PLAYGROUNDS FILTER PANEL                         -->
+          <!-- ================================================ -->
+          <div id="filter-panel-playgrounds" class="filter-panel active">
 
-          <!-- Playground Size Slider -->
-          <div class="filter-section">
-            <label class="filter-label" for="sizeSlider">Playground Size Range:</label>
-            <div class="slider-container">
-              <span id="sizeSliderMinLabel">Unverified</span>
-              <div id="sizeSlider" class="size-slider"></div>
-              <span id="sizeSliderMaxLabel">Super</span>
+            <!-- Add A Playground -->
+            <div class="p-4">
+              <button id="addNewPlaygroundBtn" class="add-new-playground-btn">
+                ➕ Record New Playground
+              </button>
             </div>
-          </div>
 
-          <!-- Type Dropdown -->
-          <div class="dropdown-wrapper">
-            <label class="filter-label">Type:</label>
-            <button type="button" id="typeDropdownBtn" class="dropdown-btn">
-              <span id="typeSelected" class="dropdown-btn-text">All types</span>
-              <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </button>
-            <div id="typeDropdownMenu" class="dropdown-menu hidden">
-              <label class="dropdown-option dropdown-option-all">
-                <input type="checkbox" id="allTypes" onchange="toggleAllTypes()">
-                <span>All types</span>
-              </label>
-              <div id="typeOptions">
-                <!-- Options populated by JavaScript -->
+            <!-- Playground Size Slider -->
+            <div class="filter-section">
+              <label class="filter-label" for="sizeSlider">Playground Size Range:</label>
+              <div class="slider-container">
+                <span id="sizeSliderMinLabel">Unverified</span>
+                <div id="sizeSlider" class="size-slider"></div>
+                <span id="sizeSliderMaxLabel">Super</span>
               </div>
             </div>
-          </div>
 
-                    <!-- Keyword Search -->
-          <div class="filter-section">
-            <label class="filter-label">Search Keywords:</label>
+            <!-- Type Dropdown -->
             <div class="dropdown-wrapper">
-              <input 
-                type="text" 
-                id="keywordSearchInput"
-                placeholder="Search keywords (e.g. Train, Boat)..."
-                class="form-input small"
-              />
-              <div id="keywordDropdown" class="dropdown-menu hidden"></div>
+              <label class="filter-label">Type:</label>
+              <button type="button" id="typeDropdownBtn" class="dropdown-btn">
+                <span id="typeSelected" class="dropdown-btn-text">All types</span>
+                <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+              <div id="typeDropdownMenu" class="dropdown-menu hidden">
+                <label class="dropdown-option dropdown-option-all">
+                  <input type="checkbox" id="allTypes" onchange="toggleAllTypes()">
+                  <span>All types</span>
+                </label>
+                <div id="typeOptions">
+                  <!-- Options populated by JavaScript -->
+                </div>
+              </div>
             </div>
-            
-            <div class="mt-2">
-              <div class="flex justify-between items-center mb-1">
-                <span class="text-xs text-gray-500">Selected:</span>
-                <button 
-                  onclick="clearAllKeywords()"
-                  class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+
+            <!-- Keyword Search -->
+            <div class="filter-section">
+              <label class="filter-label">Search Keywords:</label>
+              <div class="dropdown-wrapper">
+                <input 
+                  type="text" 
+                  id="keywordSearchInput"
+                  placeholder="Search keywords (e.g. Train, Boat)..."
+                  class="form-input small"
+                />
+                <div id="keywordDropdown" class="dropdown-menu hidden"></div>
+              </div>
+              
+              <div class="mt-2">
+                <div class="flex justify-between items-center mb-1">
+                  <span class="text-xs text-gray-500">Selected:</span>
+                  <button 
+                    onclick="clearAllKeywords()"
+                    class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <div 
+                  id="selectedKeywords"
+                  class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
                 >
-                  Clear all
-                </button>
-              </div>
-              <div 
-                id="selectedKeywords"
-                class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
-              >
-                <span class="text-gray-400 text-xs">No keywords selected</span>
+                  <span class="text-gray-400 text-xs">No keywords selected</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Quick Favourites -->
-          <div class="filter-section">
-            <label class="filter-label">Quick Favourites:</label>
-            <div class="feature-filter">
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasWaterPlay">
-                Water Play 💦
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasScootTrack">
-                Scooter Track 🛴
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasSandpit">
-                Sandpit ⛱️
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasLargeFlyingFox">
-                Large Flying Fox 🦇
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasSkatePark">
-                Skate Park 🛹
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasTrampoline">
-                Trampoline 🦘
-              </label>
+            <!-- Quick Favourites -->
+            <div class="filter-section">
+              <label class="filter-label">Quick Favourites:</label>
+              <div class="feature-filter">
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterHasWaterPlay">
+                  Water Play 💦
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterHasScootTrack">
+                  Scooter Track 🛴
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterHasSandpit">
+                  Sandpit ⛱️
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterHasLargeFlyingFox">
+                  Large Flying Fox 🦇
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterHasSkatePark">
+                  Skate Park 🛹
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterHasTrampoline">
+                  Trampoline 🦘
+                </label>
+              </div>
             </div>
-          </div>
 
+            <!-- Suburb Search -->
+            <div class="filter-section">
+              <label class="filter-label">Refine Location:</label>
+              <div class="dropdown-wrapper">
+                <input 
+                  type="text" 
+                  id="suburbSearchInput"
+                  placeholder="Search suburbs..."
+                  class="form-input small"
+                />
+                <div id="suburbDropdown" class="dropdown-menu hidden"></div>
+              </div>
+              
+              <div class="mt-2">
+                <div class="flex justify-between items-center mb-1">
+                  <span class="text-xs text-gray-500">Selected:</span>
+                  <button 
+                    onclick="clearAllSuburbs()"
+                    class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <div 
+                  id="selectedSuburbs"
+                  class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
+                >
+                  <span class="text-gray-400 text-xs">No suburbs selected</span>
+                </div>
+              </div>
+            </div>
 
-          <!-- Suburb Search -->
-          <div class="filter-section">
-            <label class="filter-label">Refine Location:</label>
+            <!-- LGA Search -->
+            <div class="filter-section">
+              <div class="dropdown-wrapper">
+                <input 
+                  type="text" 
+                  id="lgaSearchInput"
+                  placeholder="Search LGAs..."
+                  class="form-input small"
+                />
+                <div id="lgaDropdown" class="dropdown-menu hidden"></div>
+              </div>
+              
+              <div class="mt-2">
+                <div class="flex justify-between items-center mb-1">
+                  <span class="text-xs text-gray-500">Selected:</span>
+                  <button 
+                    onclick="clearAllLGAs()"
+                    class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <div 
+                  id="selectedLgas"
+                  class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
+                >
+                  <span class="text-gray-400 text-xs">No LGAs selected</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Features Filter -->
+            <div class="filter-section">
+              <label class="filter-label">Filter on Features:</label>
+              <div class="feature-filter">
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterHasAccessibleFeatures">
+                  Accessible ♿
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterHasToilet">
+                  Toilet 🚻
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterHasBBQ">
+                  BBQ 🔥
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterHasBubbler">
+                  Bubbler 💧
+                </label>
+              </div>
+            </div>
+
+            <!-- Shade Dropdown -->
             <div class="dropdown-wrapper">
-              <input 
-                type="text" 
-                id="suburbSearchInput"
-                placeholder="Search suburbs..."
-                class="form-input small"
-              />
-              <div id="suburbDropdown" class="dropdown-menu hidden"></div>
-            </div>
-            
-            <div class="mt-2">
-              <div class="flex justify-between items-center mb-1">
-                <span class="text-xs text-gray-500">Selected:</span>
-                <button 
-                  onclick="clearAllSuburbs()"
-                  class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
-                >
-                  Clear all
-                </button>
-              </div>
-              <div 
-                id="selectedSuburbs"
-                class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
-              >
-                <span class="text-gray-400 text-xs">No suburbs selected</span>
+              <label class="filter-label">Refine Infrastructure:</label>
+              <button type="button" id="shadeDropdownBtn" class="dropdown-btn">
+                <span id="shadeSelected" class="dropdown-btn-text">All shade types</span>
+                <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+              <div id="shadeDropdownMenu" class="dropdown-menu hidden">
+                <label class="dropdown-option dropdown-option-all">
+                  <input type="checkbox" id="allshades" onchange="toggleAllShade()">
+                  <span>Any shade</span>
+                </label>
+                <div id="shadeOptions">
+                  <!-- Options populated by JavaScript -->
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- LGA Search -->
-          <div class="filter-section">
+            <!-- Fencing Dropdown -->
             <div class="dropdown-wrapper">
-              <input 
-                type="text" 
-                id="lgaSearchInput"
-                placeholder="Search LGAs..."
-                class="form-input small"
-              />
-              <div id="lgaDropdown" class="dropdown-menu hidden"></div>
-            </div>
-            
-            <div class="mt-2">
-              <div class="flex justify-between items-center mb-1">
-                <span class="text-xs text-gray-500">Selected:</span>
-                <button 
-                  onclick="clearAllLGAs()"
-                  class="text-xs text-red-600 hover:text-red-700 cursor-pointer underline"
-                >
-                  Clear all
-                </button>
-              </div>
-              <div 
-                id="selectedLgas"
-                class="min-h-8 p-2 bg-gray-50 border border-gray-200 rounded flex flex-wrap items-center gap-1"
-              >
-                <span class="text-gray-400 text-xs">No LGAs selected</span>
+              <button type="button" id="fencingDropdownBtn" class="dropdown-btn">
+                <span id="fenceSelected" class="dropdown-btn-text">All fence types</span>
+                <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+              <div id="fencingDropdownMenu" class="dropdown-menu hidden">
+                <label class="dropdown-option dropdown-option-all">
+                  <input type="checkbox" id="allfencing" onchange="toggleAllFencing()">
+                  <span>Any fencing</span>
+                </label>
+                <div id="fencingOptions">
+                  <!-- Options populated by JavaScript -->
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Features Filter -->
-          <div class="filter-section">
-            <label class="filter-label">Filter on Features:</label>
-            <div class="feature-filter">
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasAccessibleFeatures">
-                Accessible ♿
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasToilet">
-                Toilet 🚻
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasBBQ">
-                BBQ 🔥
-              </label>
-              <label class="feature-filter-option">
-                <input type="checkbox" id="filterHasBubbler">
-                Bubbler 💧
-              </label>
-            </div>
-          </div>
-
-          <!-- Shade Dropdown -->
-          <div class="dropdown-wrapper">
-            <label class="filter-label">Refine Infrastructure:</label>
-            <button type="button" id="shadeDropdownBtn" class="dropdown-btn">
-              <span id="shadeSelected" class="dropdown-btn-text">All shade types</span>
-              <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </button>
-            <div id="shadeDropdownMenu" class="dropdown-menu hidden">
-              <label class="dropdown-option dropdown-option-all">
-                <input type="checkbox" id="allshades" onchange="toggleAllShade()">
-                <span>Any shade</span>
-              </label>
-              <div id="shadeOptions">
-                <!-- Options populated by JavaScript -->
+            <!-- Parking Dropdown -->
+            <div class="dropdown-wrapper">
+              <button type="button" id="parkingDropdownBtn" class="dropdown-btn">
+                <span id="parkingSelected" class="dropdown-btn-text">All parking</span>
+                <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+              <div id="parkingDropdownMenu" class="dropdown-menu hidden">
+                <label class="dropdown-option dropdown-option-all">
+                  <input type="checkbox" id="allparking" onchange="toggleAllParking()">
+                  <span>Any parking</span>
+                </label>
+                <div id="parkingOptions">
+                  <!-- Options populated by JavaScript -->
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Fencing Dropdown -->
-          <div class="dropdown-wrapper">
-            <button type="button" id="fencingDropdownBtn" class="dropdown-btn">
-              <span id="fenceSelected" class="dropdown-btn-text">All fence types</span>
-              <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </button>
-            <div id="fencingDropdownMenu" class="dropdown-menu hidden">
-              <label class="dropdown-option dropdown-option-all">
-                <input type="checkbox" id="allfencing" onchange="toggleAllFencing()">
-                <span>Any fencing</span>
-              </label>
-              <div id="fencingOptions">
-                <!-- Options populated by JavaScript -->
+          </div><!-- /filter-panel-playgrounds -->
+
+
+          <!-- ================================================ -->
+          <!-- EVENTS FILTER PANEL                              -->
+          <!-- ================================================ -->
+          <div id="filter-panel-events" class="filter-panel">
+
+            <!-- Date filter -->
+            <div class="filter-section">
+              <label class="filter-label">Date:</label>
+              <div class="feature-filter">
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterEventsFutureOnly" checked onchange="filterEvents()">
+                  Future events only
+                </label>
+              </div>
+              <div class="date-range-row">
+                <div class="date-range-field">
+                  <label class="filter-label-small">From</label>
+                  <input type="date" id="filterEventsDateFrom" class="form-input small" onchange="filterEvents()">
+                </div>
+                <div class="date-range-field">
+                  <label class="filter-label-small">To</label>
+                  <input type="date" id="filterEventsDateTo" class="form-input small" onchange="filterEvents()">
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Parking Dropdown -->
-          <div class="dropdown-wrapper">
-            <button type="button" id="parkingDropdownBtn" class="dropdown-btn">
-              <span id="parkingSelected" class="dropdown-btn-text">All parking</span>
-              <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </button>
-            <div id="parkingDropdownMenu" class="dropdown-menu hidden">
-              <label class="dropdown-option dropdown-option-all">
-                <input type="checkbox" id="allparking" onchange="toggleAllParking()">
-                <span>Any parking</span>
-              </label>
-              <div id="parkingOptions">
-                <!-- Options populated by JavaScript -->
+            <!-- Category filter -->
+            <div class="filter-section">
+              <label class="filter-label">Category:</label>
+              <div class="feature-filter">
+                <label class="feature-filter-option">
+                  <input type="checkbox" class="event-category-cb" value="council" checked onchange="filterEvents()">
+                  🏛️ Council Events
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" class="event-category-cb" value="playgroups" checked onchange="filterEvents()">
+                  👶 Playgroups
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" class="event-category-cb" value="other" checked onchange="filterEvents()">
+                  🎪 Other
+                </label>
               </div>
             </div>
-          </div>
+
+            <!-- Event type filter — populated by JS after data loads -->
+            <div class="filter-section">
+              <label class="filter-label">Event Type:</label>
+              <div id="eventTypeFilters" class="feature-filter">
+                <span class="text-xs text-gray-400 italic">Loading event types...</span>
+              </div>
+            </div>
+
+          </div><!-- /filter-panel-events -->
+
+
+          <!-- ================================================ -->
+          <!-- LIBRARIES FILTER PANEL                           -->
+          <!-- ================================================ -->
+          <div id="filter-panel-libraries" class="filter-panel">
+
+            <div class="filter-section">
+              <label class="filter-label">Libraries</label>
+              <div class="feature-filter">
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="filterLibrariesOpenNow" onchange="filterLibraries()">
+                  Open now 🕐
+                </label>
+              </div>
+            </div>
+
+            <div class="filter-section filter-placeholder">
+              <p>More library filters coming soon.</p>
+            </div>
+
+          </div><!-- /filter-panel-libraries -->
 
         </div>
-      </div> <!-- Close drawer-content-wrapper -->
-    </div> <!-- Close w-80 sidebar -->
+      </div><!-- /drawer-content-wrapper -->
+
+    </div><!-- /sidebar -->
+
     <!-- Map -->
     <div class="flex-1">
       <div id="map" style="height: 100%; width: 100%;"></div>
     </div>
+
   </div>
 
   <!-- Footer Toggle Button -->
@@ -337,7 +436,7 @@
       </p>
       <p>
         Want to suggest improvements or report playground intel? Send me an 
-        <a href="mailto:ellenmarieforbes@gmail.com">email</a>.
+        <a href="/cdn-cgi/l/email-protection#94f1f8f8f1faf9f5e6fdf1f2fbe6f6f1e7d4f3f9f5fdf8baf7fbf9">email</a>.
       </p>
       <p style="font-style: italic; font-size: var(--font-size-sm); color: var(--text-tertiary);">
         © 2025 Playground data for personal use only. Scraping prohibited
@@ -391,35 +490,30 @@
                       <option value="">Select type...</option>
                   </select>
               </div>
-
               <div class="form-group">
                   <label for="edit-shade">Shade:</label>
                   <select id="edit-shade" name="shade">
                       <option value="">Select shade...</option>
                   </select>
               </div>
-
               <div class="form-group">
                   <label for="edit-fencing">Fencing:</label>
                   <select id="edit-fencing" name="fencing">
                       <option value="">Select fencing...</option>
                   </select>
               </div>
-
               <div class="form-group">
                   <label for="edit-parking">Parking:</label>
                   <select id="edit-parking" name="parking">
                       <option value="">Select parking...</option>
                   </select>
               </div>
-
               <div class="form-group">
                   <label for="edit-seating">Seating:</label>
                   <select id="edit-seating" name="seating">
                       <option value="">Select seating...</option>
                   </select>
               </div>
-
               <div class="form-group">
                   <label for="edit-floor">Floor:</label>
                   <select id="edit-floor" name="floor">
@@ -429,25 +523,13 @@
             </div>
           </div>
 
-          <!-- Facilities -->
+          <!-- Checkboxes -->
           <div class="form-group">
             <div class="checkbox-group-four">
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-toilet">
-                Toilets
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-bbq">
-                BBQ
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-bubbler">
-                Bubbler
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-accessible">
-                Accessible Features
-              </label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-toilet"> Toilets</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-bbq"> BBQ</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-bubbler"> Bubbler</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-accessible"> Accessible Features</label>
             </div>
           </div>
 
@@ -455,46 +537,11 @@
           <div class="form-group">
             <label class="filter-label">Swings 🤸‍♀️👶</label>
             <div class="number-input-group">
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-baby_swing">−</button>
-                  <input type="number" id="edit-baby_swing" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-baby_swing">+</button>
-                </div>
-                <label>Baby</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-belt_swing">−</button>
-                  <input type="number" id="edit-belt_swing" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-belt_swing">+</button>
-                </div>
-                <label>Belt</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-basket_swing">−</button>
-                  <input type="number" id="edit-basket_swing" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-basket_swing">+</button>
-                </div>
-                <label>Basket</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-dual_swing">−</button>
-                  <input type="number" id="edit-dual_swing" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-dual_swing">+</button>
-                </div>
-                <label>Dual</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-hammock">−</button>
-                  <input type="number" id="edit-hammock" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-hammock">+</button>
-                </div>
-                <label>Hammock</label>
-              </div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-baby_swing">−</button><input type="number" id="edit-baby_swing" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-baby_swing">+</button></div><label>Baby</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-belt_swing">−</button><input type="number" id="edit-belt_swing" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-belt_swing">+</button></div><label>Belt</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-basket_swing">−</button><input type="number" id="edit-basket_swing" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-basket_swing">+</button></div><label>Basket</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-dual_swing">−</button><input type="number" id="edit-dual_swing" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-dual_swing">+</button></div><label>Dual</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-hammock">−</button><input type="number" id="edit-hammock" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-hammock">+</button></div><label>Hammock</label></div>
             </div>
           </div>
 
@@ -502,46 +549,11 @@
           <div class="form-group">
             <label class="filter-label">Slides 🛝</label>
             <div class="number-input-group">
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-straight_slide">−</button>
-                  <input type="number" id="edit-straight_slide" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-straight_slide">+</button>
-                </div>
-                <label>Straight Slides</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-spiral_slide">−</button>
-                  <input type="number" id="edit-spiral_slide" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-spiral_slide">+</button>
-                </div>
-                <label>Spiral or Curved</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-tube_slide">−</button>
-                  <input type="number" id="edit-tube_slide" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-tube_slide">+</button>
-                </div>
-                <label>Tube</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-double_slide">−</button>
-                  <input type="number" id="edit-double_slide" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-double_slide">+</button>
-                </div>
-                <label>Double</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-triple_slide">−</button>
-                  <input type="number" id="edit-triple_slide" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-triple_slide">+</button>
-                </div>
-                <label>Triple</label>
-              </div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-straight_slide">−</button><input type="number" id="edit-straight_slide" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-straight_slide">+</button></div><label>Straight Slides</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-spiral_slide">−</button><input type="number" id="edit-spiral_slide" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-spiral_slide">+</button></div><label>Spiral or Curved</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-tube_slide">−</button><input type="number" id="edit-tube_slide" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-tube_slide">+</button></div><label>Tube</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-double_slide">−</button><input type="number" id="edit-double_slide" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-double_slide">+</button></div><label>Double</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-triple_slide">−</button><input type="number" id="edit-triple_slide" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-triple_slide">+</button></div><label>Triple</label></div>
             </div>
           </div>
 
@@ -549,62 +561,13 @@
           <div class="form-group">
             <label class="filter-label">Climbing 🧗</label>
             <div class="number-input-group four-columns">
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-stairs">−</button>
-                  <input type="number" id="edit-stairs" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-stairs">+</button>
-                </div>
-                <label>Stairs</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-metal_ladder">−</button>
-                  <input type="number" id="edit-metal_ladder" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-metal_ladder">+</button>
-                </div>
-                <label>Metal, Wood or Plastic Ladder</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-rope_ladder">−</button>
-                  <input type="number" id="edit-rope_ladder" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-rope_ladder">+</button>
-                </div>
-                <label>Rope or Chain Ladder</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-rock_climbing">−</button>
-                  <input type="number" id="edit-rock_climbing" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-rock_climbing">+</button>
-                </div>
-                <label>Rock Climbing</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-monkey_bars">−</button>
-                  <input type="number" id="edit-monkey_bars" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-monkey_bars">+</button>
-                </div>
-                <label>Monkey Bars</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-other_climbing">−</button>
-                  <input type="number" id="edit-other_climbing" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-other_climbing">+</button>
-                </div>
-                <label>Other Climbing</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-rope_gym">−</button>
-                  <input type="number" id="edit-rope_gym" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-rope_gym">+</button>
-                </div>
-                <label>Rope Gym</label>
-              </div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-stairs">−</button><input type="number" id="edit-stairs" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-stairs">+</button></div><label>Stairs</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-metal_ladder">−</button><input type="number" id="edit-metal_ladder" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-metal_ladder">+</button></div><label>Metal, Wood or Plastic Ladder</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-rope_ladder">−</button><input type="number" id="edit-rope_ladder" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-rope_ladder">+</button></div><label>Rope or Chain Ladder</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-rock_climbing">−</button><input type="number" id="edit-rock_climbing" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-rock_climbing">+</button></div><label>Rock Climbing</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-monkey_bars">−</button><input type="number" id="edit-monkey_bars" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-monkey_bars">+</button></div><label>Monkey Bars</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-other_climbing">−</button><input type="number" id="edit-other_climbing" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-other_climbing">+</button></div><label>Other Climbing</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-rope_gym">−</button><input type="number" id="edit-rope_gym" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-rope_gym">+</button></div><label>Rope Gym</label></div>
             </div>
           </div>
 
@@ -612,67 +575,14 @@
           <div class="form-group">
             <label class="filter-label">Balance ⚖️</label>
             <div class="number-input-group four-columns">
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-spring_rocker">−</button>
-                  <input type="number" id="edit-spring_rocker" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-spring_rocker">+</button>
-                </div>
-                <label>Spring Rocker or Balance Board</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-spinning_pole">−</button>
-                  <input type="number" id="edit-spinning_pole" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-spinning_pole">+</button>
-                </div>
-                <label>Spinning Pole</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-spinning_bucket">−</button>
-                  <input type="number" id="edit-spinning_bucket" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-spinning_bucket">+</button>
-                </div>
-                <label>Spinning Bucket</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-merry_go_round">−</button>
-                  <input type="number" id="edit-merry_go_round" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-merry_go_round">+</button>
-                </div>
-                <label>Merry-Go-Rounds</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-balance_beam">−</button>
-                  <input type="number" id="edit-balance_beam" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-balance_beam">+</button>
-                </div>
-                <label>Balance Beams</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-stepping_stones">−</button>
-                  <input type="number" id="edit-stepping_stones" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-stepping_stones">+</button>
-                </div>
-                <label>Stepping Stones</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-seesaw">−</button>
-                  <input type="number" id="edit-seesaw" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-seesaw">+</button>
-                </div>
-                <label>Seesaw</label>
-              </div>
-              <div>
-                <select id="edit-flying_fox" class="form-input">
-                </select>
-                <label>Flying Fox</label>
-              </div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-spring_rocker">−</button><input type="number" id="edit-spring_rocker" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-spring_rocker">+</button></div><label>Spring Rocker or Balance Board</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-spinning_pole">−</button><input type="number" id="edit-spinning_pole" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-spinning_pole">+</button></div><label>Spinning Pole</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-spinning_bucket">−</button><input type="number" id="edit-spinning_bucket" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-spinning_bucket">+</button></div><label>Spinning Bucket</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-merry_go_round">−</button><input type="number" id="edit-merry_go_round" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-merry_go_round">+</button></div><label>Merry-Go-Rounds</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-balance_beam">−</button><input type="number" id="edit-balance_beam" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-balance_beam">+</button></div><label>Balance Beams</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-stepping_stones">−</button><input type="number" id="edit-stepping_stones" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-stepping_stones">+</button></div><label>Stepping Stones</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-seesaw">−</button><input type="number" id="edit-seesaw" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-seesaw">+</button></div><label>Seesaw</label></div>
+              <div><select id="edit-flying_fox" class="form-input"></select><label>Flying Fox</label></div>
             </div>
           </div>
 
@@ -680,46 +590,11 @@
           <div class="form-group">
             <label class="filter-label">Other 🎠</label>
             <div class="number-input-group">
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-bridge">−</button>
-                  <input type="number" id="edit-bridge" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-bridge">+</button>
-                </div>
-                <label>Bridge</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-tunnel">−</button>
-                  <input type="number" id="edit-tunnel" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-tunnel">+</button>
-                </div>
-                <label>Tunnel</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-trampoline">−</button>
-                  <input type="number" id="edit-trampoline" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-trampoline">+</button>
-                </div>
-                <label>Trampoline</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-firemans_pole">−</button>
-                  <input type="number" id="edit-firemans_pole" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-firemans_pole">+</button>
-                </div>
-                <label>Firemans Pole</label>
-              </div>
-              <div>
-                <div class="number-input-wrapper">
-                  <button type="button" class="number-decrement" data-target="edit-hamster_wheel">−</button>
-                  <input type="number" id="edit-hamster_wheel" class="form-input" min="0" max="10" value="0">
-                  <button type="button" class="number-increment" data-target="edit-hamster_wheel">+</button>
-                </div>
-                <label>Hamster or Roller Wheel</label>
-              </div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-bridge">−</button><input type="number" id="edit-bridge" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-bridge">+</button></div><label>Bridge</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-tunnel">−</button><input type="number" id="edit-tunnel" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-tunnel">+</button></div><label>Tunnel</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-trampoline">−</button><input type="number" id="edit-trampoline" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-trampoline">+</button></div><label>Trampoline</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-firemans_pole">−</button><input type="number" id="edit-firemans_pole" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-firemans_pole">+</button></div><label>Firemans Pole</label></div>
+              <div><div class="number-input-wrapper"><button type="button" class="number-decrement" data-target="edit-hamster_wheel">−</button><input type="number" id="edit-hamster_wheel" class="form-input" min="0" max="10" value="0"><button type="button" class="number-increment" data-target="edit-hamster_wheel">+</button></div><label>Hamster or Roller Wheel</label></div>
             </div>
           </div>
 
@@ -727,30 +602,12 @@
           <div class="form-group">
             <label class="filter-label">Sensory 🧩🏖️🎵</label>
             <div class="checkbox-group">
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-activity_wall">
-                Activity Wall
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-talking_tube">
-                Talking Tubes
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-musical_play">
-                Musical Play
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-sensory_play">
-                Sensory Play Panels
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-sandpit">
-                Sandpit
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-water_play">
-                Water Play
-              </label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-activity_wall"> Activity Wall</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-talking_tube"> Talking Tubes</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-musical_play"> Musical Play</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-sensory_play"> Sensory Play Panels</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-sandpit"> Sandpit</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-water_play"> Water Play</label>
             </div>
           </div>
 
@@ -758,30 +615,12 @@
           <div class="form-group">
             <label class="filter-label">Features 🏀🛹🛴</label>
             <div class="checkbox-group">
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-basketball">
-                Basketball
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-skate_park">
-                Skate Park
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-scooter_track">
-                Scooter Track
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-pump_track">
-                Pump Track
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-cricket_net">
-                Cricket Net
-              </label>
-              <label class="checkbox-option">
-                <input type="checkbox" id="edit-tennis_court">
-                Tennis Court
-              </label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-basketball"> Basketball</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-skate_park"> Skate Park</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-scooter_track"> Scooter Track</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-pump_track"> Pump Track</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-cricket_net"> Cricket Net</label>
+              <label class="checkbox-option"><input type="checkbox" id="edit-tennis_court"> Tennis Court</label>
             </div>
           </div>
 
@@ -796,21 +635,18 @@
             <label class="filter-label">External Link to Playground Review</label>
             <input type="text" id="edit-link" class="form-input">
 
-
-          <!-- Email and Verified in same row -->
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-top: 15px;">
-            <div>
-              <label class="filter-label">Your Email (optional)</label>
-              <input type="email" id="edit-email" class="form-input" placeholder="your.email@example.com">
-              <small style="color: var(--text-tertiary); font-size: var(--font-size-xs); font-family: var(--font-family); display: block; margin-top: 5px;">Only used if we need to follow up on your suggestion</small>
-            </div>
-            
-            <div>
-              <label class="filter-label">Verified Method:</label>
-              <select id="edit-verified" name="verified" class="form-input">
-                <option value="">Select type...</option>
-              </select>
-            </div>
+              <div>
+                <label class="filter-label">Your Email (optional)</label>
+                <input type="email" id="edit-email" class="form-input" placeholder="your.email@example.com">
+                <small style="color: var(--text-tertiary); font-size: var(--font-size-xs); font-family: var(--font-family); display: block; margin-top: 5px;">Only used if we need to follow up on your suggestion</small>
+              </div>
+              <div>
+                <label class="filter-label">Verified Method:</label>
+                <select id="edit-verified" name="verified" class="form-input">
+                  <option value="">Select type...</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -823,11 +659,13 @@
   </div>
 
   <!-- Scripts -->
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/protobufjs@7/dist/protobuf.min.js"></script>
   <script src="script.js"></script>
+
 </body>
 </html>
