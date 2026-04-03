@@ -575,6 +575,21 @@ let playgroundsVisible = true;    // Playgrounds start ON
 let activeFilterTab    = 'playgrounds';
 
 
+function switchFilterTab(tab) {
+    // Update tab buttons
+    document.querySelectorAll('.topic-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+
+    // Show/hide panels
+    document.querySelectorAll('.filter-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === `filter-panel-${tab}`);
+    });
+
+    activeFilterTab = tab;
+    updateTopicCount();
+}
+
 function togglePlaygrounds() {
     const btn = document.getElementById('togglePlaygroundsBtn');
     if (playgroundsVisible) {
