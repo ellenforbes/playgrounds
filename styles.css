@@ -1622,3 +1622,131 @@ label,
         padding: 8px;
     }
 }
+
+/* ===== TOPIC TABS ===== */
+.topic-tabs {
+    display: flex;
+    background: var(--bg-white);
+    border-bottom: 2px solid #e5e7eb;
+    flex-shrink: 0; /* never scroll away on mobile */
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.topic-tab {
+    flex: 1;
+    padding: 10px 6px 8px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px; /* sit on top of the border-bottom of parent */
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: #6b7280;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.topic-tab:hover {
+    color: var(--primary);
+    background: #f9f5ff;
+}
+
+.topic-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.tab-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+/* ===== FILTER PANELS ===== */
+.filter-panel {
+    display: none;
+}
+
+.filter-panel.active {
+    display: block;
+}
+
+/* ===== COUNT BAR ===== */
+.topic-count-bar {
+    padding: 2px 0 8px;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+/* ===== EVENTS FILTER SPECIFICS ===== */
+.date-range-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.date-range-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.filter-label-small {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* ===== LIBRARIES PLACEHOLDER ===== */
+.filter-placeholder {
+    background: #f9fafb;
+    border: 1px dashed #d1d5db;
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    text-align: center;
+    color: var(--text-tertiary);
+    font-style: italic;
+    font-size: var(--font-size-sm);
+}
+
+/* ===== PLAYGROUNDS TOGGLE BUTTON (right panel) ===== */
+/* Add playgrounds-hidden as a valid hidden state, same as the others */
+.toggle-events-btn.playgrounds-hidden {
+    background: var(--gradient-primary);
+    opacity: 0.5;
+}
+
+.toggle-events-btn.playgrounds-hidden:hover {
+    background: var(--gradient-contrast-dark);
+    opacity: 0.7;
+}
+
+/* ===== MOBILE: keep tabs visible above the drawer content ===== */
+@media (max-width: 768px) {
+    .topic-tabs {
+        flex-shrink: 0 !important;
+        position: relative !important; /* inside the flex column, not sticky on mobile */
+        top: auto !important;
+        border-radius: 0 !important;
+        z-index: 5 !important;
+    }
+
+    .topic-tab {
+        padding: 8px 4px 6px;
+        font-size: var(--font-size-xs);
+    }
+
+    .tab-label {
+        font-size: 10px;
+    }
+}
