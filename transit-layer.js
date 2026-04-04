@@ -19,6 +19,8 @@ let transitVisible       = false;
 
 let transitRoutes        = {};          // route_id → route object
 let transitRoutesLoaded  = false;
+let transitRoutesPromise = null;        // in-flight guard — prevents duplicate fetches
+let transitTripToRoute   = {};          // trip_id  → route_id (for feeds that omit route_id)
 let transitStopNames     = {};          // stop_id  → stop name
 
 let transitShapeLayer    = null;        // L.layerGroup — holds at most ONE active route line
@@ -47,18 +49,38 @@ const TRANSIT_MODE = {
 
 async function loadTransitRoutes() {
   if (transitRoutesLoaded) return;
-  try {
-    const res = await fetch(`${GTFS_STATIC_URL}?data=routes`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const arr = await res.json();
-    transitRoutes = {};
-    for (const r of arr) transitRoutes[r.route_id] = r;
-    transitRoutesLoaded = true;
-    console.log(`[transit] ${arr.length} routes loaded`);
-    populateRouteAutocomplete(arr);
-  } catch (e) {
-    console.warn('[transit] Could not load routes:', e.message);
-  }
+  // Return the in-flight promise if already loading — prevents duplicate fetches
+  if (transitRoutesPromise) return transitRoutesPromise;
+
+  transitRoutesPromise = (async () => {
+    try {
+      // Load routes and trip→route map in parallel
+      const [routesRes, tripsRes] = await Promise.all([
+        fetch(`${GTFS_STATIC_URL}?data=routes`),
+        fetch(`${GTFS_STATIC_URL}?data=trips`),
+      ]);
+
+      if (routesRes.ok) {
+        const arr = await routesRes.json();
+        transitRoutes = {};
+        for (const r of arr) transitRoutes[r.route_id] = r;
+        console.log(`[transit] ${arr.length} routes loaded`);
+      }
+
+      if (tripsRes.ok) {
+        transitTripToRoute = await tripsRes.json();
+        console.log(`[transit] ${Object.keys(transitTripToRoute).length} trip→route mappings loaded`);
+      }
+
+      transitRoutesLoaded = true;
+      populateRouteAutocomplete(Object.values(transitRoutes));
+    } catch (e) {
+      console.warn('[transit] Could not load routes/trips:', e.message);
+      transitRoutesPromise = null; // allow retry on next call
+    }
+  })();
+
+  return transitRoutesPromise;
 }
 
 function populateRouteAutocomplete(routes) {
@@ -263,7 +285,9 @@ async function fetchAndDisplayTransit() {
 
       const lat     = Number(v.position.latitude);
       const lon     = Number(v.position.longitude);
-      const routeId = v.trip?.route_id || '';
+      const rawRouteId = v.trip?.route_id || '';
+      const tripId     = v.trip?.trip_id  || '';
+      const routeId    = rawRouteId || transitTripToRoute[tripId] || '';
       const vKey    = `${modeKey}:${v.vehicle?.id || v.vehicle?.label || entity.id}`;
 
       if (!vehiclePassesFilters(routeId, modeKey)) {
