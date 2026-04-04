@@ -43,7 +43,7 @@ let ferryProtoLoaded = false;
 let FeedMessageType = null;
 
 const FERRY_TARGETS = ['GOOTCHA', 'KULUWIN'];
-const FERRY_GTFS_URL = '/api/ferry-positions';
+const FERRY_GTFS_URL = '/api/gtfs-rt?feed=positions&type=Ferry';
 const FERRY_CORS_PROXY = '';
 const FERRY_REFRESH_MS = 30000;
 
@@ -52,8 +52,8 @@ const FERRY_VESSEL_NAMES  = { 'GOOTCHA': 'Gootcha', 'KULUWIN': 'Kuluwin' };
 
 const VEHICLE_STATUS_TEXT = { 0: 'Incoming at', 1: 'Stopped at', 2: 'In transit to' };
 
-const FERRY_TRIP_UPDATES_URL = '/api/ferry-trip-updates';
-const TRANSIT_STOPS_URL = '/api/transit-stops';
+const FERRY_TRIP_UPDATES_URL = '/api/gtfs-rt?feed=updates&type=Ferry';
+const TRANSIT_STOPS_URL = '/api/gtfs-static?data=stops';
 let ferryStopNames = {};
 
 async function loadTransitStopNames(type = 'Ferry') {
