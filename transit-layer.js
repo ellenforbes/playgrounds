@@ -55,8 +55,38 @@ async function loadTransitRoutes() {
     for (const r of arr) transitRoutes[r.route_id] = r;
     transitRoutesLoaded = true;
     console.log(`[transit] ${arr.length} routes loaded`);
+    populateRouteAutocomplete(arr);
   } catch (e) {
     console.warn('[transit] Could not load routes:', e.message);
+  }
+}
+
+function populateRouteAutocomplete(routes) {
+  // Build or update the datalist for the route search input
+  let dl = document.getElementById('transitRouteList');
+  if (!dl) {
+    dl = document.createElement('datalist');
+    dl.id = 'transitRouteList';
+    document.body.appendChild(dl);
+    const inp = document.getElementById('transitRouteSearch');
+    if (inp) inp.setAttribute('list', 'transitRouteList');
+  }
+  dl.innerHTML = '';
+  // Collect unique short names, sorted
+  const seen = new Set();
+  const sorted = routes
+    .map(r => r.route_short_name)
+    .filter(n => n && !seen.has(n) && seen.add(n))
+    .sort((a, b) => {
+      // Sort numerically where possible (130 before 66N)
+      const na = parseInt(a, 10), nb = parseInt(b, 10);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
+  for (const name of sorted) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    dl.appendChild(opt);
   }
 }
 
@@ -191,7 +221,7 @@ function buildTransitPopup(vehicle, modeKey, routeId) {
       <div style="font-size:.8rem;color:#333;line-height:1.75;">
         ${longName ? `<b>Service:</b> ${longName}<br>` : ''}
         ${dirLine}
-        ${stopLine || '<span style="color:#999;">Stop info loading…</span>'}
+        ${stopLine}
       </div>
     </div>`;
 }
@@ -204,6 +234,9 @@ async function fetchAndDisplayTransit() {
     console.warn('[transit] Proto not ready yet — skipping refresh');
     return;
   }
+
+  // Ensure routes are loaded before we render anything (fast on warm cache)
+  await loadTransitRoutes();
 
   const modesToFetch = [...tFilterTypes];
   const results = await Promise.allSettled(
@@ -251,26 +284,34 @@ async function fetchAndDisplayTransit() {
       if (transitMarkers[vKey]) {
         transitMarkers[vKey].setLatLng([lat, lon]);
         transitMarkers[vKey].setIcon(icon);
-        transitMarkers[vKey].setPopupContent(popup);
-        // Keep routeId in sync on the marker for click handler
+        // Store latest vehicle data on marker so popupopen can rebuild it
+        transitMarkers[vKey]._transitVehicle = v;
         transitMarkers[vKey]._transitRouteId  = routeId;
         transitMarkers[vKey]._transitModeKey  = modeKey;
+        transitMarkers[vKey].setPopupContent(popup);
       } else {
         const marker = L.marker([lat, lon], { icon }).bindPopup(popup);
+        marker._transitVehicle = v;
         marker._transitRouteId = routeId;
         marker._transitModeKey = modeKey;
 
+        // Rebuild popup content on every open so stop names are always current
+        marker.on('popupopen', () => {
+          const fresh = buildTransitPopup(
+            marker._transitVehicle,
+            marker._transitModeKey,
+            marker._transitRouteId
+          );
+          marker.setPopupContent(fresh);
+        });
+
         marker.on('click', () => {
-          // Set synchronously so any incoming popupclose on the OLD marker
-          // sees that the active route has already changed and won't clear ours.
           transitActiveRouteId = marker._transitRouteId;
           showRouteShape(marker._transitRouteId, marker._transitModeKey);
         });
 
         marker.on('popupclose', () => {
           const myRoute = marker._transitRouteId;
-          // Yield one tick so an incoming click on a new marker can
-          // update transitActiveRouteId before we decide to clear.
           setTimeout(() => {
             if (transitActiveRouteId === myRoute) clearRouteShape();
           }, 0);
