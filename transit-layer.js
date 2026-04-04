@@ -21,6 +21,9 @@ let transitRoutes        = {};          // route_id → route object
 let transitRoutesLoaded  = false;
 let transitStopNames     = {};          // stop_id  → stop name
 
+let transitShapeLayer    = null;        // L.layerGroup for route polylines
+let transitShapesLoaded  = false;
+
 // Filter state (mirrors the sidebar checkboxes)
 let tFilterTypes    = new Set(['Bus', 'Ferry', 'Rail']);
 let tFilterHighFreq = false;
@@ -53,6 +56,38 @@ async function loadTransitRoutes() {
     console.log(`[transit] ${arr.length} routes loaded`);
   } catch (e) {
     console.warn('[transit] Could not load routes:', e.message);
+  }
+}
+
+// ===== SHAPE / ROUTE LINE WORK =====
+
+async function loadTransitShapes() {
+  if (transitShapesLoaded) return;
+  try {
+    const res = await fetch(`${GTFS_STATIC_URL}?data=shapes`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const shapes = await res.json(); // { route_id: { type, points: [[lat,lng],...] } }
+
+    transitShapeLayer.clearLayers();
+
+    for (const [routeId, info] of Object.entries(shapes)) {
+      if (!info.points?.length) continue;
+      const cfg = TRANSIT_MODE[info.type] || TRANSIT_MODE.Bus;
+      L.polyline(info.points, {
+        color:     cfg.color,
+        weight:    2.5,
+        opacity:   0.55,
+        smoothFactor: 1.5,
+      }).bindTooltip(
+        `${cfg.emoji} Route ${transitRoutes[routeId]?.route_short_name || routeId}`,
+        { sticky: true, className: 'transit-route-tooltip' }
+      ).addTo(transitShapeLayer);
+    }
+
+    transitShapesLoaded = true;
+    console.log(`[transit] ${Object.keys(shapes).length} route shapes drawn`);
+  } catch (e) {
+    console.warn('[transit] Could not load shapes:', e.message);
   }
 }
 
@@ -120,17 +155,19 @@ function buildTransitPopup(vehicle, modeKey, routeId) {
     ? ' <span style="background:#059669;color:#fff;font-size:.65rem;padding:1px 5px;border-radius:3px;margin-left:4px;">⚡ High Freq</span>'
     : '';
 
-  const STATUS     = { 0: 'Incoming at', 1: 'Stopped at', 2: 'In transit to' };
-  const statusText = STATUS[vehicle.current_status] || '';
+  const DIRECTION_LABEL = { 0: 'Outbound ↗', 1: 'Inbound ↙' };
+  const directionId = vehicle.trip?.direction_id;
+  const dirLine     = (directionId != null)
+    ? `<b>Direction:</b> ${DIRECTION_LABEL[directionId] ?? directionId}<br>` : '';
+
+  const STATUS     = { 0: 'Approaching', 1: 'At stop', 2: 'Next stop' };
+  const statusText = STATUS[vehicle.current_status] ?? '';
   const rawStopId  = vehicle.stop_id || '';
   const stopName   = rawStopId ? (transitStopNames[rawStopId] || rawStopId) : '';
   const stopLine   = (statusText && stopName)
     ? `<b>${statusText}:</b> ${stopName}<br>` : '';
 
   const vehicleLabel = vehicle.vehicle?.label || vehicle.vehicle?.id || '—';
-  const speed = vehicle.position?.speed != null
-    ? `${Math.round(Number(vehicle.position.speed) * 3.6)} km/h`
-    : null;
 
   return `
     <div style="font-family:system-ui,sans-serif;min-width:185px;">
@@ -140,8 +177,8 @@ function buildTransitPopup(vehicle, modeKey, routeId) {
       <div style="font-size:.8rem;color:#333;line-height:1.75;">
         ${longName ? `<b>Service:</b> ${longName}<br>` : ''}
         <b>Vehicle:</b> ${vehicleLabel}<br>
+        ${dirLine}
         ${stopLine}
-        ${speed ? `<b>Speed:</b> ${speed}<br>` : ''}
       </div>
     </div>`;
 }
@@ -174,6 +211,9 @@ async function fetchAndDisplayTransit() {
     for (const entity of feed.entity) {
       const v = entity.vehicle;
       if (!v?.position?.latitude) continue;
+
+      const vLabel  = (v.vehicle?.label || v.vehicle?.id || '').toUpperCase();
+      if (modeKey === 'Ferry' && (vLabel === 'GOOTCHA' || vLabel === 'KULUWIN')) continue;
 
       const lat     = Number(v.position.latitude);
       const lon     = Number(v.position.longitude);
@@ -244,13 +284,16 @@ function stopTransitTracking() {
 function toggleTransit() {
   const btn = document.getElementById('toggleTransitBtn');
   if (!transitVisible) {
+    map.addLayer(transitShapeLayer);
     map.addLayer(transitClusterGroup);
     transitVisible = true;
     startTransitTracking();
+    loadTransitShapes();
     btn?.classList.remove('transit-hidden');
     if (typeof switchFilterTab === 'function') switchFilterTab('transit');
   } else {
     map.removeLayer(transitClusterGroup);
+    map.removeLayer(transitShapeLayer);
     transitVisible = false;
     stopTransitTracking();
     btn?.classList.add('transit-hidden');
@@ -274,6 +317,9 @@ function applyTransitFilters() {
 // ===== INIT =====
 
 function initialiseTransitLayer() {
+
+  // ── Shape layer (route polylines — sits beneath vehicle markers) ────────────
+  transitShapeLayer = L.layerGroup();
 
   // ── Cluster group ──────────────────────────────────────────────────────────
   transitClusterGroup = L.markerClusterGroup({

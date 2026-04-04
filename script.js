@@ -110,6 +110,7 @@ const FERRY_PROTO_SCHEMA = `
   message TripDescriptor {
     optional string trip_id = 1;
     optional string route_id = 5;
+    optional uint32 direction_id = 6;
     extensions 1000 to 1999;
   }
   message VehicleDescriptor {
@@ -1501,7 +1502,7 @@ async function loadVisiblePlaygrounds() {
 
         filterMarkers();
 
-        if (!map.hasLayer(markerClusterGroup)) map.addLayer(markerClusterGroup);
+        if (playgroundsVisible && !map.hasLayer(markerClusterGroup)) map.addLayer(markerClusterGroup);
 
         loadedBounds.add(boundsKey);
         if (loadedBounds.size > 20) clearOldCache();
