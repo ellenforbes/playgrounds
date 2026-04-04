@@ -378,7 +378,10 @@ function updateTopicCount() {
         label = `event${count !== 1 ? 's' : ''}`;
 
     } else if (activeFilterTab === 'libraries') {
-        librariesClusterGroup?.eachLayer(() => count++);
+        if (map && librariesClusterGroup) {
+            const bounds = map.getBounds();
+            librariesClusterGroup.eachLayer(m => { if (bounds.contains(m.getLatLng())) count++; });
+        }
         label = `librar${count !== 1 ? 'ies' : 'y'}`;
     }
 
