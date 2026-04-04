@@ -38,7 +38,11 @@ const zlib  = require('zlib');
 const GTFS_ZIP_URL = 'https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip';
 const CACHE_TTL    = 3600 * 1000; // 1 hour
 
-const HIGH_FREQ_HEADWAY_SECS   = 900; // 15 min
+const HIGH_FREQ_HEADWAY_SECS   = 900;  // 15 min (used by frequencies.txt)
+// Trip-count proxy: TransLink GTFS spans ~10-12 weeks.
+// A 15-min-frequency route running 6am–10pm yields ~64 trips/day → ~4500/10wks.
+// Threshold of 3000 catches ~every-20-min-or-better while excluding hourly services.
+const HIGH_FREQ_TRIP_THRESHOLD = 3000;
 
 /** Maps ?type= param to GTFS route_type integers */
 const ROUTE_TYPE_MAP = {
@@ -49,6 +53,20 @@ const ROUTE_TYPE_MAP = {
 };
 
 // ── In-memory cache ───────────────────────────────────────────────────────────
+
+// Raw ZIP buffer — shared between ensureDataLoaded and buildRouteShapes
+// so we never download the large ZIP more than once per TTL window.
+let _zipBuffer    = null;
+let _zipFetchedAt = 0;
+
+async function getZipBuffer() {
+  const now = Date.now();
+  if (_zipBuffer && (now - _zipFetchedAt) < CACHE_TTL) return _zipBuffer;
+  console.log('[gtfs-static] Downloading GTFS zip…');
+  _zipBuffer    = await fetchBuffer(GTFS_ZIP_URL);
+  _zipFetchedAt = now;
+  return _zipBuffer;
+}
 
 // Parsed data (shared between stops and routes responses)
 let cache = {
@@ -120,8 +138,8 @@ async function ensureDataLoaded() {
   const now = Date.now();
   if (cache.stops && cache.routes && (now - cache.parsedAt) < CACHE_TTL) return;
 
-  console.log('[gtfs-static] Fetching GTFS zip…');
-  const zip = await fetchBuffer(GTFS_ZIP_URL);
+  console.log('[gtfs-static] Parsing GTFS zip…');
+  const zip = await getZipBuffer();
 
   // ── routes.txt ─────────────────────────────────────────────────────────────
   const routesCsv = extractFromZip(zip, 'routes.txt');
@@ -201,7 +219,8 @@ async function ensureDataLoaded() {
       route_short_name:  r.route_short_name || '',
       route_long_name:   r.route_long_name  || '',
       route_type:        Number(r.route_type) || 3,
-      is_high_frequency: highFreqRouteIds.has(r.route_id),
+      is_high_frequency: highFreqRouteIds.has(r.route_id)
+                      || (tripCountByRoute[r.route_id] || 0) >= HIGH_FREQ_TRIP_THRESHOLD,
       trip_count:        tripCountByRoute[r.route_id] || 0,
     }));
 
@@ -252,9 +271,8 @@ async function buildRouteShapes() {
 
   console.log('[gtfs-static] Building route shapes…');
 
-  // We need a fresh ZIP (ensureDataLoaded already fetched it, but we don't
-  // cache the raw ZIP bytes — re-fetch it here for shapes only).
-  const zip = await fetchBuffer(GTFS_ZIP_URL);
+  // Reuse the already-downloaded ZIP buffer — no second download.
+  const zip = await getZipBuffer();
 
   // trips.txt: route_id → shape_id (collect all, pick the one with most points later)
   const routeShapeCandidates = {}; // route_id → Set<shape_id>
