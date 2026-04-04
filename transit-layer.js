@@ -183,8 +183,6 @@ function buildTransitPopup(vehicle, modeKey, routeId) {
   const stopLine   = (statusText && stopName)
     ? `<b>${statusText}:</b> ${stopName}<br>` : '';
 
-  const vehicleLabel = vehicle.vehicle?.label || vehicle.vehicle?.id || '—';
-
   return `
     <div style="font-family:system-ui,sans-serif;min-width:185px;">
       <div style="font-weight:700;font-size:1rem;margin-bottom:6px;color:${cfg.color};">
@@ -192,9 +190,8 @@ function buildTransitPopup(vehicle, modeKey, routeId) {
       </div>
       <div style="font-size:.8rem;color:#333;line-height:1.75;">
         ${longName ? `<b>Service:</b> ${longName}<br>` : ''}
-        <b>Vehicle:</b> ${vehicleLabel}<br>
         ${dirLine}
-        ${stopLine}
+        ${stopLine || '<span style="color:#999;">Stop info loading…</span>'}
       </div>
     </div>`;
 }
@@ -255,11 +252,29 @@ async function fetchAndDisplayTransit() {
         transitMarkers[vKey].setLatLng([lat, lon]);
         transitMarkers[vKey].setIcon(icon);
         transitMarkers[vKey].setPopupContent(popup);
+        // Keep routeId in sync on the marker for click handler
+        transitMarkers[vKey]._transitRouteId  = routeId;
+        transitMarkers[vKey]._transitModeKey  = modeKey;
       } else {
         const marker = L.marker([lat, lon], { icon }).bindPopup(popup);
+        marker._transitRouteId = routeId;
+        marker._transitModeKey = modeKey;
 
-        marker.on('click', () => showRouteShape(routeId, modeKey));
-        marker.on('popupclose', () => clearRouteShape());
+        marker.on('click', () => {
+          // Set synchronously so any incoming popupclose on the OLD marker
+          // sees that the active route has already changed and won't clear ours.
+          transitActiveRouteId = marker._transitRouteId;
+          showRouteShape(marker._transitRouteId, marker._transitModeKey);
+        });
+
+        marker.on('popupclose', () => {
+          const myRoute = marker._transitRouteId;
+          // Yield one tick so an incoming click on a new marker can
+          // update transitActiveRouteId before we decide to clear.
+          setTimeout(() => {
+            if (transitActiveRouteId === myRoute) clearRouteShape();
+          }, 0);
+        });
 
         transitClusterGroup.addLayer(marker);
         transitMarkers[vKey] = marker;
