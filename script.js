@@ -2420,7 +2420,7 @@ function addSearchResultMarker(lat, lng, displayName, isPlayground) {
 // ===== FERRY TRACKING =====
 
 function makeFerryIcon(vesselName) {
-    const color       = vesselName === 'GOOTCHA' ? '#88cafc' : '#d2ebff';
+    const color       = vesselName === 'GOOTCHA' ? '#88cafc' : '#e2793b';
     return L.divIcon({
         className: '',
         html: `<div style="width:38px;height:38px;background:${color};border:3px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 10px ${color}99;">⛴</div>`,
@@ -2504,7 +2504,7 @@ async function fetchAndDisplayFerries() {
                 }
             }
 
-            const iconColor = label === 'GOOTCHA' ? '#88cafc' : '#d2ebff';
+            const iconColor = label === 'GOOTCHA' ? '#88cafc' : '#e2793b';
             const popupHtml = `
                 <div style="font-family:sans-serif;min-width:175px;">
                     <div style="font-weight:700;font-size:1rem;margin-bottom:6px;color:${iconColor};">⛴ ${displayName}</div>
