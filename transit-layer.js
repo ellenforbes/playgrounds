@@ -28,6 +28,10 @@ let tFilterRoute    = '';
 
 const TRANSIT_REFRESH_MS = 30_000;
 
+// ── Consolidated API URLs (gtfs-rt.js + gtfs-static.js) ──────────────────────
+const GTFS_RT_URL     = '/api/gtfs-rt';      // ?feed=positions|updates &type=Bus|Ferry|Rail
+const GTFS_STATIC_URL = '/api/gtfs-static';  // ?data=stops|routes &type=...
+
 // Visual config per mode
 const TRANSIT_MODE = {
   Bus:   { color: '#2563eb', bg: '#dbeafe', emoji: '🚌', gtfsTypes: [3, 700, 702, 704] },
@@ -35,21 +39,12 @@ const TRANSIT_MODE = {
   Rail:  { color: '#7c3aed', bg: '#ede9fe', emoji: '🚆', gtfsTypes: [2, 100, 101, 102, 109] },
 };
 
-// GTFS route_type integer → our mode key
-function gtfsTypeToMode(routeType) {
-  const n = Number(routeType);
-  for (const [key, cfg] of Object.entries(TRANSIT_MODE)) {
-    if (cfg.gtfsTypes.includes(n)) return key;
-  }
-  return null;
-}
-
-// ===== ROUTE DATA (from /api/transit-routes) =====
+// ===== ROUTE DATA =====
 
 async function loadTransitRoutes() {
   if (transitRoutesLoaded) return;
   try {
-    const res = await fetch('/api/transit-routes');
+    const res = await fetch(`${GTFS_STATIC_URL}?data=routes`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const arr = await res.json();
     transitRoutes = {};
@@ -61,33 +56,29 @@ async function loadTransitRoutes() {
   }
 }
 
-// ===== PROTOBUF FETCH (one call per mode) =====
+// ===== PROTOBUF FETCH =====
 
 async function fetchModeFeed(mode) {
-  const url = `/api/transit-positions?type=${mode}`;
+  const url = `${GTFS_RT_URL}?feed=positions&type=${mode}`;
   const res  = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const buf  = await res.arrayBuffer();
-  // FeedMessageType is declared in script.js and shared via global scope
   return FeedMessageType.decode(new Uint8Array(buf));
 }
 
 // ===== FILTER LOGIC =====
 
 function vehiclePassesFilters(routeId, modeKey) {
-  // 1. Mode filter
   if (!tFilterTypes.has(modeKey)) return false;
 
   const route = transitRoutes[routeId] || null;
 
-  // 2. High-frequency filter
   if (tFilterHighFreq) {
     if (!route || !route.is_high_frequency) return false;
   }
 
-  // 3. Route search
   if (tFilterRoute) {
-    const q = tFilterRoute.toLowerCase();
+    const q  = tFilterRoute.toLowerCase();
     const sn = (route?.route_short_name || '').toLowerCase();
     const ln = (route?.route_long_name  || '').toLowerCase();
     const id = (routeId || '').toLowerCase();
@@ -100,9 +91,9 @@ function vehiclePassesFilters(routeId, modeKey) {
 // ===== MARKER ICON =====
 
 function makeTransitIcon(modeKey, shortName) {
-  const cfg     = TRANSIT_MODE[modeKey] || TRANSIT_MODE.Bus;
-  const raw     = shortName || cfg.emoji;
-  const label   = raw.length > 6 ? raw.slice(0, 6) : raw;
+  const cfg   = TRANSIT_MODE[modeKey] || TRANSIT_MODE.Bus;
+  const raw   = shortName || cfg.emoji;
+  const label = raw.length > 6 ? raw.slice(0, 6) : raw;
   return L.divIcon({
     className: '',
     html: `<div style="
@@ -129,7 +120,7 @@ function buildTransitPopup(vehicle, modeKey, routeId) {
     ? ' <span style="background:#059669;color:#fff;font-size:.65rem;padding:1px 5px;border-radius:3px;margin-left:4px;">⚡ High Freq</span>'
     : '';
 
-  const STATUS = { 0: 'Incoming at', 1: 'Stopped at', 2: 'In transit to' };
+  const STATUS     = { 0: 'Incoming at', 1: 'Stopped at', 2: 'In transit to' };
   const statusText = STATUS[vehicle.current_status] || '';
   const rawStopId  = vehicle.stop_id || '';
   const stopName   = rawStopId ? (transitStopNames[rawStopId] || rawStopId) : '';
@@ -187,12 +178,9 @@ async function fetchAndDisplayTransit() {
       const lat     = Number(v.position.latitude);
       const lon     = Number(v.position.longitude);
       const routeId = v.trip?.route_id || '';
-
-      // Use a stable key: mode + vehicle id (avoids cross-mode collisions)
-      const vKey = `${modeKey}:${v.vehicle?.id || v.vehicle?.label || entity.id}`;
+      const vKey    = `${modeKey}:${v.vehicle?.id || v.vehicle?.label || entity.id}`;
 
       if (!vehiclePassesFilters(routeId, modeKey)) {
-        // Remove stale marker if it no longer passes
         if (transitMarkers[vKey]) {
           transitClusterGroup.removeLayer(transitMarkers[vKey]);
           delete transitMarkers[vKey];
@@ -219,7 +207,7 @@ async function fetchAndDisplayTransit() {
     }
   }
 
-  // Remove markers that are gone from the feed or filtered out
+  // Remove markers no longer in feed or now filtered out
   for (const key of Object.keys(transitMarkers)) {
     if (!seenKeys.has(key)) {
       transitClusterGroup.removeLayer(transitMarkers[key]);
@@ -293,7 +281,7 @@ function initialiseTransitLayer() {
     showCoverageOnHover: false,
     zoomToBoundsOnClick: true,
     iconCreateFunction: cluster => {
-      const n = cluster.getChildCount();
+      const n    = cluster.getChildCount();
       const size = n < 10 ? 32 : n < 50 ? 40 : 48;
       return L.divIcon({
         html: `<div style="
@@ -312,12 +300,13 @@ function initialiseTransitLayer() {
 
   // ── Background data loads ──────────────────────────────────────────────────
   loadTransitRoutes();
-  // Reuse the function already defined in script.js
-  if (typeof loadTransitStopNames === 'function') {
-    loadTransitStopNames('all').then(lookup => { transitStopNames = lookup; });
-  }
+  // Load stop names via the consolidated endpoint
+  fetch(`${GTFS_STATIC_URL}?data=stops&type=all`)
+    .then(r => r.ok ? r.json() : {})
+    .then(lookup => { transitStopNames = lookup; })
+    .catch(e => console.warn('[transit] Could not load stop names:', e.message));
 
-  // ── Patch updateTopicCount to handle transit tab ───────────────────────────
+  // ── Patch updateTopicCount to handle the transit tab ──────────────────────
   const _origCount = typeof updateTopicCount === 'function' ? updateTopicCount.bind(window) : null;
   window.updateTopicCount = function () {
     if (typeof activeFilterTab !== 'undefined' && activeFilterTab === 'transit') {
@@ -328,7 +317,6 @@ function initialiseTransitLayer() {
   };
 
   // ── Add transit button to the existing toggle button container ─────────────
-  // createToggleButtons() in script.js already ran by the time this fires.
   const container = document.getElementById('toggleButtonContainer');
   if (container) {
     const btn = document.createElement('button');
