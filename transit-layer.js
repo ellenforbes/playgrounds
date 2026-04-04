@@ -20,7 +20,6 @@ let transitVisible       = false;
 let transitRoutes        = {};          // route_id → route object
 let transitRoutesLoaded  = false;
 let transitRoutesPromise = null;        // in-flight guard — prevents duplicate fetches
-let transitTripToRoute   = {};          // trip_id  → route_id (for feeds that omit route_id)
 let transitStopNames     = {};          // stop_id  → stop name
 
 let transitShapeLayer    = null;        // L.layerGroup — holds at most ONE active route line
@@ -54,29 +53,18 @@ async function loadTransitRoutes() {
 
   transitRoutesPromise = (async () => {
     try {
-      // Load routes and trip→route map in parallel
-      const [routesRes, tripsRes] = await Promise.all([
-        fetch(`${GTFS_STATIC_URL}?data=routes`),
-        fetch(`${GTFS_STATIC_URL}?data=trips`),
-      ]);
-
-      if (routesRes.ok) {
-        const arr = await routesRes.json();
+      const res = await fetch(`${GTFS_STATIC_URL}?data=routes`);
+      if (res.ok) {
+        const arr = await res.json();
         transitRoutes = {};
         for (const r of arr) transitRoutes[r.route_id] = r;
         console.log(`[transit] ${arr.length} routes loaded`);
       }
-
-      if (tripsRes.ok) {
-        transitTripToRoute = await tripsRes.json();
-        console.log(`[transit] ${Object.keys(transitTripToRoute).length} trip→route mappings loaded`);
-      }
-
       transitRoutesLoaded = true;
       populateRouteAutocomplete(Object.values(transitRoutes));
     } catch (e) {
-      console.warn('[transit] Could not load routes/trips:', e.message);
-      transitRoutesPromise = null; // allow retry on next call
+      console.warn('[transit] Could not load routes:', e.message);
+      transitRoutesPromise = null;
     }
   })();
 
@@ -159,14 +147,13 @@ function clearRouteShape() {
   transitActiveRouteId = null;
 }
 
-// ===== PROTOBUF FETCH =====
+// ===== VEHICLE FEED FETCH (JSON from server-decoded gtfs-rt) =================
 
-async function fetchModeFeed(mode) {
+async function fetchModeVehicles(mode) {
   const url = `${GTFS_RT_URL}?feed=positions&type=${mode}`;
   const res  = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const buf  = await res.arrayBuffer();
-  return FeedMessageType.decode(new Uint8Array(buf));
+  return res.json(); // array of { lat, lng, routeId, tripId, stopId, currentStatus, directionId, vehicleId, vehicleLabel }
 }
 
 // ===== FILTER LOGIC =====
@@ -224,14 +211,13 @@ function buildTransitPopup(vehicle, modeKey, routeId) {
     : '';
 
   const DIRECTION_LABEL = { 0: 'Outbound ↗', 1: 'Inbound ↙' };
-  const directionId = vehicle.trip?.direction_id;
+  const directionId = vehicle.directionId;
   const dirLine     = (directionId != null)
     ? `<b>Direction:</b> ${DIRECTION_LABEL[directionId] ?? directionId}<br>` : '';
 
   const STATUS     = { 0: 'Approaching', 1: 'At stop', 2: 'Next stop' };
-  const statusText = STATUS[vehicle.current_status] ?? '';
-  const rawStopId  = vehicle.stop_id || '';
-  const stopName   = rawStopId ? (transitStopNames[rawStopId] || rawStopId) : '';
+  const statusText = STATUS[vehicle.currentStatus] ?? '';
+  const stopName   = vehicle.stopId ? (transitStopNames[vehicle.stopId] || vehicle.stopId) : '';
   const stopLine   = (statusText && stopName)
     ? `<b>${statusText}:</b> ${stopName}<br>` : '';
 
@@ -252,17 +238,20 @@ function buildTransitPopup(vehicle, modeKey, routeId) {
 
 async function fetchAndDisplayTransit() {
   if (!transitVisible) return;
-  if (typeof FeedMessageType === 'undefined' || !FeedMessageType) {
-    console.warn('[transit] Proto not ready yet — skipping refresh');
-    return;
-  }
 
-  // Ensure routes are loaded before we render anything (fast on warm cache)
+  // Ensure routes are loaded before we render (fast on warm cache)
   await loadTransitRoutes();
+
+  // Viewport bounds for client-side filtering — with generous padding
+  const bounds  = map.getBounds().pad(0.3);
+  const south   = bounds.getSouth(), north = bounds.getNorth();
+  const west    = bounds.getWest(),  east  = bounds.getEast();
 
   const modesToFetch = [...tFilterTypes];
   const results = await Promise.allSettled(
-    modesToFetch.map(mode => fetchModeFeed(mode).then(feed => ({ mode, feed })))
+    modesToFetch.map(mode =>
+      fetchModeVehicles(mode).then(vehicles => ({ mode, vehicles }))
+    )
   );
 
   const seenKeys = new Set();
@@ -273,22 +262,21 @@ async function fetchAndDisplayTransit() {
       continue;
     }
 
-    const { mode: modeKey, feed } = result.value;
-    if (!feed?.entity) continue;
+    const { mode: modeKey, vehicles } = result.value;
+    if (!Array.isArray(vehicles)) continue;
 
-    for (const entity of feed.entity) {
-      const v = entity.vehicle;
-      if (!v?.position?.latitude) continue;
+    for (const v of vehicles) {
+      const { lat, lng, routeId, tripId, stopId, currentStatus,
+              directionId, vehicleId, vehicleLabel } = v;
 
-      const vLabel  = (v.vehicle?.label || v.vehicle?.id || '').toUpperCase();
-      if (modeKey === 'Ferry' && (vLabel === 'GOOTCHA' || vLabel === 'KULUWIN')) continue;
+      // Skip Gootcha/Kuluwin — covered by CityDog tab
+      const lbl = (vehicleLabel || vehicleId || '').toUpperCase();
+      if (modeKey === 'Ferry' && (lbl === 'GOOTCHA' || lbl === 'KULUWIN')) continue;
 
-      const lat     = Number(v.position.latitude);
-      const lon     = Number(v.position.longitude);
-      const rawRouteId = v.trip?.route_id || '';
-      const tripId     = v.trip?.trip_id  || '';
-      const routeId    = rawRouteId || transitTripToRoute[tripId] || '';
-      const vKey    = `${modeKey}:${v.vehicle?.id || v.vehicle?.label || entity.id}`;
+      // Viewport filter — only show vehicles on screen (+ padding)
+      if (lat < south || lat > north || lng < west || lng > east) continue;
+
+      const vKey = `${modeKey}:${vehicleId || vehicleLabel || tripId}`;
 
       if (!vehiclePassesFilters(routeId, modeKey)) {
         if (transitMarkers[vKey]) {
@@ -306,27 +294,23 @@ async function fetchAndDisplayTransit() {
       const popup     = buildTransitPopup(v, modeKey, routeId);
 
       if (transitMarkers[vKey]) {
-        transitMarkers[vKey].setLatLng([lat, lon]);
+        transitMarkers[vKey].setLatLng([lat, lng]);
         transitMarkers[vKey].setIcon(icon);
-        // Store latest vehicle data on marker so popupopen can rebuild it
-        transitMarkers[vKey]._transitVehicle = v;
-        transitMarkers[vKey]._transitRouteId  = routeId;
-        transitMarkers[vKey]._transitModeKey  = modeKey;
+        transitMarkers[vKey]._tv = v;
+        transitMarkers[vKey]._transitRouteId = routeId;
+        transitMarkers[vKey]._transitModeKey = modeKey;
         transitMarkers[vKey].setPopupContent(popup);
       } else {
-        const marker = L.marker([lat, lon], { icon }).bindPopup(popup);
-        marker._transitVehicle = v;
+        const marker = L.marker([lat, lng], { icon }).bindPopup(popup);
+        marker._tv             = v;
         marker._transitRouteId = routeId;
         marker._transitModeKey = modeKey;
 
-        // Rebuild popup content on every open so stop names are always current
+        // Always rebuild popup on open so stop names are current
         marker.on('popupopen', () => {
-          const fresh = buildTransitPopup(
-            marker._transitVehicle,
-            marker._transitModeKey,
-            marker._transitRouteId
+          marker.setPopupContent(
+            buildTransitPopup(marker._tv, marker._transitModeKey, marker._transitRouteId)
           );
-          marker.setPopupContent(fresh);
         });
 
         marker.on('click', () => {
@@ -347,7 +331,7 @@ async function fetchAndDisplayTransit() {
     }
   }
 
-  // Remove markers no longer in feed or now filtered out
+  // Remove markers no longer in feed or filtered out
   for (const key of Object.keys(transitMarkers)) {
     if (!seenKeys.has(key)) {
       transitClusterGroup.removeLayer(transitMarkers[key]);
