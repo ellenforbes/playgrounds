@@ -371,10 +371,7 @@ function updateTopicCount() {
         label = `playground${count !== 1 ? 's' : ''}`;
 
     } else if (activeFilterTab === 'events') {
-        if (map && eventsClusterGroup) {
-            const bounds = map.getBounds();
-            eventsClusterGroup.eachLayer(m => { if (bounds.contains(m.getLatLng())) count++; });
-        }
+        eventsClusterGroup?.eachLayer(() => count++);
         label = `event${count !== 1 ? 's' : ''}`;
 
     } else if (activeFilterTab === 'libraries') {
@@ -1181,18 +1178,23 @@ function shouldShowPlayground(playground, filters) {
 function filterEvents() {
     if (!eventsData?.length) return;
 
+    const futureOnly      = document.getElementById('filterEventsFutureOnly')?.checked;
     const dateFrom        = document.getElementById('filterEventsDateFrom')?.value;
     const dateTo          = document.getElementById('filterEventsDateTo')?.value;
     const selCategories   = Array.from(document.querySelectorAll('.event-category-cb:checked')).map(cb => cb.value);
     const selTypes        = Array.from(document.querySelectorAll('.event-type-cb:checked')).map(cb => cb.value);
 
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const fromDate = dateFrom ? new Date(dateFrom) : null;
     const toDate   = dateTo   ? new Date(dateTo + 'T23:59:59') : null;
 
     eventsClusterGroup.clearLayers();
 
     eventsData.forEach(event => {
-        const eventDate = parseEventDate(event.formatteddatetime);
+        const eventDate = event.start_datetime ? new Date(event.start_datetime) : parseEventDate(event.formatteddatetime);
+
+        // Future-only gate
+        if (futureOnly && eventDate && eventDate < today) return;
 
         // Date-from gate
         if (fromDate && eventDate && eventDate < fromDate) return;
@@ -1217,43 +1219,14 @@ function filterEvents() {
     updateTopicCount();
 }
 
-// Parse the formatteddatetime string — handles AU formats like "Saturday, 5 April 2025 10:00am"
+// Parse the formatteddatetime string — handles common AU formats
 function parseEventDate(str) {
     if (!str) return null;
     try {
-        // Try ISO / RFC formats first (fast path)
-        const direct = new Date(str);
-        if (!isNaN(direct)) return direct;
-
-        // Handle "Saturday, 5 April 2025 10:00am" / "5 April 2025" / "5 Apr 2025 10:00am"
-        const MONTHS = {
-            january:1, february:2, march:3, april:4, may:5, june:6,
-            july:7, august:8, september:9, october:10, november:11, december:12,
-            jan:1, feb:2, mar:3, apr:4, jun:6, jul:7, aug:8,
-            sep:9, oct:10, nov:11, dec:12,
-        };
-
-        // Strip leading day-name if present: "Saturday, 5 April 2025…" → "5 April 2025…"
-        const stripped = str.replace(/^[a-z]+,\s*/i, '');
-
-        // Match: <day> <month> <year> [<time>]
-        const m = stripped.match(
-            /^(\d{1,2})\s+([a-z]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{2})(am|pm)?)?/i
-        );
-        if (!m) return null;
-
-        const day   = parseInt(m[1], 10);
-        const month = MONTHS[(m[2] || '').toLowerCase()];
-        const year  = parseInt(m[3], 10);
-        if (!month) return null;
-
-        let hour = m[4] ? parseInt(m[4], 10) : 0;
-        const min = m[5] ? parseInt(m[5], 10) : 0;
-        const ampm = (m[6] || '').toLowerCase();
-        if (ampm === 'pm' && hour < 12) hour += 12;
-        if (ampm === 'am' && hour === 12) hour = 0;
-
-        return new Date(year, month - 1, day, hour, min, 0);
+        // "Saturday, 5 April 2025 10:00am"
+        // new Date() handles many formats, including ISO
+        const d = new Date(str);
+        return isNaN(d) ? null : d;
     } catch { return null; }
 }
 
