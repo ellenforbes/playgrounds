@@ -68,6 +68,9 @@
         <button class="topic-tab" data-tab="libraries" onclick="switchFilterTab('libraries')">
         <span class="tab-label">Libraries</span>
         </button>
+        <button class="topic-tab" data-tab="transit" onclick="switchFilterTab('transit')">
+        <span class="tab-label">Transit</span>
+        </button>
       </div>
 
       <!-- Scrollable content wrapper -->
@@ -400,6 +403,70 @@
 
           </div><!-- /filter-panel-libraries -->
 
+          <!-- ================================================ -->
+          <!-- TRANSIT FILTER PANEL                             -->
+          <!-- ================================================ -->
+          <div id="filter-panel-transit" class="filter-panel">
+
+            <!-- Transport Type -->
+            <div class="filter-section">
+              <label class="filter-label">Transport Type:</label>
+              <div class="feature-filter">
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="transitFilterBus" checked> Bus 🚌
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="transitFilterFerry" checked> Ferry ⛴
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="transitFilterRail" checked> Train 🚆
+                </label>
+              </div>
+            </div>
+
+            <!-- High Frequency -->
+            <div class="filter-section">
+              <label class="filter-label">Service Frequency:</label>
+              <div class="feature-filter">
+                <label class="feature-filter-option">
+                  <input type="checkbox" id="transitHighFreqOnly"> High frequency only ⚡
+                </label>
+              </div>
+              <p style="font-size:0.75rem;color:#6b7280;margin-top:6px;line-height:1.4;">
+                High frequency = routes running every 15 min or less
+              </p>
+            </div>
+
+            <!-- Route Search -->
+            <div class="filter-section">
+              <label class="filter-label">Search Routes:</label>
+              <div style="position:relative;">
+                <input
+                  type="text"
+                  id="transitRouteSearch"
+                  placeholder="Route number or name (e.g. 130, City)"
+                  class="form-input small"
+                  style="padding-right:28px;"
+                />
+                <button
+                  id="transitRouteClear"
+                  style="position:absolute;right:8px;top:50%;transform:translateY(-50%);
+                         background:none;border:none;cursor:pointer;color:#9ca3af;
+                         font-size:14px;line-height:1;padding:0;"
+                  aria-label="Clear search">✕</button>
+              </div>
+            </div>
+
+            <!-- Status note -->
+            <div class="filter-section">
+              <p style="font-size:0.75rem;color:#6b7280;line-height:1.5;">
+                🔄 Positions update every 30 seconds from TransLink GTFS-RT.<br>
+                Use the <strong>Transit</strong> button on the map to show vehicles.
+              </p>
+            </div>
+
+          </div><!-- end filter-panel-transit -->
+
         </div>
       </div><!-- /drawer-content-wrapper -->
 
@@ -658,6 +725,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/protobufjs@7/dist/protobuf.min.js"></script>
   <script src="script.js"></script>
+  <script src="transit-layer.js"></script>
 
 </body>
 </html>
