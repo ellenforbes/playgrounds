@@ -289,8 +289,8 @@ module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
 
   const rawData = (req.query?.data || 'stops').toLowerCase();
-  if (!['stops', 'routes', 'shapes'].includes(rawData)) {
-    return res.status(400).json({ error: 'Invalid data param. Use: stops, routes or shapes' });
+  if (!['stops', 'routes', 'shapes', 'trips'].includes(rawData)) {
+    return res.status(400).json({ error: 'Invalid data param. Use: stops, routes, shapes or trips' });
   }
 
   try {
@@ -302,6 +302,12 @@ module.exports = async (req, res) => {
     if (rawData === 'routes') {
       await ensureFastCache();
       return res.status(200).json(fastCache.routes);
+    }
+
+    if (rawData === 'trips') {
+      // Returns { trip_id: route_id } — lets the client map RT trip_id to route_id
+      await ensureFastCache();
+      return res.status(200).json(fastCache.tripToRoute);
     }
 
     // stops
