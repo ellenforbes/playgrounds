@@ -21,8 +21,9 @@ let transitRoutes        = {};          // route_id → route object
 let transitRoutesLoaded  = false;
 let transitStopNames     = {};          // stop_id  → stop name
 
-let transitShapeLayer    = null;        // L.layerGroup for route polylines
-let transitShapesLoaded  = false;
+let transitShapeLayer    = null;        // L.layerGroup — holds at most ONE active route line
+let transitAllShapes     = null;        // null = not yet fetched; {} = fetched (route_id → {type,points})
+let transitActiveRouteId = null;        // route_id currently drawn
 
 // Filter state (mirrors the sidebar checkboxes)
 let tFilterTypes    = new Set(['Bus', 'Ferry', 'Rail']);
@@ -61,34 +62,49 @@ async function loadTransitRoutes() {
 
 // ===== SHAPE / ROUTE LINE WORK =====
 
-async function loadTransitShapes() {
-  if (transitShapesLoaded) return;
+/** Fetch all shapes once and cache. Returns the shapes dict or null on failure. */
+async function ensureShapesLoaded() {
+  if (transitAllShapes !== null) return transitAllShapes;
   try {
     const res = await fetch(`${GTFS_STATIC_URL}?data=shapes`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const shapes = await res.json(); // { route_id: { type, points: [[lat,lng],...] } }
-
-    transitShapeLayer.clearLayers();
-
-    for (const [routeId, info] of Object.entries(shapes)) {
-      if (!info.points?.length) continue;
-      const cfg = TRANSIT_MODE[info.type] || TRANSIT_MODE.Bus;
-      L.polyline(info.points, {
-        color:     cfg.color,
-        weight:    2.5,
-        opacity:   0.55,
-        smoothFactor: 1.5,
-      }).bindTooltip(
-        `${cfg.emoji} Route ${transitRoutes[routeId]?.route_short_name || routeId}`,
-        { sticky: true, className: 'transit-route-tooltip' }
-      ).addTo(transitShapeLayer);
-    }
-
-    transitShapesLoaded = true;
-    console.log(`[transit] ${Object.keys(shapes).length} route shapes drawn`);
+    transitAllShapes = await res.json();
+    console.log(`[transit] ${Object.keys(transitAllShapes).length} route shapes cached`);
   } catch (e) {
     console.warn('[transit] Could not load shapes:', e.message);
+    transitAllShapes = {};
   }
+  return transitAllShapes;
+}
+
+/** Draw the route polyline for routeId. Clears any previously drawn line first. */
+async function showRouteShape(routeId, modeKey) {
+  transitShapeLayer.clearLayers();
+  transitActiveRouteId = routeId;
+  if (!routeId) return;
+
+  const shapes = await ensureShapesLoaded();
+  const info   = shapes[routeId];
+  if (!info?.points?.length) return;
+
+  const cfg        = TRANSIT_MODE[modeKey] || TRANSIT_MODE[info.type] || TRANSIT_MODE.Bus;
+  const shortName  = transitRoutes[routeId]?.route_short_name || routeId;
+
+  L.polyline(info.points, {
+    color:        cfg.color,
+    weight:       4,
+    opacity:      0.75,
+    smoothFactor: 1.5,
+  }).bindTooltip(
+    `${cfg.emoji} Route ${shortName}`,
+    { sticky: true, className: 'transit-route-tooltip' }
+  ).addTo(transitShapeLayer);
+}
+
+/** Remove any active route line from the map. */
+function clearRouteShape() {
+  transitShapeLayer.clearLayers();
+  transitActiveRouteId = null;
 }
 
 // ===== PROTOBUF FETCH =====
@@ -241,6 +257,10 @@ async function fetchAndDisplayTransit() {
         transitMarkers[vKey].setPopupContent(popup);
       } else {
         const marker = L.marker([lat, lon], { icon }).bindPopup(popup);
+
+        marker.on('click', () => showRouteShape(routeId, modeKey));
+        marker.on('popupclose', () => clearRouteShape());
+
         transitClusterGroup.addLayer(marker);
         transitMarkers[vKey] = marker;
       }
@@ -288,10 +308,10 @@ function toggleTransit() {
     map.addLayer(transitClusterGroup);
     transitVisible = true;
     startTransitTracking();
-    loadTransitShapes();
     btn?.classList.remove('transit-hidden');
     if (typeof switchFilterTab === 'function') switchFilterTab('transit');
   } else {
+    clearRouteShape();
     map.removeLayer(transitClusterGroup);
     map.removeLayer(transitShapeLayer);
     transitVisible = false;
