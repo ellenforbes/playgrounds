@@ -1733,6 +1733,25 @@ label,
     opacity: 0.7;
 }
 
+
+
+.toggle-events-btn.childcare-hidden {
+    background: var(--gradient-primary);
+    opacity: 0.5;
+}
+
+.toggle-events-btn.childcare-hidden:hover {
+    background: var(--gradient-contrast-dark);
+    opacity: 0.7;
+}
+
+/* ── Triangle marker — remove Leaflet's default icon background ── */
+
+.childcare-triangle-marker {
+    background: transparent !important;
+    border: none !important;
+}
+
 /* ===== MOBILE: keep tabs visible above the drawer content ===== */
 @media (max-width: 768px) {
     .topic-tabs {

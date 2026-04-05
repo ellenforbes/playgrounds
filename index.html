@@ -71,6 +71,9 @@
         <button class="topic-tab" data-tab="transit" onclick="switchFilterTab('transit')">
         <span class="tab-label">Transit</span>
         </button>
+        <button class="topic-tab" data-tab="childcare" onclick="switchFilterTab('childcare')">
+          <span class="tab-label">Childcare</span>
+        </button>
       </div>
 
       <!-- Scrollable content wrapper -->
@@ -461,6 +464,70 @@
 
           </div><!-- end filter-panel-transit -->
 
+          <!-- ================================================ -->
+          <!-- CHILDCARE FILTER PANEL                           -->
+          <!-- ================================================ -->
+          <div id="filter-panel-childcare" class="filter-panel">
+
+            <!-- NQS Score slider -->
+            <div class="filter-section">
+              <label class="filter-label">NQS Score Range:</label>
+              <div class="slider-container">
+                <span id="childcareScoreMinLabel">0</span>
+                <div id="childcareScoreSlider" class="size-slider"></div>
+                <span id="childcareScoreMaxLabel">21</span>
+              </div>
+              <!-- Colour legend -->
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:0.72rem;color:#4b5563;line-height:1.4;">
+                <span><span style="color:#6b7280;font-weight:700;">⬛ 0</span> No rating</span>
+                <span><span style="color:#dc2626;font-weight:700;">🔴 1–7</span></span>
+                <span><span style="color:#ea580c;font-weight:700;">🟠 8–13</span></span>
+                <span><span style="color:#eab308;font-weight:700;">🟡 14–18</span></span>
+                <span><span style="color:#16a34a;font-weight:700;">🟢 19+</span></span>
+              </div>
+            </div>
+
+            <!-- Service type filter -->
+            <div class="filter-section">
+              <label class="filter-label">Filter by Service Type:</label>
+              <div class="feature-filter">
+                <label class="feature-filter-option">
+                  <input type="checkbox" class="childcare-service-cb" value="long_day_care">
+                  🏫 Long Day Care
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" class="childcare-service-cb" value="preschool_kindergarten_part_of_school">
+                  🎓 Preschool / Kinder (Part of School)
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" class="childcare-service-cb" value="preschool_kindergarten_stand_alone">
+                  🎓 Preschool / Kinder (Stand Alone)
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" class="childcare-service-cb" value="outside_school_hours_care_after_school">
+                  🌇 After School Care
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" class="childcare-service-cb" value="outside_school_hours_care_before_school">
+                  🌅 Before School Care
+                </label>
+                <label class="feature-filter-option">
+                  <input type="checkbox" class="childcare-service-cb" value="outside_school_hours_care_vacation_care">
+                  ☀️ Vacation Care
+                </label>
+              </div>
+              <p style="font-size:0.73rem;color:#6b7280;margin-top:7px;line-height:1.4;">
+                Tick to show only centres offering those services.<br>
+                Untick all to show every centre.
+              </p>
+            </div>
+
+            <div class="filter-section filter-placeholder">
+              <p>Data sourced from ACECQA. Refreshed monthly via GitHub Actions.</p>
+            </div>
+
+          </div><!-- /filter-panel-childcare -->
+
         </div>
       </div><!-- /drawer-content-wrapper -->
 
@@ -720,6 +787,7 @@
   <script src="https://cdn.jsdelivr.net/npm/protobufjs@7/dist/protobuf.min.js"></script>
   <script src="script.js"></script>
   <script src="transit-layer.js"></script>
+  <script src="childcare-layer.js"></script>
 
 </body>
 </html>
