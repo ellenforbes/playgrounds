@@ -58,7 +58,7 @@ let ferryStopNames = {};
 
 async function loadTransitStopNames(type = 'Ferry') {
     try {
-        const res = await fetch(`${TRANSIT_STOPS_URL}?type=${type}`);
+        const res = await fetch(`${TRANSIT_STOPS_URL}&type=${type}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const lookup = await res.json();
         console.log(`Transit stop names loaded (type=${type}): ${Object.keys(lookup).length} stops`);
@@ -1181,30 +1181,6 @@ function shouldShowPlayground(playground, filters) {
 }
 
 //Events filtering //
-// ===== EVENT DATE DEFAULTS =====
-// Called once after events data loads. Sets From = today, To = today + 8 days.
-// The To input is capped at today + 28 days to match what the DB holds.
-
-function setDefaultEventDates() {
-    const fromEl = document.getElementById('filterEventsDateFrom');
-    const toEl   = document.getElementById('filterEventsDateTo');
-    if (!fromEl || !toEl) return;
-
-    const today  = new Date();
-    const plus8  = new Date(today); plus8.setDate(today.getDate() + 8);
-    const plus28 = new Date(today); plus28.setDate(today.getDate() + 28);
-
-    const fmt = d => d.toISOString().slice(0, 10);   // YYYY-MM-DD
-
-    // Only set defaults if the user hasn't already picked dates
-    if (!fromEl.value) fromEl.value = fmt(today);
-    if (!toEl.value)   toEl.value   = fmt(plus8);
-
-    // Always enforce the 28-day cap
-    fromEl.min = fmt(today);
-    toEl.max   = fmt(plus28);
-}
-
 function filterEvents() {
     if (!eventsData?.length) return;
 
@@ -1440,8 +1416,7 @@ async function loadEventsData() {
         eventsData = result.data;
         console.log(`✅ Loaded ${eventsData.length} events`);
         if (eventsData.length) {
-            setDefaultEventDates();
-            filterEvents();
+            addEventsToMap();
         }
     } catch (err) {
         console.error('Failed to load events data:', err);
