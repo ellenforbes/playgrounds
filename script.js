@@ -43,7 +43,7 @@ let ferryProtoLoaded = false;
 let FeedMessageType = null;
 
 const FERRY_TARGETS = ['GOOTCHA', 'KULUWIN'];
-const FERRY_GTFS_URL = '/api/gtfs-rt?feed=positions&type=Ferry';
+const FERRY_GTFS_URL = '/api/gtfs-rt?feed=positions&type=Ferry&raw=1';  // raw=1 → protobuf for client-side decode
 const FERRY_CORS_PROXY = '';
 const FERRY_REFRESH_MS = 30000;
 

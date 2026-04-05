@@ -278,20 +278,16 @@ module.exports = async (req, res) => {
     if (!upstream.ok) throw new Error(`TransLink returned HTTP ${upstream.status}`);
     const rawBuf = Buffer.from(await upstream.arrayBuffer());
 
-    // Raw protobuf passthrough for trip updates (used by ferry CityDog)
-    if (rawFeed === 'updates') {
+    // Raw protobuf passthrough — two callers need this:
+    //   feed=updates         (CityDog trip-update decoder, always raw)
+    //   feed=positions&raw=1 (CityDog position decoder uses protobuf.js client-side)
+    // The transit layer calls feed=positions WITHOUT raw=1 and expects JSON for all modes.
+    if (rawFeed === 'updates' || req.query?.raw === '1') {
       res.setHeader('Content-Type', 'application/octet-stream');
       return res.status(200).send(rawBuf);
     }
 
-    // Ferry positions are decoded client-side by CityDog using protobuf.js —
-    // return raw protobuf so fetchAndDisplayFerries() can call FeedMessageType.decode()
-    if (rawFeed === 'positions' && type === 'Ferry') {
-      res.setHeader('Content-Type', 'application/octet-stream');
-      return res.status(200).send(rawBuf);
-    }
-
-    // Positions (non-Ferry): decode server-side, resolve trip→route, return JSON
+    // Positions: decode server-side, resolve trip→route, return JSON
     await ensureTripCache();
 
     const rawVehicles = decodeFeed(rawBuf);
