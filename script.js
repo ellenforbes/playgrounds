@@ -43,7 +43,7 @@ let ferryProtoLoaded = false;
 let FeedMessageType = null;
 
 const FERRY_TARGETS = ['GOOTCHA', 'KULUWIN'];
-const FERRY_GTFS_URL = '/api/gtfs-rt?feed=positions&type=Ferry&raw=1';  // raw=1 → protobuf for client-side decode
+const FERRY_GTFS_URL = '/api/gtfs-rt?feed=positions&type=Ferry';
 const FERRY_CORS_PROXY = '';
 const FERRY_REFRESH_MS = 30000;
 
@@ -1181,6 +1181,30 @@ function shouldShowPlayground(playground, filters) {
 }
 
 //Events filtering //
+// ===== EVENT DATE DEFAULTS =====
+// Called once after events data loads. Sets From = today, To = today + 8 days.
+// The To input is capped at today + 28 days to match what the DB holds.
+
+function setDefaultEventDates() {
+    const fromEl = document.getElementById('filterEventsDateFrom');
+    const toEl   = document.getElementById('filterEventsDateTo');
+    if (!fromEl || !toEl) return;
+
+    const today  = new Date();
+    const plus8  = new Date(today); plus8.setDate(today.getDate() + 8);
+    const plus28 = new Date(today); plus28.setDate(today.getDate() + 28);
+
+    const fmt = d => d.toISOString().slice(0, 10);   // YYYY-MM-DD
+
+    // Only set defaults if the user hasn't already picked dates
+    if (!fromEl.value) fromEl.value = fmt(today);
+    if (!toEl.value)   toEl.value   = fmt(plus8);
+
+    // Always enforce the 28-day cap
+    fromEl.min = fmt(today);
+    toEl.max   = fmt(plus28);
+}
+
 function filterEvents() {
     if (!eventsData?.length) return;
 
@@ -1416,7 +1440,8 @@ async function loadEventsData() {
         eventsData = result.data;
         console.log(`✅ Loaded ${eventsData.length} events`);
         if (eventsData.length) {
-            addEventsToMap();
+            setDefaultEventDates();
+            filterEvents();
         }
     } catch (err) {
         console.error('Failed to load events data:', err);
