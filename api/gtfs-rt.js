@@ -284,7 +284,14 @@ module.exports = async (req, res) => {
       return res.status(200).send(rawBuf);
     }
 
-    // Positions: decode server-side, resolve trip→route, return JSON
+    // Ferry positions are decoded client-side by CityDog using protobuf.js —
+    // return raw protobuf so fetchAndDisplayFerries() can call FeedMessageType.decode()
+    if (rawFeed === 'positions' && type === 'Ferry') {
+      res.setHeader('Content-Type', 'application/octet-stream');
+      return res.status(200).send(rawBuf);
+    }
+
+    // Positions (non-Ferry): decode server-side, resolve trip→route, return JSON
     await ensureTripCache();
 
     const rawVehicles = decodeFeed(rawBuf);
