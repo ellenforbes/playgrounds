@@ -4,285 +4,35 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Playground Statistics</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <style>
-    :root {
-      --bg:          #08111e;
-      --surface:     #0f1e30;
-      --card:        #13263d;
-      --card-hover:  #1a334f;
-      --border:      #1d3450;
-      --border-light:#254162;
-      --teal:        #00c9a7; --teal-dim:  rgba(0,201,167,.12);
-      --amber:       #ffb347; --amber-dim: rgba(255,179,71,.12);
-      --blue:        #4d8af0; --blue-dim:  rgba(77,138,240,.12);
-      --rose:        #f06292; --rose-dim:  rgba(240,98,146,.12);
-      --purple:      #b07fff; --purple-dim:rgba(176,127,255,.12);
-      --text:        #ddeaf7;
-      --text-muted:  #637fa0;
-      --text-dim:    #3d5770;
-      --radius-sm:   8px; --radius: 14px; --radius-lg: 20px;
-      --font:        'Outfit', sans-serif;
-      --mono:        'JetBrains Mono', monospace;
-      --ease:        .2s ease;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 15px;
-      line-height: 1.6;
-      min-height: 100vh;
-    }
-    body::before {
-      content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
-      background:
-        radial-gradient(ellipse 80% 50% at 10% 0%, rgba(0,201,167,.07) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 90% 80%, rgba(77,138,240,.06) 0%, transparent 60%);
-    }
-    .page { position:relative; z-index:1; max-width:1400px; margin:0 auto; padding:0 24px 80px; }
-
-    /* ── Header ── */
-    header {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:24px 0 28px; border-bottom:1px solid var(--border);
-      gap:16px; flex-wrap:wrap;
-    }
-    .header-left { display:flex; align-items:center; gap:14px; }
-    .back-btn {
-      display:flex; align-items:center; gap:7px;
-      color:var(--text-muted); font-size:13px; font-weight:500;
-      padding:7px 13px; border:1px solid var(--border);
-      border-radius:var(--radius-sm); transition:var(--ease);
-    }
-    .back-btn:hover { color:var(--teal); border-color:var(--teal); background:var(--teal-dim); }
-    .back-btn svg { width:13px; height:13px; flex-shrink:0; }
-    .header-title h1 { font-size:21px; font-weight:700; letter-spacing:-.3px; }
-    .header-title p { font-size:13px; color:var(--text-muted); margin-top:2px; }
-    .abs-badge {
-      font-family:var(--mono); font-size:11px; color:var(--teal);
-      background:var(--teal-dim); border:1px solid rgba(0,201,167,.25);
-      padding:4px 10px; border-radius:20px;
-    }
-
-    /* ── Section label ── */
-    .section-label {
-      font-size:11px; font-weight:600; letter-spacing:1.5px;
-      text-transform:uppercase; color:var(--text-muted);
-      margin:28px 0 16px; display:flex; align-items:center; gap:10px;
-    }
-    .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
-
-    /* ── Controls ── */
-    .controls-bar {
-      display:flex; align-items:center; gap:12px;
-      margin:24px 0 20px; flex-wrap:wrap;
-    }
-    .ctrl-group { display:flex; align-items:center; gap:8px; }
-    .ctrl-label { font-size:12px; color:var(--text-muted); white-space:nowrap; }
-
-    select, .btn-pill {
-      font-family:var(--font); font-size:13px; font-weight:500;
-      color:var(--text); background:var(--card); border:1px solid var(--border);
-      border-radius:var(--radius-sm); padding:8px 14px;
-      cursor:pointer; transition:var(--ease); outline:none; appearance:none;
-    }
-    select {
-      padding-right:32px;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23637fa0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-      background-repeat:no-repeat; background-position:right 10px center;
-    }
-    select:hover, select:focus { border-color:var(--teal); }
-    .btn-pill:hover { border-color:var(--teal); color:var(--teal); }
-
-    .age-toggles { display:flex; gap:6px; }
-    .age-btn {
-      font-family:var(--mono); font-size:11px; padding:6px 13px;
-      border-radius:20px; border:1px solid var(--border);
-      background:transparent; color:var(--text-muted);
-      cursor:pointer; transition:var(--ease);
-    }
-    .age-btn[data-age="0_4"]:hover,   .age-btn[data-age="0_4"].active   { background:var(--teal-dim);  border-color:var(--teal);  color:var(--teal);  }
-    .age-btn[data-age="5_9"]:hover,   .age-btn[data-age="5_9"].active   { background:var(--amber-dim); border-color:var(--amber); color:var(--amber); }
-    .age-btn[data-age="10_14"]:hover, .age-btn[data-age="10_14"].active { background:var(--blue-dim);  border-color:var(--blue);  color:var(--blue);  }
-
-    .search-wrap {
-      position:relative; flex:1; min-width:180px; max-width:300px;
-    }
-    .search-wrap svg {
-      position:absolute; left:10px; top:50%; transform:translateY(-50%);
-      width:14px; height:14px; color:var(--text-dim); pointer-events:none;
-    }
-    #table-search {
-      width:100%; padding:8px 14px 8px 32px;
-      font-family:var(--font); font-size:13px; color:var(--text);
-      background:var(--card); border:1px solid var(--border);
-      border-radius:var(--radius-sm); outline:none; transition:var(--ease);
-    }
-    #table-search:focus { border-color:var(--teal); }
-    #table-search::placeholder { color:var(--text-dim); }
-
-    /* ── KPI cards ── */
-    .kpi-row {
-      display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
-      gap:14px; margin-bottom:28px;
-    }
-    .kpi-card {
-      background:var(--card); border:1px solid var(--border);
-      border-radius:var(--radius); padding:20px 22px;
-      transition:var(--ease); position:relative; overflow:hidden;
-    }
-    .kpi-card::before {
-      content:''; position:absolute; top:0; left:0; right:0; height:3px;
-      border-radius:var(--radius) var(--radius) 0 0;
-    }
-    .kpi-card.teal::before  { background:var(--teal);   }
-    .kpi-card.amber::before { background:var(--amber);  }
-    .kpi-card.blue::before  { background:var(--blue);   }
-    .kpi-card.rose::before  { background:var(--rose);   }
-    .kpi-card:hover { background:var(--card-hover); border-color:var(--border-light); }
-    .kpi-label { font-size:12px; color:var(--text-muted); font-weight:500; margin-bottom:8px; }
-    .kpi-value {
-      font-family:var(--mono); font-size:32px; font-weight:600;
-      line-height:1; letter-spacing:-1px;
-    }
-    .kpi-card.teal  .kpi-value { color:var(--teal);  }
-    .kpi-card.amber .kpi-value { color:var(--amber); }
-    .kpi-card.blue  .kpi-value { color:var(--blue);  }
-    .kpi-card.rose  .kpi-value { color:var(--rose);  }
-    .kpi-sub { font-size:12px; color:var(--text-dim); margin-top:6px; line-height:1.5; }
-
-    /* ── Loading / error ── */
-    .loading-state {
-      display:flex; flex-direction:column; align-items:center;
-      justify-content:center; padding:60px 20px; gap:14px;
-      color:var(--text-muted); font-size:14px;
-    }
-    .spinner {
-      width:34px; height:34px; border:3px solid var(--border);
-      border-top-color:var(--teal); border-radius:50%;
-      animation:spin .8s linear infinite;
-    }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .error-state {
-      padding:22px; background:rgba(240,98,146,.08);
-      border:1px solid rgba(240,98,146,.25);
-      border-radius:var(--radius); color:var(--rose); font-size:14px;
-    }
-
-    /* ── Table ── */
-    .table-wrap {
-      background:var(--card); border:1px solid var(--border);
-      border-radius:var(--radius); overflow:hidden; margin-bottom:24px;
-    }
-    .table-scroll { overflow-x:auto; }
-    table { width:100%; border-collapse:collapse; }
-    thead th {
-      font-size:11px; font-weight:600; letter-spacing:.8px;
-      text-transform:uppercase; color:var(--text-muted);
-      padding:13px 16px; text-align:left;
-      border-bottom:1px solid var(--border); white-space:nowrap;
-      background:rgba(8,17,30,.4);
-    }
-    thead th.num { text-align:right; }
-    thead th.pop-header { color:var(--amber); }
-    tbody tr { border-bottom:1px solid rgba(29,52,80,.5); transition:var(--ease); }
-    tbody tr:last-child { border-bottom:none; }
-    tbody tr:hover { background:var(--card-hover); }
-    td { padding:11px 16px; font-size:13px; vertical-align:middle; }
-    td.num { text-align:right; font-family:var(--mono); font-size:12px; }
-    td.sa2-name { font-weight:600; font-size:13px; }
-    td.lga-cell {
-      font-size:11px; color:var(--text-muted);
-      font-family:var(--mono); white-space:nowrap;
-    }
-    td.pop-col { color:var(--amber); }
-    .no-data { color:var(--text-dim); }
-
-    .ratio-cell { display:flex; align-items:center; gap:8px; justify-content:flex-end; }
-    .ratio-bar-wrap { width:60px; height:5px; background:var(--border); border-radius:3px; overflow:hidden; flex-shrink:0; }
-    .ratio-bar { height:100%; border-radius:3px; transition:width .4s ease; }
-    .ratio-good .ratio-bar { background:var(--teal);  }
-    .ratio-mid  .ratio-bar { background:var(--amber); }
-    .ratio-low  .ratio-bar { background:var(--rose);  }
-
-    .table-footer {
-      padding:10px 16px; font-size:12px; color:var(--text-dim);
-      border-top:1px solid var(--border); background:rgba(8,17,30,.3);
-    }
-
-    /* ── Charts grid ── */
-    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
-    .grid-5 { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; margin-bottom:24px; }
-    @media (max-width:1100px) { .grid-5 { grid-template-columns:repeat(3,1fr); } }
-    @media (max-width:900px)  { .grid-2 { grid-template-columns:1fr; } .grid-5 { grid-template-columns:1fr 1fr; } }
-    @media (max-width:600px)  { .grid-5 { grid-template-columns:1fr; } }
-
-    .chart-card {
-      background:var(--card); border:1px solid var(--border);
-      border-radius:var(--radius); padding:20px;
-    }
-    .chart-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
-    .chart-title  { font-size:13px; font-weight:600; }
-    .chart-sub    { font-size:11px; color:var(--text-muted); margin-top:3px; }
-    .chart-tag {
-      font-family:var(--mono); font-size:10px; padding:3px 8px;
-      border-radius:20px; white-space:nowrap; flex-shrink:0;
-    }
-    .tag-teal   { background:var(--teal-dim);   color:var(--teal);   border:1px solid rgba(0,201,167,.2);   }
-    .tag-amber  { background:var(--amber-dim);  color:var(--amber);  border:1px solid rgba(255,179,71,.2);  }
-    .tag-blue   { background:var(--blue-dim);   color:var(--blue);   border:1px solid rgba(77,138,240,.2);  }
-    .tag-purple { background:var(--purple-dim); color:var(--purple); border:1px solid rgba(176,127,255,.2); }
-
-    /* ── Feature bar charts ── */
-    .feature-row { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
-    .feature-label { font-size:11px; width:100px; flex-shrink:0; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .feature-track { flex:1; height:7px; background:var(--border); border-radius:4px; overflow:hidden; }
-    .feature-fill  { height:100%; border-radius:4px; transition:width .5s ease; }
-    .feature-pct   { font-family:var(--mono); font-size:11px; width:32px; text-align:right; color:var(--text-muted); }
-
-    /* ── Footer ── */
-    footer {
-      margin-top:48px; padding-top:20px; border-top:1px solid var(--border);
-      display:flex; justify-content:space-between; align-items:center;
-      flex-wrap:wrap; gap:12px; font-size:12px; color:var(--text-muted);
-    }
-    footer a { transition:var(--ease); }
-    footer a:hover { color:var(--teal); }
-
-    @media (max-width:640px) {
-      .header-title h1 { font-size:18px; }
-      .kpi-row { grid-template-columns:1fr 1fr; }
-    }
-  </style>
 </head>
-<body>
-<div class="page">
+<body class="stats-page">
+<div class="stats-container">
 
-  <!-- Header -->
-  <header>
-    <div class="header-left">
-      <a href="index.html" class="back-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        Map
+  <!-- ── Header ─────────────────────────────────────────── -->
+  <header class="stats-header">
+    <div class="stats-header-left">
+      <a href="index.html" class="stats-back-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M19 12H5M12 5l-7 7 7 7"/>
+        </svg>
+        Back to map
       </a>
-      <div class="header-title">
+      <div class="stats-title">
         <h1>Playground Statistics</h1>
         <p>Playground access vs children's population by SA2 area</p>
       </div>
     </div>
-    <span class="abs-badge">ABS Census 2021 · SA2 Level</span>
+    <span class="stats-abs-badge">ABS Census 2021 · SA2 Level</span>
   </header>
 
-  <!-- Controls -->
-  <div class="controls-bar">
-    <div class="ctrl-group">
-      <span class="ctrl-label">Council</span>
-      <select id="lga-select">
+  <!-- ── Controls ───────────────────────────────────────── -->
+  <div class="stats-controls">
+
+    <div class="stats-ctrl-group">
+      <span class="stats-ctrl-label">Council</span>
+      <select id="lga-select" class="stats-select">
         <option value="all">All councils</option>
         <option value="Brisbane">Brisbane</option>
         <option value="Newcastle">Newcastle</option>
@@ -298,122 +48,151 @@
       </select>
     </div>
 
-    <div class="ctrl-group">
-      <span class="ctrl-label">Age groups</span>
-      <div class="age-toggles">
-        <button class="age-btn active" data-age="0_4">0–4</button>
-        <button class="age-btn active" data-age="5_9">5–9</button>
-        <button class="age-btn active" data-age="10_14">10–14</button>
+    <div class="stats-ctrl-group">
+      <span class="stats-ctrl-label">SA2 areas</span>
+      <div class="sa2-multiselect-wrap" id="sa2-multiselect-wrap">
+        <div class="sa2-multiselect-trigger" id="sa2-trigger">
+          <span class="sa2-placeholder" id="sa2-placeholder">All SA2 areas</span>
+          <svg class="chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+        <div class="sa2-dropdown" id="sa2-dropdown">
+          <input class="sa2-search-input" id="sa2-search" type="text" placeholder="Search SA2 areas…" autocomplete="off" />
+          <div class="sa2-dropdown-actions">
+            <button class="sa2-action-btn" id="sa2-select-all">Select all</button>
+            <button class="sa2-action-btn" id="sa2-clear-all">Clear</button>
+          </div>
+          <div class="sa2-options-list" id="sa2-options-list"></div>
+        </div>
       </div>
     </div>
 
-    <div class="search-wrap">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input id="table-search" type="text" placeholder="Search SA2, council…" />
+    <div class="stats-ctrl-group">
+      <span class="stats-ctrl-label">Age groups</span>
+      <div class="stats-age-toggles">
+        <button class="stats-age-btn active" data-age="0_4">0–4 yrs</button>
+        <button class="stats-age-btn active" data-age="5_9">5–9 yrs</button>
+        <button class="stats-age-btn active" data-age="10_14">10–14 yrs</button>
+      </div>
     </div>
 
-    <button class="btn-pill" id="refresh-btn">↻ Refresh</button>
+    <div class="stats-ctrl-group">
+      <span class="stats-ctrl-label">Search table</span>
+      <div class="stats-search-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input id="table-search" class="stats-search-input" type="text" placeholder="Filter table…" />
+      </div>
+    </div>
+
+    <button class="stats-refresh-btn" id="refresh-btn">↻ Refresh</button>
   </div>
 
-  <!-- KPI cards -->
-  <div class="section-label">Overview</div>
-  <div class="kpi-row" id="kpi-row">
-    <div class="loading-state" style="grid-column:1/-1"><div class="spinner"></div><span>Loading…</span></div>
+  <!-- ── KPI cards ──────────────────────────────────────── -->
+  <div class="stats-section-label">Overview</div>
+  <div class="stats-kpi-row" id="kpi-row">
+    <div class="stats-loading" style="grid-column:1/-1">
+      <div class="stats-spinner"></div><span>Loading statistics…</span>
+    </div>
   </div>
 
-  <!-- SA2 table -->
-  <div class="section-label">SA2 Area breakdown</div>
-  <div class="table-wrap" id="table-wrap">
-    <div class="loading-state"><div class="spinner"></div></div>
+  <!-- ── SA2 table ──────────────────────────────────────── -->
+  <div class="stats-section-label">SA2 area breakdown</div>
+  <div class="stats-table-wrap" id="table-wrap">
+    <div class="stats-loading"><div class="stats-spinner"></div></div>
   </div>
 
-  <!-- Charts: ratio + population side by side -->
-  <div class="section-label">Charts</div>
-  <div class="grid-2">
-    <div class="chart-card">
-      <div class="chart-header">
+  <!-- ── Charts ─────────────────────────────────────────── -->
+  <div class="stats-section-label">Charts</div>
+  <div class="stats-grid-2">
+
+    <div class="stats-chart-card">
+      <div class="stats-chart-header">
         <div>
-          <div class="chart-title">Top SA2 areas — playgrounds per 1,000 children</div>
-          <div class="chart-sub">Top 30 SA2s with population &gt; 50 children · recalculates with age toggle</div>
+          <div class="stats-chart-title">Top SA2 areas — playgrounds per 1,000 children</div>
+          <div class="stats-chart-sub">Top 30 SA2s with &gt;50 children · updates with age toggle</div>
         </div>
-        <span class="chart-tag tag-teal">Ratio</span>
+        <span class="stats-chart-tag tag-purple">Ratio</span>
       </div>
       <div style="position:relative;height:300px"><canvas id="chart-ratio"></canvas></div>
     </div>
 
-    <div class="chart-card">
-      <div class="chart-header">
+    <div class="stats-chart-card">
+      <div class="stats-chart-header">
         <div>
-          <div class="chart-title">Children by council</div>
-          <div class="chart-sub">ABS Census 2021 usual residents · toggle age bands above</div>
+          <div class="stats-chart-title">Children by council</div>
+          <div class="stats-chart-sub">ABS Census 2021 usual residents · toggle age bands above</div>
         </div>
-        <span class="chart-tag tag-amber">Population</span>
+        <span class="stats-chart-tag tag-teal">Population</span>
       </div>
       <div style="position:relative;height:300px"><canvas id="chart-population"></canvas></div>
     </div>
+
   </div>
 
-  <!-- LGA ratio chart -->
-  <div class="chart-card" style="margin-bottom:24px">
-    <div class="chart-header">
+  <div class="stats-chart-card" style="margin-bottom:24px">
+    <div class="stats-chart-header">
       <div>
-        <div class="chart-title">Playgrounds per 1,000 children by council</div>
-        <div class="chart-sub">Council-level rollup · recalculates with age toggle</div>
+        <div class="stats-chart-title">Playgrounds per 1,000 children by council</div>
+        <div class="stats-chart-sub">Council-level rollup · updates with age toggle</div>
       </div>
-      <span class="chart-tag tag-amber">By council</span>
+      <span class="stats-chart-tag tag-purple">By council</span>
     </div>
-    <div style="position:relative;height:260px"><canvas id="chart-lga-ratio"></canvas></div>
+    <div style="position:relative;height:240px"><canvas id="chart-lga-ratio"></canvas></div>
   </div>
 
-  <!-- Feature coverage bars -->
-  <div class="section-label">Feature coverage by council</div>
-  <div class="grid-5">
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">Shade</div></div>
-        <span class="chart-tag tag-teal">🌿</span>
+  <!-- ── Feature coverage bars ──────────────────────────── -->
+  <div class="stats-section-label">Feature coverage by council</div>
+  <div class="stats-grid-5">
+    <div class="stats-chart-card">
+      <div class="stats-chart-header">
+        <div><div class="stats-chart-title">Shade</div></div>
+        <span class="stats-chart-tag tag-purple">🌿</span>
       </div>
       <div id="feature-shade-bars"></div>
     </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">Water play</div></div>
-        <span class="chart-tag tag-blue">💧</span>
+    <div class="stats-chart-card">
+      <div class="stats-chart-header">
+        <div><div class="stats-chart-title">Water play</div></div>
+        <span class="stats-chart-tag tag-teal">💧</span>
       </div>
       <div id="feature-water-bars"></div>
     </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">Toilet</div></div>
-        <span class="chart-tag tag-purple">🚻</span>
+    <div class="stats-chart-card">
+      <div class="stats-chart-header">
+        <div><div class="stats-chart-title">Toilet</div></div>
+        <span class="stats-chart-tag tag-teal">🚻</span>
       </div>
       <div id="feature-toilet-bars"></div>
     </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">Fenced</div></div>
-        <span class="chart-tag tag-amber">🔒</span>
+    <div class="stats-chart-card">
+      <div class="stats-chart-header">
+        <div><div class="stats-chart-title">Fenced</div></div>
+        <span class="stats-chart-tag tag-green">🔒</span>
       </div>
       <div id="feature-fenced-bars"></div>
     </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <div><div class="chart-title">Accessible</div></div>
-        <span class="chart-tag tag-teal">♿</span>
+    <div class="stats-chart-card">
+      <div class="stats-chart-header">
+        <div><div class="stats-chart-title">Accessible</div></div>
+        <span class="stats-chart-tag tag-green">♿</span>
       </div>
       <div id="feature-access-bars"></div>
     </div>
   </div>
 
-  <footer>
+  <!-- ── Footer ─────────────────────────────────────────── -->
+  <footer class="stats-footer">
     <div style="display:flex;gap:20px;flex-wrap:wrap">
-      <span>Population: <a href="https://www.abs.gov.au/census" target="_blank" rel="noopener">ABS Census 2021 (B04, SA2)</a></span>
-      <span>Playgrounds: your Supabase database</span>
+      <span>Population: <a href="https://www.abs.gov.au/census" target="_blank" rel="noopener">ABS Census 2021 (G04, SA2)</a></span>
+      <span>Playgrounds: Supabase database</span>
     </div>
     <span id="last-updated"></span>
   </footer>
 
-</div>
+</div><!-- /stats-container -->
 <script src="stats.js"></script>
 </body>
 </html>
