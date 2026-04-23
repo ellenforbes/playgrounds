@@ -1779,6 +1779,7 @@ label,
    PLAYGROUND STATISTICS PAGE
    ============================================================ */
 
+
 /* ── Page shell ─────────────────────────────────────────── */
 .stats-page {
     min-height: 100vh;
@@ -1885,10 +1886,11 @@ label,
 /* ── Controls bar ───────────────────────────────────────── */
 .stats-controls {
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
+    align-items: flex-end;
+    gap: 16px;
     margin: 22px 0 20px;
     flex-wrap: wrap;
+    position: relative;  /* so SA2 dropdown z-index works above siblings */
 }
 
 .stats-ctrl-group {
@@ -1934,7 +1936,6 @@ label,
 .stats-age-toggles {
     display: flex;
     gap: 6px;
-    margin-top: 2px;
 }
 
 .stats-age-btn {
@@ -1974,8 +1975,8 @@ label,
 /* ── SA2 multi-select ───────────────────────────────────── */
 .sa2-multiselect-wrap {
     position: relative;
-    min-width: 260px;
-    max-width: 380px;
+    min-width: 280px;
+    max-width: 420px;
 }
 
 .sa2-multiselect-trigger {

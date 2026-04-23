@@ -583,10 +583,14 @@ $('lga-select').addEventListener('change', e => {
 
 $('refresh-btn').addEventListener('click', init);
 
-$('table-search').addEventListener('input', e => {
-  state.searchTerm = e.target.value.trim();
-  renderTable();
-});
+// table-search is now hidden; SA2 multiselect is the primary filter
+const _ts = $('table-search');
+if (_ts && _ts.type !== 'hidden') {
+  _ts.addEventListener('input', e => {
+    state.searchTerm = e.target.value.trim();
+    renderTable();
+  });
+}
 
 document.querySelectorAll('.stats-age-btn').forEach(btn => {
   btn.addEventListener('click', () => {
