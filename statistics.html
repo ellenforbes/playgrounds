@@ -57,29 +57,31 @@
       </div>
     </div>
 
-    <div class="stats-ctrl-group">
-      <span class="stats-ctrl-label">SA2 areas</span>
-      <div class="sa2-multiselect-wrap" id="sa2-multiselect-wrap">
-        <div class="sa2-multiselect-trigger" id="sa2-trigger">
-          <span class="sa2-placeholder" id="sa2-placeholder">All SA2 areas</span>
-          <svg class="chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
-        </div>
-        <div class="sa2-dropdown" id="sa2-dropdown">
-          <input class="sa2-search-input" id="sa2-search" type="text" placeholder="Search SA2 areas…" autocomplete="off" />
-          <div class="sa2-dropdown-actions">
-            <button class="sa2-action-btn" id="sa2-select-all">Select all</button>
-            <button class="sa2-action-btn" id="sa2-clear-all">Clear</button>
+    <div class="sa2-refresh-group">
+      <div class="stats-ctrl-group">
+        <span class="stats-ctrl-label">SA2 areas</span>
+        <div class="sa2-multiselect-wrap" id="sa2-multiselect-wrap">
+          <div class="sa2-multiselect-trigger" id="sa2-trigger">
+            <span class="sa2-placeholder" id="sa2-placeholder">All SA2 areas</span>
+            <svg class="chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
           </div>
-          <div class="sa2-options-list" id="sa2-options-list"></div>
+          <div class="sa2-dropdown" id="sa2-dropdown">
+            <input class="sa2-search-input" id="sa2-search" type="text" placeholder="Search SA2 areas…" autocomplete="off" />
+            <div class="sa2-dropdown-actions">
+              <button class="sa2-action-btn" id="sa2-select-all">Select all</button>
+              <button class="sa2-action-btn" id="sa2-clear-all">Clear</button>
+            </div>
+            <div class="sa2-options-list" id="sa2-options-list"></div>
+          </div>
         </div>
       </div>
+
+      <input id="table-search" type="hidden" value="" />
+
+      <button class="stats-refresh-btn" id="refresh-btn">↻ Refresh</button>
     </div>
-
-    <input id="table-search" type="hidden" value="" />
-
-    <button class="stats-refresh-btn" id="refresh-btn">↻ Refresh</button>
   </div>
 
   <!-- ── KPI cards ──────────────────────────────────────── -->
