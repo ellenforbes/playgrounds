@@ -1890,7 +1890,16 @@ label,
     gap: 16px;
     margin: 22px 0 20px;
     flex-wrap: wrap;
-    position: relative;  /* so SA2 dropdown z-index works above siblings */
+}
+
+.stats-controls .stats-ctrl-group {
+    flex-shrink: 0;
+}
+
+/* SA2 multiselect group can shrink if space is tight */
+.stats-controls .stats-ctrl-group:has(.sa2-multiselect-wrap) {
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 .stats-ctrl-group {
@@ -1975,8 +1984,8 @@ label,
 /* ── SA2 multi-select ───────────────────────────────────── */
 .sa2-multiselect-wrap {
     position: relative;
-    min-width: 280px;
-    max-width: 420px;
+    width: 280px;
+    flex-shrink: 1;
 }
 
 .sa2-multiselect-trigger {
