@@ -7,11 +7,17 @@ from datetime import datetime
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from supabase import create_client, Client
+from zoneinfo import ZoneInfo
 import time
 import re
 import os
-from zoneinfo import ZoneInfo
-from datetime import timedelta
+
+AEST = ZoneInfo('Australia/Brisbane')
+
+MONTHS = (
+    'January|February|March|April|May|June|'
+    'July|August|September|October|November|December'
+)
 
 class PlayMattersScraper:
     def __init__(self, base_url):
@@ -21,7 +27,6 @@ class PlayMattersScraper:
         self.geolocator = Nominatim(user_agent="playmatters_scraper")
         self.geocode_cache = {}
         
-        # Coordinate lookup table from your data
         self.coordinate_lookup = {
             "1 Jones Road\nBirkdale, QLD 4159": (-27.514434, 153.2029941),
             "1/3 Azalea St\nInala, QLD 4077": (-27.5889619, 152.976249),
@@ -115,7 +120,7 @@ class PlayMattersScraper:
             "Cnr Brookfield Rd and Boscombe Street,\nBrookfield, QLD 4069": (-27.4932037, 152.9142048),
             "Cnr Logan and Kessels Road\nUpper Mount Gravatt, QLD 4122": (-27.5597145, 153.0805483),
         }
-        
+
     def setup_driver(self):
         """Initialize the Chrome WebDriver"""
         options = webdriver.ChromeOptions()
@@ -125,98 +130,117 @@ class PlayMattersScraper:
         self.driver = webdriver.Chrome(options=options)
         self.driver.implicitly_wait(10)
 
-    def parse_datetime(self, datetime_readable):
-        """Convert datetime_readable string to naive datetime object with -1 hour adjustment
-        Example input: '9 December,   at 10:15am Tuesday'
-        Returns naive datetime (no timezone) with 1 hour subtracted
+    def parse_datetime(self, date_str, time_str):
+        """
+        Parse separate date and time strings into an AEST-aware datetime.
+
+        date_str: e.g. "27 April" or "27 April 2026"
+        time_str: e.g. "9:30am" or "9:30 am"
+
+        Returns a timezone-aware datetime in AEST, or None on failure.
         """
         try:
-            if not datetime_readable:
-                return None
-            
-            # Remove extra whitespace and split by ',  at' or ', at'
-            parts = re.split(r',\s*at\s*', datetime_readable, flags=re.IGNORECASE)
-            
-            if len(parts) < 2:
-                print(f"  Could not split datetime: {datetime_readable}")
-                return None
-            
-            date_part = parts[0].strip()  # "9 December"
-            time_part = parts[1].strip()  # "10:15am Tuesday"
-            
-            # Extract time from time_part (remove day name)
-            time_match = re.search(r'(\d{1,2}):(\d{2})\s*([ap]m)', time_part, re.IGNORECASE)
+            # --- Parse time ---
+            time_match = re.search(r'(\d{1,2}):(\d{2})\s*([ap]m)', time_str, re.IGNORECASE)
             if not time_match:
-                print(f"  Could not extract time from: {time_part}")
+                print(f"  Could not extract time from: {time_str!r}")
                 return None
-            
-            # Get hour and minute - work in 24-hour time directly
-            hour = int(time_match.group(1))
-            minute = int(time_match.group(2))
-            am_pm = time_match.group(3).lower()
 
-            # Convert to 24-hour
+            hour   = int(time_match.group(1))
+            minute = int(time_match.group(2))
+            am_pm  = time_match.group(3).lower()
+
+            # Correct 12-hour → 24-hour conversion
             if am_pm == 'pm' and hour != 12:
                 hour += 12
             elif am_pm == 'am' and hour == 12:
                 hour = 0
-            
-            # Parse date_part to get day and month
-            date_match = re.match(r'(\d{1,2})\s+(\w+)', date_part)
+
+            # --- Parse date ---
+            date_match = re.search(rf'(\d{{1,2}})\s+({MONTHS})', date_str, re.IGNORECASE)
             if not date_match:
-                print(f"  Could not parse date: {date_part}")
+                print(f"  Could not parse date from: {date_str!r}")
                 return None
-            
-            day = int(date_match.group(1))
+
+            day       = int(date_match.group(1))
             month_str = date_match.group(2)
-            
-            # Get current date for year determination
-            now = datetime.now()
-            current_year = now.year
-            
-            # Parse month
             month_num = datetime.strptime(month_str, '%B').month
-            
-            # Determine year - use current year, but if the date would be in the past, use next year
-            year = current_year
-            temp_date = datetime(year, month_num, day)
-            if temp_date.date() < now.date():
+
+            # Use current year; roll to next year if date is already past
+            now  = datetime.now(tz=AEST)
+            year = now.year
+            candidate = datetime(year, month_num, day, hour, minute, tzinfo=AEST)
+            if candidate.date() < now.date():
                 year += 1
-            
-            # Create naive datetime (NO timezone info)
-            dt = datetime(year, month_num, day, hour, minute)
-            
-            # Subtract 1 hour as requested
-            dt = dt - timedelta(hours=1)
-            
-            return dt
+                candidate = datetime(year, month_num, day, hour, minute, tzinfo=AEST)
+
+            return candidate
+
         except Exception as e:
-            print(f"  Error parsing datetime: {e}")
-            print(f"  Input: '{datetime_readable}'")
+            print(f"  Error in parse_datetime: {e}")
+            print(f"  date_str={date_str!r}  time_str={time_str!r}")
             return None
-    
+
+    def extract_datetime_from_listing(self, item):
+        """
+        Extract next-session datetime from a search-result card.
+
+        The date block HTML looks like:
+            9:30am          ← text node
+            Monday          ← text node
+            <br>
+            27              ← text node
+            April           ← text node
+            <br>
+            <a>View group</a>
+
+        Selenium's .text joins everything with newlines, giving something like:
+            "9:30am\nMonday\n27\nApril\nView group"
+
+        We use regex directly on that text so we don't care about line ordering.
+        """
+        try:
+            date_section = item.find_element(By.CSS_SELECTOR, "div.span3.h-txt__bold")
+            raw = date_section.text.strip()
+            print(f"  Raw date text: {raw!r}")
+
+            time_match = re.search(r'\d{1,2}:\d{2}\s*[ap]m', raw, re.IGNORECASE)
+            date_match = re.search(rf'\d{{1,2}}\s+(?:{MONTHS})', raw, re.IGNORECASE)
+
+            if not time_match or not date_match:
+                print(f"  Could not find time or date in: {raw!r}")
+                return None
+
+            time_str = time_match.group(0)   # e.g. "9:30am"
+            date_str = date_match.group(0)   # e.g. "27 April"
+            print(f"  Extracted → date: {date_str!r}  time: {time_str!r}")
+
+            return self.parse_datetime(date_str, time_str)
+
+        except NoSuchElementException:
+            print("  Date section not found on listing card")
+            return None
+
     def clean_address(self, address):
-        """Clean and normalize address for lookup"""
+        """Clean and normalise address for lookup"""
         if not address:
             return ""
-        cleaned = '\n'.join(line.strip() for line in address.split('\n') if line.strip())
-        return cleaned
-    
+        return '\n'.join(line.strip() for line in address.split('\n') if line.strip())
+
     def lookup_coordinates(self, address):
         """Check if address exists in lookup table"""
-        cleaned_address = self.clean_address(address)
-        if cleaned_address in self.coordinate_lookup:
-            return self.coordinate_lookup[cleaned_address]
+        cleaned = self.clean_address(address)
+        if cleaned in self.coordinate_lookup:
+            return self.coordinate_lookup[cleaned]
         return None, None
-    
+
     def geocode_address(self, address):
         """Get latitude and longitude from address using geocoding"""
         if address in self.geocode_cache:
             return self.geocode_cache[address]
-        
+
         try:
             address_clean = address.replace('\n', ', ')
-            
             for attempt in range(3):
                 try:
                     location = self.geolocator.geocode(address_clean, timeout=10)
@@ -233,128 +257,109 @@ class PlayMattersScraper:
                     break
         except (GeocoderServiceError, Exception) as e:
             print(f"  Geocoding error: {e}")
-        
+
         self.geocode_cache[address] = (None, None)
         return None, None
-    
+
     def extract_lat_long_from_page(self):
         """Extract latitude and longitude from current page source"""
         try:
             page_source = self.driver.page_source
-            
+
             if 'google.com/maps' in page_source:
                 maps_match = re.search(r'center=([-]?\d+\.\d+)%2C([-]?\d+\.\d+)', page_source)
                 if maps_match:
                     return float(maps_match.group(1)), float(maps_match.group(2))
-            
+
             lat_match = re.search(r'["\']lat["\']?\s*:\s*([-]?\d+\.\d+)', page_source, re.IGNORECASE)
             lng_match = re.search(r'["\']lng["\']?\s*:\s*([-]?\d+\.\d+)', page_source, re.IGNORECASE)
-            
             if lat_match and lng_match:
                 return float(lat_match.group(1)), float(lng_match.group(1))
-            
+
             lon_match = re.search(r'["\']lon(?:gitude)?["\']?\s*:\s*([-]?\d+\.\d+)', page_source, re.IGNORECASE)
             if lat_match and lon_match:
                 return float(lat_match.group(1)), float(lon_match.group(1))
-            
+
             return None, None
         except Exception as e:
-            print(f"Error extracting coordinates: {e}")
+            print(f"  Error extracting coordinates: {e}")
             return None, None
-    
+
     def scrape_page(self):
         """Scrape all events from the current page"""
         try:
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CLASS_NAME, "b-card"))
             )
-            
             time.sleep(2)
-            
+
             event_items = self.driver.find_elements(By.CSS_SELECTOR, "li.false")
-            
             print(f"Found {len(event_items)} event items")
-            
+
             for idx, item in enumerate(event_items):
                 try:
                     event_data = {}
-                    
+
+                    # --- Name & URL ---
                     try:
                         name_link = item.find_element(By.CSS_SELECTOR, "h3 a, h3[role='heading'] a")
                         event_data['name'] = name_link.text.strip()
-                        event_data['url'] = name_link.get_attribute('href')
+                        event_data['url']  = name_link.get_attribute('href')
                     except NoSuchElementException:
                         print(f"Event {idx}: Could not find name/URL")
                         continue
-                    
+
+                    print(f"Event {idx + 1}: {event_data['name']}")
+
+                    # --- Description ---
                     try:
                         desc = item.find_element(By.CSS_SELECTOR, "div.l-module p")
                         event_data['description'] = desc.text.strip()
                     except NoSuchElementException:
                         event_data['description'] = ""
-                    
+
+                    # --- Location ---
                     try:
-                        location_elem = item.find_element(By.CLASS_NAME, "e-pg__where")
-                        location_text = location_elem.text.strip()
-                        location_lines = [line.strip() for line in location_text.split('\n') if line.strip()]
-                        location_lines = [line for line in location_lines if 'km away' not in line.lower()]
-                        
+                        location_elem  = item.find_element(By.CLASS_NAME, "e-pg__where")
+                        location_text  = location_elem.text.strip()
+                        location_lines = [l.strip() for l in location_text.split('\n') if l.strip()]
+                        location_lines = [l for l in location_lines if 'km away' not in l.lower()]
+
                         if len(location_lines) > 1:
-                            location_lines = [line for line in location_lines if line != 'Brisbane, QLD 4000']
-                        
+                            location_lines = [l for l in location_lines if l != 'Brisbane, QLD 4000']
                         if len(location_lines) > 1:
                             location_lines = location_lines[1:]
-                        
+
                         event_data['location'] = '\n'.join(location_lines)
                     except NoSuchElementException:
                         event_data['location'] = ""
-                    
-                    try:
-                        date_section = item.find_element(By.CSS_SELECTOR, "div.span3.h-txt__bold")
-                        date_text = date_section.text.strip()
 
-                        time_match = re.search(r'\d{1,2}:\d{2}\s*[ap]m', date_text, re.IGNORECASE)
-                        day_match = re.search(r'(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', date_text, re.IGNORECASE)
-                        date_match = re.search(r'(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)', date_text, re.IGNORECASE)
-
-                        if time_match and date_match:
-                            time_str = time_match.group(0).strip()   # "9:30am"
-                            day_str = day_match.group(0) if day_match else ""  # "Monday"
-                            date_str = date_match.group(0)            # "27 April"
-
-                            datetime_str = f"{date_str}, at {time_str} {day_str}"
-                            dt = self.parse_datetime(datetime_str)
-                            event_data['datetime_stamp'] = dt.isoformat() if dt else None
-                        else:
-                            print(f"  Could not find date/time in: {date_text!r}")
-                            event_data['datetime_stamp'] = None
-
-                    except (NoSuchElementException, IndexError) as e:
-                        print(f"  Error extracting date/time: {e}")
+                    # --- Date / Time ---
+                    dt = self.extract_datetime_from_listing(item)
+                    if dt:
+                        event_data['datetime_stamp'] = dt.isoformat()
+                        print(f"  Parsed datetime (AEST): {event_data['datetime_stamp']}")
+                    else:
                         event_data['datetime_stamp'] = None
 
-                    except (NoSuchElementException, IndexError) as e:
-                        print(f"  Error extracting date/time: {e}")
-                        event_data['datetime_stamp'] = None
-
-                    
-                    print(f"Event {idx + 1}: {event_data['name']}")
-                    
+                    # --- Coordinates ---
                     lat, lng = None, None
-                    
+
                     if event_data['location']:
                         lat, lng = self.lookup_coordinates(event_data['location'])
                         if lat:
-                            print(f"  ✓ Found in lookup table")
-                    
+                            print(f"  ✓ Coords from lookup table")
+
                     if lat is None:
                         try:
-                            self.driver.execute_script("window.open(arguments[0], '_blank');", event_data['url'])
+                            self.driver.execute_script(
+                                "window.open(arguments[0], '_blank');", event_data['url']
+                            )
                             self.driver.switch_to.window(self.driver.window_handles[-1])
                             time.sleep(2)
-                            
+
                             lat, lng = self.extract_lat_long_from_page()
-                            
+
                             self.driver.close()
                             self.driver.switch_to.window(self.driver.window_handles[0])
                         except Exception as e:
@@ -362,61 +367,59 @@ class PlayMattersScraper:
                             if len(self.driver.window_handles) > 1:
                                 self.driver.close()
                                 self.driver.switch_to.window(self.driver.window_handles[0])
-                    
+
                     if lat is None and event_data['location']:
                         print(f"  Geocoding address...")
                         lat, lng = self.geocode_address(event_data['location'])
-                    
-                    event_data['latitude'] = lat
+
+                    event_data['latitude']  = lat
                     event_data['longitude'] = lng
-                    
+
                     self.events.append(event_data)
                     coord_str = f"lat: {lat}, lng: {lng}" if lat else "coords not found"
                     print(f"  ✓ Scraped successfully ({coord_str})")
-                    
+
                 except Exception as e:
                     print(f"Error scraping event {idx}: {e}")
                     if len(self.driver.window_handles) > 1:
                         self.driver.close()
                         self.driver.switch_to.window(self.driver.window_handles[0])
                     continue
-                    
+
         except TimeoutException:
             print("Timeout waiting for page to load")
-    
+
     def click_pagination(self, page_num):
         """Click on pagination button for given page number"""
         try:
             time.sleep(2)
-            
+
             pagination_link = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, f"a.e-pagi-link[data-page='{page_num}']"))
             )
-            
+
             self.driver.execute_script("arguments[0].scrollIntoView(true);", pagination_link)
             time.sleep(1)
-            
             self.driver.execute_script("arguments[0].click();", pagination_link)
-            
             time.sleep(3)
             return True
-            
+
         except Exception as e:
             print(f"Error clicking pagination for page {page_num + 1}: {e}")
             return False
-    
+
     def scrape_all_pages(self, max_pages=10):
         """Scrape events from pages 1 to max_pages"""
         self.setup_driver()
-        
+
         try:
             print(f"Loading initial URL: {self.base_url}")
             self.driver.get(self.base_url)
             time.sleep(3)
-            
+
             print("\n=== Scraping page 1 ===")
             self.scrape_page()
-            
+
             for page_num in range(1, min(max_pages, 10)):
                 print(f"\n=== Navigating to page {page_num + 1} ===")
                 if self.click_pagination(page_num):
@@ -425,32 +428,30 @@ class PlayMattersScraper:
                 else:
                     print(f"Failed to navigate to page {page_num + 1}")
                     break
-            
+
         finally:
             self.driver.quit()
-    
+
     def upload_to_supabase(self, supabase_url, supabase_key, table='playgroups_qld'):
         """Upload events to Supabase"""
         if not self.events:
             print("No events to upload.")
             return
-        
+
         try:
             supabase: Client = create_client(supabase_url, supabase_key)
-            
-            # Map to Supabase table columns
+
             columns = ['name', 'datetime_stamp', 'location', 'url', 'description', 'latitude', 'longitude']
             clean = [{k: e.get(k) for k in columns} for e in self.events if 'error' not in e]
-            
-            # Delete existing records and insert new ones
+
             print(f"Clearing existing records from {table}...")
             supabase.table(table).delete().neq('name', '').execute()
-            
+
             print(f"Inserting {len(clean)} new records...")
             supabase.table(table).insert(clean).execute()
-            
+
             print(f"✅ Successfully uploaded {len(clean)} records to {table}")
-            
+
         except Exception as e:
             print(f"❌ Error uploading to Supabase: {e}")
             raise
@@ -458,21 +459,17 @@ class PlayMattersScraper:
 
 if __name__ == "__main__":
     base_url = "https://playmatters.org.au/search?p=4000&s=QLD&ltln=-27.4587,153.0222"
-    
-    # Get Supabase credentials from environment variables
+
     supabase_url = os.getenv('SUPABASE_URL')
     supabase_key = os.getenv('SUPABASE_KEY')
-    
+
     if not supabase_url or not supabase_key:
         raise ValueError("SUPABASE_URL and SUPABASE_KEY environment variables must be set")
-    
+
     scraper = PlayMattersScraper(base_url)
     scraper.scrape_all_pages(max_pages=10)
-    
-    # Upload to Supabase instead of saving to CSV
     scraper.upload_to_supabase(supabase_url, supabase_key, table='playgroups_qld')
-    
-    # Print summary
+
     print(f"\nTotal events scraped: {len(scraper.events)}")
     if scraper.events:
         print("\nFirst event sample:")
