@@ -312,52 +312,27 @@ class PlayMattersScraper:
                     try:
                         date_section = item.find_element(By.CSS_SELECTOR, "div.span3.h-txt__bold")
                         date_text = date_section.text.strip()
-                        lines = [line.strip() for line in date_text.split('\n') if line.strip() and 'View group' not in line]
-                        print(lines)
-                        
-                        if len(lines) >= 2:
-                            time_and_day = lines[0]  # "10:30am Monday"
 
-                            # Extract expected day-of-week from the time line, if present
-                            day_match = re.search(r'(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', time_and_day, re.IGNORECASE)
-                            expected_weekday = day_match.group(1).lower() if day_match else None
+                        time_match = re.search(r'\d{1,2}:\d{2}\s*[ap]m', date_text, re.IGNORECASE)
+                        day_match = re.search(r'(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', date_text, re.IGNORECASE)
+                        date_match = re.search(r'(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)', date_text, re.IGNORECASE)
 
-                            WEEKDAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+                        if time_match and date_match:
+                            time_str = time_match.group(0).strip()   # "9:30am"
+                            day_str = day_match.group(0) if day_match else ""  # "Monday"
+                            date_str = date_match.group(0)            # "27 April"
 
-                            # For multi-date groups, lines[1..n] are all candidate dates — pick the first upcoming one
-                            # that matches the expected day of week (if we know it)
-                            chosen_date = None
-                            today = datetime.now().date()
-
-                            for date_line in lines[1:]:
-                                date_m = re.match(r'(\d{1,2})\s+(\w+)', date_line.strip())
-                                if not date_m:
-                                    continue
-                                try:
-                                    d = int(date_m.group(1))
-                                    m = datetime.strptime(date_m.group(2), '%B').month
-                                    year = today.year
-                                    candidate = datetime(year, m, d).date()
-                                    if candidate < today:
-                                        candidate = datetime(year + 1, m, d).date()
-
-                                    if expected_weekday and candidate.strftime('%A').lower() != expected_weekday:
-                                        continue  # skip dates that don't match the playgroup's day
-
-                                    chosen_date = date_m.group(0)  # e.g. "28 April"
-                                    break
-                                except ValueError:
-                                    continue
-
-                            if not chosen_date:
-                                chosen_date = lines[1]  # fallback
-
-                            datetime_str = f"{chosen_date}, at {time_and_day}"
-                            print(datetime_str)
+                            datetime_str = f"{date_str}, at {time_str} {day_str}"
+                            dt = self.parse_datetime(datetime_str)
+                            event_data['datetime_stamp'] = dt.isoformat() if dt else None
                         else:
-                            print(f"  Unexpected date format - lines: {lines}")
+                            print(f"  Could not find date/time in: {date_text!r}")
                             event_data['datetime_stamp'] = None
-                        
+
+                    except (NoSuchElementException, IndexError) as e:
+                        print(f"  Error extracting date/time: {e}")
+                        event_data['datetime_stamp'] = None
+
                     except (NoSuchElementException, IndexError) as e:
                         print(f"  Error extracting date/time: {e}")
                         event_data['datetime_stamp'] = None
