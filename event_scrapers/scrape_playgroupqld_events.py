@@ -154,9 +154,12 @@ class PlayMattersScraper:
             hour = int(time_match.group(1))
             minute = int(time_match.group(2))
             am_pm = time_match.group(3).lower()
-            
-            if hour == 0:
-                hour = 11
+
+            # Convert to 24-hour
+            if am_pm == 'pm' and hour != 12:
+                hour += 12
+            elif am_pm == 'am' and hour == 12:
+                hour = 0
             
             # Parse date_part to get day and month
             date_match = re.match(r'(\d{1,2})\s+(\w+)', date_part)
@@ -313,21 +316,44 @@ class PlayMattersScraper:
                         print(lines)
                         
                         if len(lines) >= 2:
-                            time_and_day = lines[0]  # "8:30pm Monday"
-                            date_and_month = lines[1]  # "1 December"
-                            
-                            # Build datetime string in format: "1 December,  at 8:30pm Monday"
-                            datetime_str = f"{date_and_month}, at {time_and_day}"
+                            time_and_day = lines[0]  # "10:30am Monday"
+
+                            # Extract expected day-of-week from the time line, if present
+                            day_match = re.search(r'(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', time_and_day, re.IGNORECASE)
+                            expected_weekday = day_match.group(1).lower() if day_match else None
+
+                            WEEKDAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+
+                            # For multi-date groups, lines[1..n] are all candidate dates — pick the first upcoming one
+                            # that matches the expected day of week (if we know it)
+                            chosen_date = None
+                            today = datetime.now().date()
+
+                            for date_line in lines[1:]:
+                                date_m = re.match(r'(\d{1,2})\s+(\w+)', date_line.strip())
+                                if not date_m:
+                                    continue
+                                try:
+                                    d = int(date_m.group(1))
+                                    m = datetime.strptime(date_m.group(2), '%B').month
+                                    year = today.year
+                                    candidate = datetime(year, m, d).date()
+                                    if candidate < today:
+                                        candidate = datetime(year + 1, m, d).date()
+
+                                    if expected_weekday and candidate.strftime('%A').lower() != expected_weekday:
+                                        continue  # skip dates that don't match the playgroup's day
+
+                                    chosen_date = date_m.group(0)  # e.g. "28 April"
+                                    break
+                                except ValueError:
+                                    continue
+
+                            if not chosen_date:
+                                chosen_date = lines[1]  # fallback
+
+                            datetime_str = f"{chosen_date}, at {time_and_day}"
                             print(datetime_str)
-                    
-                            # Convert to naive datetime with -1 hour adjustment
-                            dt = self.parse_datetime(datetime_str)
-                            if dt:
-                                # Store as ISO format string without timezone (will appear as local time in DB)
-                                event_data['datetime_stamp'] = dt.isoformat()
-                                print(f"  Parsed datetime (-1hr): {event_data['datetime_stamp']}")
-                            else:
-                                event_data['datetime_stamp'] = None
                         else:
                             print(f"  Unexpected date format - lines: {lines}")
                             event_data['datetime_stamp'] = None
